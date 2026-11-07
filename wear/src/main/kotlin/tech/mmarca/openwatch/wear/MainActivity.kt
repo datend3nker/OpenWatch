@@ -51,6 +51,7 @@ class MainActivity : ComponentActivity() {
                     readMinuteCount = { store.count(WearMetrics.SLEEP_MINUTES) },
                     readStepMinuteCount = { store.count(WearMetrics.STEPS) },
                     ppgLogAvailable = PpgRawLogger(this).isAvailable,
+                    readSamsungDiagnostics = { SamsungDiagnostics.consentOn(contentResolver) },
                     onTogglePpgLog = { WearAppService.togglePpgLog(this) },
                     onGrant = ::requestMissingPermissions,
                     onAllow = { pending ->

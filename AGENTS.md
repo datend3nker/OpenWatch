@@ -34,6 +34,10 @@ Do not break these without an explicit decision.
 
 - **No `INTERNET` permission.** The manifest removes `INTERNET`, `ACCESS_NETWORK_STATE` and
   `ACCESS_WIFI_STATE`. Never add a dependency that needs a socket.
+- **The watch app is offline too.** Its manifest removes the same three network permissions.
+  It reads the raw Android sensors; Health Services and the Samsung Health Sensor SDK are not
+  dependencies, and the SDK's `.aar` never enters the repository or a build. Why, and what
+  a Samsung source would have to respect: `docs/engineering/samsung-health-and-privacy.md`.
 - **No foreground service on the phone.** A watch sync runs with none; its process-priority
   story is the companion association.
 - **One companion device service.** `OpenWatchCompanionDeviceService` exists for its binding:
