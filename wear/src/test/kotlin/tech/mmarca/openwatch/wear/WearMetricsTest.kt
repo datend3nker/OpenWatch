@@ -41,6 +41,10 @@ class WearMetricsTest {
         val floors = WearLinkProtocol.AscentMinute(1_791_568_860_000, 2)
         assertEquals(floors, roundTrip(WearMetrics.ASCENT, floors))
         assertEquals(floors.epochMillis, WearMetrics.ASCENT.timeOf(floors))
+
+        val hrv = WearLinkProtocol.HrvWindow(1_791_568_860_000, 452, 280)
+        assertEquals(hrv, roundTrip(WearMetrics.HRV, hrv))
+        assertEquals(hrv.epochMillis, WearMetrics.HRV.timeOf(hrv))
     }
 
     @Test
@@ -54,7 +58,7 @@ class WearMetricsTest {
         val keys = WearMetrics.ALL.map { it.key }
         assertEquals(keys.size, keys.toSet().size)
         assertEquals(
-            listOf(WearLinkProtocol.CAP_HEART_RATE, WearLinkProtocol.CAP_SLEEP_MINUTES, WearLinkProtocol.CAP_STEPS, WearLinkProtocol.CAP_ASCENT),
+            listOf(WearLinkProtocol.CAP_HEART_RATE, WearLinkProtocol.CAP_SLEEP_MINUTES, WearLinkProtocol.CAP_STEPS, WearLinkProtocol.CAP_ASCENT, WearLinkProtocol.CAP_HRV),
             keys,
         )
     }
@@ -65,6 +69,7 @@ class WearMetricsTest {
         assertEquals(WearMetric.OnSameTime.REPLACE, WearMetrics.SLEEP_MINUTES.onSameTime)
         assertEquals(WearMetric.OnSameTime.REPLACE, WearMetrics.STEPS.onSameTime)
         assertEquals(WearMetric.OnSameTime.REPLACE, WearMetrics.ASCENT.onSameTime)
+        assertEquals(WearMetric.OnSameTime.KEEP, WearMetrics.HRV.onSameTime)
     }
 
     private fun <T> roundTrip(metric: WearMetric<T>, value: T): T? = metric.decode(metric.encode(value))

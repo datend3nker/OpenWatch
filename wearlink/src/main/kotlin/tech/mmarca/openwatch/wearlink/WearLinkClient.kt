@@ -72,6 +72,15 @@ class WearLinkSession internal constructor(
             Reply.Unexpected
         }
 
+    fun pullHrv(sinceEpochMillis: Long, limit: Int): WearLinkOutcome<Page<WearLinkProtocol.HrvWindow>> {
+        val items = ArrayList<WearLinkProtocol.HrvWindow>()
+        return exchange(WearLinkProtocol.Request.HrvSince(sinceEpochMillis, limit)) { line ->
+            WearLinkProtocol.parseHrvWindow(line)?.let { items += it; return@exchange Reply.More }
+            WearLinkProtocol.parseEnd(line)?.let { return@exchange Reply.Done(Page(items, it.more)) }
+            Reply.Unexpected
+        }
+    }
+
     /** Closes the connection; the watch is waiting for exactly this. */
     fun close() = connection.close()
 

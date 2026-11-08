@@ -81,13 +81,14 @@ class MemoryHandler(
     var minutes: List<WearLinkProtocol.SleepMinute> = emptyList(),
     var steps: List<WearLinkProtocol.StepMinute> = emptyList(),
     var ascent: List<WearLinkProtocol.AscentMinute> = emptyList(),
+    var hrv: List<WearLinkProtocol.HrvWindow> = emptyList(),
     /** What one `HR_LIVE` window hands out; empty is a watch off the wrist. */
     var live: List<WearLinkProtocol.HeartRateSample> = emptyList(),
     var name: String = "Galaxy Watch8 (89FZ)",
 ) : WearLinkRequestHandler {
     override fun localName(): String = name
     override fun capabilities(): Set<String> =
-        setOf(WearLinkProtocol.CAP_HEART_RATE, WearLinkProtocol.CAP_SLEEP_MINUTES, WearLinkProtocol.CAP_STEPS, WearLinkProtocol.CAP_ASCENT)
+        setOf(WearLinkProtocol.CAP_HEART_RATE, WearLinkProtocol.CAP_SLEEP_MINUTES, WearLinkProtocol.CAP_STEPS, WearLinkProtocol.CAP_ASCENT, WearLinkProtocol.CAP_HRV)
     override fun heartRateSince(sinceEpochMillis: Long, limit: Int): Page<WearLinkProtocol.HeartRateSample> {
         val newer = heartRate.filter { it.epochMillis > sinceEpochMillis }
         return Page(newer.take(limit), newer.size > limit)
@@ -98,6 +99,10 @@ class MemoryHandler(
     }
     override fun stepsSince(sinceEpochMillis: Long, limit: Int): Page<WearLinkProtocol.StepMinute> {
         val newer = steps.filter { it.epochMillis > sinceEpochMillis }
+        return Page(newer.take(limit), newer.size > limit)
+    }
+    override fun hrvSince(sinceEpochMillis: Long, limit: Int): Page<WearLinkProtocol.HrvWindow> {
+        val newer = hrv.filter { it.epochMillis > sinceEpochMillis }
         return Page(newer.take(limit), newer.size > limit)
     }
     override fun ascentSince(sinceEpochMillis: Long, limit: Int): Page<WearLinkProtocol.AscentMinute> {

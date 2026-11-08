@@ -92,5 +92,17 @@ object WearMetrics {
         onSameTime = WearMetric.OnSameTime.REPLACE,
     )
 
-    val ALL: List<WearMetric<*>> = listOf(HEART_RATE, SLEEP_MINUTES, STEPS, ASCENT)
+    /**
+     * One row per night-time HRV window, keyed on its start; see
+     * `NightHrvRecorder`. A window is final once measured.
+     */
+    val HRV = WearMetric(
+        key = WearLinkProtocol.CAP_HRV,
+        encode = WearLinkProtocol::formatHrvWindow,
+        decode = WearLinkProtocol::parseHrvWindow,
+        timeOf = { it.epochMillis },
+        onSameTime = WearMetric.OnSameTime.KEEP,
+    )
+
+    val ALL: List<WearMetric<*>> = listOf(HEART_RATE, SLEEP_MINUTES, STEPS, ASCENT, HRV)
 }

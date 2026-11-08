@@ -43,6 +43,7 @@ class WearAppService : Service() {
     private lateinit var stepRecorder: StepRecorder
     private lateinit var ascentRecorder: AscentRecorder
     private lateinit var minuteRecorder: SleepMinuteRecorder
+    private lateinit var nightHrv: NightHrvRecorder
     private lateinit var wornMonitor: WornMonitor
     private lateinit var ppgLogger: PpgRawLogger
     private lateinit var trust: WearTrustStore
@@ -91,6 +92,11 @@ class WearAppService : Service() {
             onWorn = minuteRecorder::noteWorn,
             onHeartRateWanted = { wanted -> mainHandler.post { setHeartRateWanted(wanted) } },
         )
+        nightHrv = NightHrvRecorder(
+            this,
+            store,
+            isHolding = { WearLinkState.state.value.bedtimeHold == BedtimeHold.HOLDING },
+        )
         stepRecorder = StepRecorder(this, store)
         ascentRecorder = AscentRecorder(this, store)
         trust = WearTrustStore(this).also { it.onPending = { pending -> WearPhoneRequests.notify(this, pending) } }
@@ -99,6 +105,7 @@ class WearAppService : Service() {
             trust = trust,
             store = store,
             live = LiveHeartRate(this, isRecording = { recorder.isRunning }),
+            hrvAvailable = { nightHrv.hasSensor },
             localName = ::localName,
         )
         isForeground = startInForeground()
@@ -181,6 +188,8 @@ class WearAppService : Service() {
             heartRateWanted -> recorder.start()
             else -> Log.i(TAG, "Heart rate resting: not worn")
         }
+        // The raw PPG sits under the heart rate grant; the windows also need the minute rows that show a still arm.
+        nightHrv.setEnabled(WearPermissions.hasHeartRate(this))
         // Without the heart rate's wake-ups the step counter must wake the watch itself.
         stepRecorder.setHeartRateRunning(recorder.isRunning)
         when {
@@ -226,6 +235,7 @@ class WearAppService : Service() {
             stepRecorder.stop()
             ascentRecorder.stop()
             minuteRecorder.stop()
+            nightHrv.stop()
             ppgLogger.stop()
             WearLinkState.update { it.copy(ppgLogging = false) }
         }

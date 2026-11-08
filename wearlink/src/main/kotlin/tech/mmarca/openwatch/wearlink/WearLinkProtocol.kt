@@ -31,6 +31,10 @@ import java.util.UUID
  *   each newer than `epochMillis` (exclusive), then `END <count> <more>`.
  * - `SM_SINCE <epochMillis> <limit>` → up to `limit` `SM` lines, oldest first,
  *   each newer than `epochMillis` (exclusive), then `END <count> <more>`.
+ * - `HV_SINCE <epochMillis> <limit>` → up to `limit` `HV` lines, oldest first,
+ *   each newer than `epochMillis` (exclusive), then `END <count> <more>`. The
+ *   heart rate variability the watch measured at night; only a watch
+ *   announcing `hv` serves it.
  * - `HR_LIVE <seconds>` → for up to `seconds` (at most [MAX_LIVE_SECONDS],
  *   less than the watch's idle timeout), one `HR` line as each reading
  *   arrives, then `END <count> 0`. Only a watch announcing `hl` serves it; a
@@ -38,6 +42,8 @@ import java.util.UUID
  *
  * Reply lines:
  * - `HR <epochMillis> <bpm>` — one heart rate sample.
+ * - `HV <epochMillis> <rmssd10> <beats>` — one night-time window: its start,
+ *   the RMSSD in tenths of a millisecond and the clean beats it rests on.
  * - `SM <epochMillis> <kind> <offsetSeconds> <flags> <n> <mv10> <bpm|-> <hsd10|->
  *   <hn> <mx> <my> <mz> <sx> <sy> <sz> <zmin|-> <zmax|-> <zd10|->` — one sleep
  *   minute, the sleep pipeline's input on the phone, every field an integer
@@ -86,6 +92,8 @@ object WearLinkProtocol {
     const val STEP_MINUTE: String = "ST"
     const val ASCENT_SINCE: String = "AS_SINCE"
     const val ASCENT_MINUTE: String = "AS"
+    const val HRV_SINCE: String = "HV_SINCE"
+    const val HRV_WINDOW: String = "HV"
     const val HEART_RATE_LIVE: String = "HR_LIVE"
     const val END: String = "END"
 
@@ -100,6 +108,9 @@ object WearLinkProtocol {
     const val CAP_STEPS: String = "st"
     const val CAP_ASCENT: String = "as"
     const val CAP_LIVE_HEART_RATE: String = "hl"
+
+    /** The watch measures heart rate variability at night and serves `HV_SINCE`. */
+    const val CAP_HRV: String = "hv"
     const val NO_CAPABILITIES: String = "-"
 
     /** The phone's opening line. */
@@ -143,6 +154,7 @@ object WearLinkProtocol {
         data class SleepMinutesSince(val sinceEpochMillis: Long, val limit: Int) : Request()
         data class StepsSince(val sinceEpochMillis: Long, val limit: Int) : Request()
         data class AscentSince(val sinceEpochMillis: Long, val limit: Int) : Request()
+        data class HrvSince(val sinceEpochMillis: Long, val limit: Int) : Request()
         data class LiveHeartRate(val seconds: Int) : Request()
     }
 
@@ -200,6 +212,7 @@ object WearLinkProtocol {
         is Request.SleepMinutesSince -> formatSleepMinutesRequest(request.sinceEpochMillis, request.limit)
         is Request.StepsSince -> formatStepsRequest(request.sinceEpochMillis, request.limit)
         is Request.AscentSince -> formatAscentRequest(request.sinceEpochMillis, request.limit)
+        is Request.HrvSince -> formatHrvRequest(request.sinceEpochMillis, request.limit)
         is Request.LiveHeartRate -> "$HEART_RATE_LIVE ${request.seconds.coerceIn(1, MAX_LIVE_SECONDS)}"
     }
 
@@ -213,6 +226,9 @@ object WearLinkProtocol {
         }
         parseSinceRequest(line, ASCENT_SINCE, MAX_ASCENT_MINUTES_PER_REQUEST)?.let { (since, limit) ->
             return Request.AscentSince(since, limit)
+        }
+        parseSinceRequest(line, HRV_SINCE, MAX_HRV_WINDOWS_PER_REQUEST)?.let { (since, limit) ->
+            return Request.HrvSince(since, limit)
         }
         parseLiveRequest(line)?.let { return Request.LiveHeartRate(it) }
         return null
@@ -258,6 +274,18 @@ object WearLinkProtocol {
 
     /** The most ascent minutes one `AS_SINCE` reply carries. The phone pages past it. */
     const val MAX_ASCENT_MINUTES_PER_REQUEST: Int = 2000
+
+    /** The most HRV windows one `HV_SINCE` reply carries: a week at 2 a night is far below it. */
+    const val MAX_HRV_WINDOWS_PER_REQUEST: Int = 500
+
+    /**
+     * One night-time heart rate variability window, keyed on its start: the
+     * RMSSD in tenths of a millisecond (integers on the wire) and the clean
+     * beats it rests on.
+     */
+    data class HrvWindow(val epochMillis: Long, val rmssd10: Int, val beats: Int) {
+        val rmssdMillis: Double get() = rmssd10 / 10.0
+    }
 
     data class HeartRateRequest(val sinceEpochMillis: Long, val limit: Int)
 
@@ -366,6 +394,22 @@ object WearLinkProtocol {
         val steps = fields[2].toIntOrNull() ?: return null
         if (at <= 0 || at % MINUTE_MILLIS != 0L || steps !in 1..MAX_STEPS_PER_MINUTE) return null
         return StepMinute(at, steps)
+    }
+
+    fun formatHrvRequest(sinceEpochMillis: Long, limit: Int): String =
+        "$HRV_SINCE $sinceEpochMillis ${limit.coerceIn(1, MAX_HRV_WINDOWS_PER_REQUEST)}"
+
+    fun formatHrvWindow(window: HrvWindow): String = "$HRV_WINDOW ${window.epochMillis} ${window.rmssd10} ${window.beats}"
+
+    /** Null unless [line] is a well-formed `HV` line: a time, a plausible RMSSD and a plausible beat count. */
+    fun parseHrvWindow(line: String): HrvWindow? {
+        val fields = fields(line)
+        if (fields.size != 4 || fields[0] != HRV_WINDOW) return null
+        val at = fields[1].toLongOrNull() ?: return null
+        val rmssd10 = fields[2].toIntOrNull() ?: return null
+        val beats = fields[3].toIntOrNull() ?: return null
+        if (at <= 0 || rmssd10 !in MIN_RMSSD10..MAX_RMSSD10 || beats !in 1..MAX_HRV_BEATS) return null
+        return HrvWindow(at, rmssd10, beats)
     }
 
     fun formatAscentRequest(sinceEpochMillis: Long, limit: Int): String =
@@ -497,6 +541,13 @@ object WearLinkProtocol {
 
     /** A fast elevator climbs about 600 m a minute. More means the barometer jumped. */
     const val MAX_ASCENT_DECIMETRES_PER_MINUTE: Int = 9000
+
+    /** An RMSSD of 0.1 to 300 ms, in tenths. Outside it the detector failed, not a heart. */
+    const val MIN_RMSSD10: Int = 1
+    const val MAX_RMSSD10: Int = 3000
+
+    /** A window of a few minutes holds under a thousand beats. */
+    const val MAX_HRV_BEATS: Int = 1000
 
     /** Outside this range the sensor is reporting noise, not a heart. */
     const val MIN_BPM: Int = 25
