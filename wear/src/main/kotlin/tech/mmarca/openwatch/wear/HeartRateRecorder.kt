@@ -52,6 +52,8 @@ internal class HeartRateRecorder(
     private val context: Context,
     private val store: MetricStore,
     private val samsungFeed: SamsungHeartRateFeed,
+    /** Told at each batch, so every sensor's buffer is emptied in the same wake-up. */
+    private val wakeSync: SensorWakeSync? = null,
     /** Every stored sample, for the sleep minute recorder. Called on this recorder's thread. */
     private val onSample: (epochMillis: Long, bpm: Int) -> Unit = { _, _ -> },
     /** False when the sensor reported no contact, an unreliable reading or 0 bpm. */
@@ -91,6 +93,7 @@ internal class HeartRateRecorder(
     private var lastStoredAt = 0L
     private var lastPrunedAt = 0L
     private var subscribedAt = 0L
+    private var lastArrivalAt = 0L
 
     // Read and written on the recorder's thread only. The tasks are fields:
     // removing a timer needs the same Runnable that posted it.
@@ -268,6 +271,9 @@ internal class HeartRateRecorder(
     override fun onSensorChanged(event: SensorEvent) {
         if (event.sensor.type != Sensor.TYPE_HEART_RATE) return
         DebugProtocol.arrival("hr")
+        val arrived = SystemClock.elapsedRealtime()
+        if (arrived - lastArrivalAt > BATCH_GAP_MILLIS && interval == HeartRateInterval.EVERY_10_SECONDS) wakeSync?.onWake()
+        lastArrivalAt = arrived
         // No contact and unreliable readings carry a rate of zero or a flag; both are skipped.
         val bpm = event.values.firstOrNull()?.toInt() ?: return
         val at = SensorTime.epochMillisOf(event.timestamp)
@@ -358,6 +364,9 @@ internal class HeartRateRecorder(
 
         const val PRUNE_EVERY_MILLIS = 6L * 60 * 60 * 1000
         const val SKIP_LOG_EVERY_MILLIS = 60_000L
+
+        /** Readings closer than this arrived in one batch, one wake-up. */
+        const val BATCH_GAP_MILLIS = 2_000L
     }
 }
 

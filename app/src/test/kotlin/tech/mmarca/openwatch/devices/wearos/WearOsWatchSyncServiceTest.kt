@@ -118,6 +118,8 @@ class WearOsWatchSyncServiceTest {
             targetName: String?,
             onSample: (WearOsHeartRateSample) -> Unit,
         ): Boolean = false
+
+        override suspend fun notifyPhoneActive(targetAddress: String?, targetName: String?, at: Instant): Boolean = false
     }
 
     /**

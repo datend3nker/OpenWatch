@@ -60,6 +60,9 @@ interface WearLinkRequestHandler {
     /** The night-time HRV windows newer than [sinceEpochMillis], oldest first. Only called when the watch advertised [WearLinkProtocol.CAP_HRV]. */
     fun hrvSince(sinceEpochMillis: Long, limit: Int): Page<WearLinkProtocol.HrvWindow>
 
+    /** The wearer used the phone at [epochMillis]. Only called when the watch advertised [WearLinkProtocol.CAP_PHONE_ACTIVE]. */
+    fun phoneActive(epochMillis: Long)
+
     /**
      * Blocks for up to [seconds], handing each heart rate reading to [emit]
      * on the caller's thread as it arrives; returns how many. Returns 0 at

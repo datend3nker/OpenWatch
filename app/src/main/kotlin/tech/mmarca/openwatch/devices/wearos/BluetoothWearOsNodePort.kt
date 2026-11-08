@@ -147,6 +147,19 @@ class BluetoothWearOsNodePort @Inject constructor(
         }
     }
 
+    override suspend fun notifyPhoneActive(
+        targetAddress: String?,
+        targetName: String?,
+        at: Instant,
+    ): Boolean = withContext(Dispatchers.IO) {
+        val match = bondedWatchOrNull(targetAddress, targetName) ?: return@withContext false
+        withSession(match, targetAddress, PING_TIMEOUT_MS) { session ->
+            if (WearLinkProtocol.CAP_PHONE_ACTIVE !in session.peer.capabilities) return@withSession false
+            unwrap(session.notifyPhoneActive(at.toEpochMilli()))
+            true
+        }
+    }
+
     override suspend fun liveHeartRate(
         targetAddress: String?,
         targetName: String?,

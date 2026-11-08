@@ -24,6 +24,7 @@ internal object WearSettings {
     private const val KEY_HEART_RATE_DAY = "heart_rate_day"
     private const val KEY_HEART_RATE_SOURCE = "heart_rate_source"
     private const val KEY_HRV_SOURCE = "hrv_source"
+    private const val KEY_SYNCED_SLEEP_HOLD = "synced_sleep_hold"
 
     fun heartRateDay(context: Context): HeartRateInterval =
         prefs(context).getString(KEY_HEART_RATE_DAY, null)?.let(HeartRateInterval::fromWire)
@@ -40,6 +41,19 @@ internal object WearSettings {
     fun hrvSource(context: Context): Source = source(context, KEY_HRV_SOURCE)
 
     fun setHrvSource(context: Context, source: Source) = setSource(context, KEY_HRV_SOURCE, source)
+
+    /**
+     * How a sleep hold keeps every minute whole: false (the default) with a
+     * lasting wake lock, true with the heart rate's wake-ups and a flush of
+     * every sensor at each ([SensorWakeSync]), which lets the processor sleep
+     * in between. The second is the one to measure; it falls back to the
+     * lock while the heart rate is not dense from the sensor.
+     */
+    fun syncedSleepHold(context: Context): Boolean = prefs(context).getBoolean(KEY_SYNCED_SLEEP_HOLD, false)
+
+    fun setSyncedSleepHold(context: Context, synced: Boolean) {
+        prefs(context).edit().putBoolean(KEY_SYNCED_SLEEP_HOLD, synced).apply()
+    }
 
     private fun source(context: Context, key: String): Source {
         val stored = prefs(context).getString(key, null)

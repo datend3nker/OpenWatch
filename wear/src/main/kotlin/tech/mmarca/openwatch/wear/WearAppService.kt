@@ -50,6 +50,7 @@ class WearAppService : Service() {
     private lateinit var bedtimeMonitor: BedtimeMonitor
     private lateinit var samsungFeed: SamsungHeartRateFeed
     private lateinit var debugSnapshots: DebugSnapshots
+    private lateinit var wakeSync: SensorWakeSync
     private lateinit var ppgLogger: PpgRawLogger
     private lateinit var trust: WearTrustStore
     private lateinit var link: WearLinkServerHost
@@ -84,6 +85,7 @@ class WearAppService : Service() {
         DebugProtocol.init(this)
         store = MetricStore(this)
         samsungFeed = SamsungHeartRateFeed(this)
+        wakeSync = SensorWakeSync(this)
         // Off the main thread: a week of heart rate is tens of thousands of rows.
         Thread({ LegacyStoreImport.run(this, store) }, "LegacyStoreImport").start()
         ppgLogger = PpgRawLogger(this)
@@ -94,11 +96,14 @@ class WearAppService : Service() {
             stepsInMinute = ::stepsInMinute,
             // The heart rate runs at full rate while sleep is held; the plan reads it.
             onSleepHoldChange = { mainHandler.post { reconcileRecorders() } },
+            wakeSync = wakeSync,
+            syncedHold = { isHeartRateDense() && WearSettings.syncedSleepHold(this) },
         )
         recorder = HeartRateRecorder(
             this,
             store,
             samsungFeed,
+            wakeSync,
             onSample = minuteRecorder::noteHeartRate,
             onContact = minuteRecorder::noteHeartRateContact,
         )
@@ -115,8 +120,8 @@ class WearAppService : Service() {
         )
         bedtimeMonitor = BedtimeMonitor(this, mainHandler) { reconcileRecorders() }
         debugSnapshots = DebugSnapshots(this, mainHandler, ::debugPlan)
-        stepRecorder = StepRecorder(this, store)
-        ascentRecorder = AscentRecorder(this, store)
+        stepRecorder = StepRecorder(this, store, wakeSync)
+        ascentRecorder = AscentRecorder(this, store, wakeSync)
         trust = WearTrustStore(this).also { it.onPending = { pending -> WearPhoneRequests.notify(this, pending) } }
         link = WearLinkServerHost(
             adapter = { getSystemService(BluetoothManager::class.java)?.adapter },
@@ -124,6 +129,7 @@ class WearAppService : Service() {
             store = store,
             live = LiveHeartRate(this, isRecording = { recorder.isRunning }),
             hrvAvailable = { nightHrv.hasSensor },
+            onPhoneActive = { at -> minuteRecorder.notePhoneActive(at) },
             localName = ::localName,
         )
         isForeground = startInForeground()
@@ -285,6 +291,7 @@ class WearAppService : Service() {
         "bedtime" to bedtimeMonitor.isBedtime,
         "hold" to WearLinkState.state.value.bedtimeHold.name,
         "sleepHold" to minuteRecorder.isSleepHolding,
+        "syncedHold" to WearSettings.syncedSleepHold(this),
         "worn" to heartRateWanted,
         "steps" to stepRecorder.isRunning,
     )
@@ -325,6 +332,7 @@ class WearAppService : Service() {
             WearLinkState.update { it.copy(ppgLogging = false) }
         }
         link.stop()
+        wakeSync.shutdown()
         super.onDestroy()
     }
 

@@ -28,6 +28,8 @@ private class FakeWearOsNodePort : WearOsNodePort {
 
     override suspend fun pullHrv(targetAddress: String?, targetName: String?, since: Instant): WearOsHrvPage? = null
 
+    override suspend fun notifyPhoneActive(targetAddress: String?, targetName: String?, at: Instant): Boolean = false
+
     /** One entry per live session: the readings it hands out, then whether the watch could stream; a failure throws. */
     val liveSessions = ArrayDeque<Pair<List<Int>, Boolean>>()
     var liveFailures = 0

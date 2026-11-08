@@ -82,6 +82,7 @@ class MemoryHandler(
     var steps: List<WearLinkProtocol.StepMinute> = emptyList(),
     var ascent: List<WearLinkProtocol.AscentMinute> = emptyList(),
     var hrv: List<WearLinkProtocol.HrvWindow> = emptyList(),
+    val phoneActive: MutableList<Long> = mutableListOf(),
     /** What one `HR_LIVE` window hands out; empty is a watch off the wrist. */
     var live: List<WearLinkProtocol.HeartRateSample> = emptyList(),
     var name: String = "Galaxy Watch8 (89FZ)",
@@ -100,6 +101,9 @@ class MemoryHandler(
     override fun stepsSince(sinceEpochMillis: Long, limit: Int): Page<WearLinkProtocol.StepMinute> {
         val newer = steps.filter { it.epochMillis > sinceEpochMillis }
         return Page(newer.take(limit), newer.size > limit)
+    }
+    override fun phoneActive(epochMillis: Long) {
+        phoneActive += epochMillis
     }
     override fun hrvSince(sinceEpochMillis: Long, limit: Int): Page<WearLinkProtocol.HrvWindow> {
         val newer = hrv.filter { it.epochMillis > sinceEpochMillis }

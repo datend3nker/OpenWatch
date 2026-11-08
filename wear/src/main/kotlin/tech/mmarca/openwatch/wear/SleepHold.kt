@@ -21,6 +21,13 @@ package tech.mmarca.openwatch.wear
  * hold waits [Config.cooldownMinutes] before it may start again. A turn in
  * bed is one or two waking minutes and does not stop it.
  *
+ * Against false starts: by day ([Minute.daytime]) the quiet run must be
+ * [Config.quietMinutesByDay] long, since sitting still to read or watch a film
+ * lowers the pulse too; and when the wearer uses the phone ([onPhoneActive],
+ * an unlock the phone reports), a hold this class started ends at once and
+ * none starts for [Config.phoneCooldownMinutes]. A glance at the watch is not
+ * such a signal: its screen-on minute is one waking minute of the five.
+ *
  * Costs battery: the processor stays awake for as long as the hold lasts,
  * up to the cap.
  */
@@ -28,6 +35,8 @@ class SleepHold(private val config: Config = Config()) {
 
     data class Config(
         val quietMinutes: Int = 10,
+        val quietMinutesByDay: Int = 20,
+        val phoneCooldownMinutes: Int = 30,
         val quietMovement: Float = 2f,
         val wakeMovement: Float = 8f,
         val fallBpm: Float = 2f,
@@ -47,6 +56,8 @@ class SleepHold(private val config: Config = Config()) {
         val screenOn: Boolean,
         val steps: Int,
         val worn: Boolean,
+        /** Between 06:00 and 22:00 local, when a longer quiet run is needed. */
+        val daytime: Boolean = false,
     ) {
         val waking: Boolean get() = screenOn || steps > 0
     }
@@ -70,7 +81,7 @@ class SleepHold(private val config: Config = Config()) {
         val last = recent.lastOrNull()
         if (last != null && minute.epochMillis - last.epochMillis != MINUTE_MILLIS) recent.clear()
         recent.addLast(minute)
-        while (recent.size > config.quietMinutes) recent.removeFirst()
+        while (recent.size > maxOf(config.quietMinutes, config.quietMinutesByDay)) recent.removeFirst()
         if (holding) hold(minute) else {
             minute.bpm?.let { levelSamples.addLast(it) }
             while (levelSamples.size > config.levelReadings) levelSamples.removeFirst()
@@ -81,6 +92,15 @@ class SleepHold(private val config: Config = Config()) {
             }
         }
         return holding
+    }
+
+    /**
+     * The wearer used the phone at [epochMillis]: they are awake. A hold
+     * ends, and none starts for [Config.phoneCooldownMinutes].
+     */
+    fun onPhoneActive(epochMillis: Long) {
+        reset()
+        coolUntil = maxOf(coolUntil, epochMillis + config.phoneCooldownMinutes * MINUTE_MILLIS)
     }
 
     /** The watch went on the charger or lost its wrist: nothing is held, and the evidence starts again. */
@@ -107,12 +127,14 @@ class SleepHold(private val config: Config = Config()) {
     }
 
     private fun shouldStart(): Boolean {
-        if (recent.size < config.quietMinutes) return false
-        if (recent.any { it.waking || it.movement > config.quietMovement }) return false
+        val need = if (recent.lastOrNull()?.daytime == true) config.quietMinutesByDay else config.quietMinutes
+        if (recent.size < need) return false
+        val run = recent.toList().takeLast(need)
+        if (run.any { it.waking || it.movement > config.quietMovement }) return false
         if (levelSamples.size < config.minLevelReadings) return false
-        val half = recent.size / 2
-        val earlier = recent.take(half).mapNotNull { it.bpm }
-        val later = recent.drop(half).mapNotNull { it.bpm }
+        val half = run.size / 2
+        val earlier = run.take(half).mapNotNull { it.bpm }
+        val later = run.drop(half).mapNotNull { it.bpm }
         if (earlier.isEmpty() || later.isEmpty() || earlier.size + later.size < MIN_READINGS) return false
         val laterMean = later.average()
         val level = levelSamples.sorted()[levelSamples.size / 2]

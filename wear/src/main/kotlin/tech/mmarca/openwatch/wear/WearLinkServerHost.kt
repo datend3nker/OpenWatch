@@ -26,10 +26,12 @@ class WearLinkServerHost(
     live: LiveHeartRate,
     /** Whether the watch has the raw PPG sensor a night-time HRV window needs. */
     hrvAvailable: () -> Boolean,
+    /** The phone reported the wearer active at the given time. Called on the link's thread. */
+    onPhoneActive: (Long) -> Unit,
     private val localName: () -> String,
     private val state: WearLinkState = WearLinkState,
 ) {
-    private val server = WearLinkServer(trust, Handler(store, live, hrvAvailable, localName))
+    private val server = WearLinkServer(trust, Handler(store, live, hrvAvailable, onPhoneActive, localName))
 
     @Volatile
     private var serverSocket: BluetoothServerSocket? = null
@@ -112,6 +114,7 @@ class WearLinkServerHost(
         private val store: MetricStore,
         private val live: LiveHeartRate,
         private val hrvAvailable: () -> Boolean,
+        private val onPhoneActive: (Long) -> Unit,
         private val localName: () -> String,
     ) : WearLinkRequestHandler {
         override fun localName(): String = localName.invoke()
@@ -119,6 +122,7 @@ class WearLinkServerHost(
         override fun capabilities(): Set<String> = WearMetrics.ALL.mapTo(LinkedHashSet()) { it.key }.apply {
             if (live.hasSensor) add(WearLinkProtocol.CAP_LIVE_HEART_RATE)
             if (!hrvAvailable()) remove(WearLinkProtocol.CAP_HRV)
+            add(WearLinkProtocol.CAP_PHONE_ACTIVE)
         }
 
         override fun heartRateSince(sinceEpochMillis: Long, limit: Int): Page<WearLinkProtocol.HeartRateSample> =
@@ -132,6 +136,8 @@ class WearLinkServerHost(
 
         override fun ascentSince(sinceEpochMillis: Long, limit: Int): Page<WearLinkProtocol.AscentMinute> =
             page(WearMetrics.ASCENT, sinceEpochMillis, limit)
+
+        override fun phoneActive(epochMillis: Long) = onPhoneActive(epochMillis)
 
         override fun hrvSince(sinceEpochMillis: Long, limit: Int): Page<WearLinkProtocol.HrvWindow> =
             page(WearMetrics.HRV, sinceEpochMillis, limit)

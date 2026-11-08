@@ -28,6 +28,7 @@ internal fun WatchSettingsSection(context: Context) {
     var day by remember { mutableStateOf(WearSettings.heartRateDay(context)) }
     var heartRateSource by remember { mutableStateOf(WearSettings.heartRateSource(context)) }
     var hrvSource by remember { mutableStateOf(WearSettings.hrvSource(context)) }
+    var synced by remember { mutableStateOf(WearSettings.syncedSleepHold(context)) }
 
     val powerSave = day == HeartRateInterval.POWER_SAVE
     Toggle(stringResource(if (powerSave) R.string.settings_heart_rate_power_save else R.string.settings_heart_rate_every_10_seconds)) {
@@ -36,6 +37,11 @@ internal fun WatchSettingsSection(context: Context) {
         WearAppService.settingsChanged(context)
     }
     if (powerSave) Line(stringResource(R.string.settings_heart_rate_power_save_note))
+    Toggle(stringResource(if (synced) R.string.settings_sleep_hold_synced else R.string.settings_sleep_hold_wake_lock)) {
+        synced = !synced
+        WearSettings.setSyncedSleepHold(context, synced)
+        WearAppService.settingsChanged(context)
+    }
     if (!samsung) return
 
     val heartRateSamsung = heartRateSource == WearSettings.Source.SAMSUNG_PLATFORM

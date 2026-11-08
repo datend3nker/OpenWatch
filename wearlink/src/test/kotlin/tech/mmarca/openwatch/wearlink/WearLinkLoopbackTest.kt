@@ -108,6 +108,8 @@ class WearLinkLoopbackTest {
         assertEquals(loopback.handler.ascent, ascent.items)
         val hrv = (session.pullHrv(0, 2000) as WearLinkOutcome.Ok).value
         assertEquals(loopback.handler.hrv, hrv.items)
+        assertEquals(WearLinkOutcome.Ok(Unit), session.notifyPhoneActive(1_700_000_200_000L))
+        assertEquals(listOf(1_700_000_200_000L), loopback.handler.phoneActive)
         assertFalse(link.serverReturned())
         session.close()
         assertEquals(WearLinkServer.Outcome.SERVED, link.serverOutcome())

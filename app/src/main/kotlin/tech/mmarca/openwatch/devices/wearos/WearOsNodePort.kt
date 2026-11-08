@@ -189,4 +189,15 @@ interface WearOsNodePort {
         targetName: String?,
         onSample: (WearOsHeartRateSample) -> Unit,
     ): Boolean
+
+    /**
+     * Tells the watch the wearer used the phone at [at], so it ends a sleep
+     * hold it started by itself. False when no bonded watch matches or the
+     * watch app does not take it. Any other failure throws [WearOsLinkFailure].
+     */
+    suspend fun notifyPhoneActive(
+        targetAddress: String?,
+        targetName: String?,
+        at: Instant,
+    ): Boolean
 }

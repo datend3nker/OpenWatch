@@ -16,7 +16,8 @@ class SleepHoldTest {
         screen: Boolean = false,
         steps: Int = 0,
         worn: Boolean = true,
-    ) = SleepHold.Minute(start + 60_000L * next++, movement, bpm, screen, steps, worn)
+        daytime: Boolean = false,
+    ) = SleepHold.Minute(start + 60_000L * next++, movement, bpm, screen, steps, worn, daytime)
 
     /** Thirty minutes of the day at a pulse of 75 so the level is known. */
     private fun SleepHold.day(count: Int = 30) = repeat(count) { onMinute(minute(movement = 12f, bpm = 75)) }
@@ -133,5 +134,43 @@ class SleepHoldTest {
         hold.falling(4)
 
         assertEquals(false, hold.isHolding)
+    }
+
+    @Test
+    fun `by day the quiet run must be twenty minutes`() {
+        val hold = SleepHold()
+        hold.day()
+
+        repeat(19) { index -> hold.onMinute(minute(bpm = 70 - index / 2, daytime = true)) }
+        assertFalse(hold.isHolding)
+        hold.onMinute(minute(bpm = 60, daytime = true))
+        assertTrue(hold.isHolding)
+    }
+
+    @Test
+    fun `using the phone ends the hold and keeps it off for half an hour`() {
+        val hold = SleepHold()
+        hold.day()
+        hold.falling(12)
+        assertTrue(hold.isHolding)
+
+        hold.onPhoneActive(start + 60_000L * next)
+        assertFalse(hold.isHolding)
+        hold.falling(25)
+        assertFalse(hold.isHolding)
+        hold.falling(15)
+        assertTrue(hold.isHolding)
+    }
+
+    @Test
+    fun `a glance at the watch does not end the hold`() {
+        val hold = SleepHold()
+        hold.day()
+        hold.falling(12)
+
+        hold.onMinute(minute(screen = true, bpm = 58))
+        hold.onMinute(minute(bpm = 58))
+
+        assertTrue(hold.isHolding)
     }
 }

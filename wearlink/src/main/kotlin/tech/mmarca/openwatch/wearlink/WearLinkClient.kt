@@ -72,6 +72,12 @@ class WearLinkSession internal constructor(
             Reply.Unexpected
         }
 
+    /** Tells the watch the wearer used the phone at [epochMillis]. */
+    fun notifyPhoneActive(epochMillis: Long): WearLinkOutcome<Unit> =
+        exchange(WearLinkProtocol.Request.PhoneActive(epochMillis)) { line ->
+            if (WearLinkProtocol.parseEnd(line) != null) Reply.Done(Unit) else Reply.Unexpected
+        }
+
     fun pullHrv(sinceEpochMillis: Long, limit: Int): WearLinkOutcome<Page<WearLinkProtocol.HrvWindow>> {
         val items = ArrayList<WearLinkProtocol.HrvWindow>()
         return exchange(WearLinkProtocol.Request.HrvSince(sinceEpochMillis, limit)) { line ->

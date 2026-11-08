@@ -35,6 +35,9 @@ import java.util.UUID
  *   each newer than `epochMillis` (exclusive), then `END <count> <more>`. The
  *   heart rate variability the watch measured at night; only a watch
  *   announcing `hv` serves it.
+ * - `PHONE_ACTIVE <epochMillis>` → `END 0 0`. The wearer unlocked the phone at
+ *   that time: they are awake, so the watch ends a sleep hold it started by
+ *   itself. Only a watch announcing `pa` serves it.
  * - `HR_LIVE <seconds>` → for up to `seconds` (at most [MAX_LIVE_SECONDS],
  *   less than the watch's idle timeout), one `HR` line as each reading
  *   arrives, then `END <count> 0`. Only a watch announcing `hl` serves it; a
@@ -95,6 +98,7 @@ object WearLinkProtocol {
     const val HRV_SINCE: String = "HV_SINCE"
     const val HRV_WINDOW: String = "HV"
     const val HEART_RATE_LIVE: String = "HR_LIVE"
+    const val PHONE_ACTIVE: String = "PHONE_ACTIVE"
     const val END: String = "END"
 
     /** Longer than this a line is a protocol violation; the reader closes rather than buffers. */
@@ -111,6 +115,9 @@ object WearLinkProtocol {
 
     /** The watch measures heart rate variability at night and serves `HV_SINCE`. */
     const val CAP_HRV: String = "hv"
+
+    /** The watch takes `PHONE_ACTIVE`: the phone says when the wearer used it. */
+    const val CAP_PHONE_ACTIVE: String = "pa"
     const val NO_CAPABILITIES: String = "-"
 
     /** The phone's opening line. */
@@ -155,6 +162,7 @@ object WearLinkProtocol {
         data class StepsSince(val sinceEpochMillis: Long, val limit: Int) : Request()
         data class AscentSince(val sinceEpochMillis: Long, val limit: Int) : Request()
         data class HrvSince(val sinceEpochMillis: Long, val limit: Int) : Request()
+        data class PhoneActive(val epochMillis: Long) : Request()
         data class LiveHeartRate(val seconds: Int) : Request()
     }
 
@@ -213,6 +221,7 @@ object WearLinkProtocol {
         is Request.StepsSince -> formatStepsRequest(request.sinceEpochMillis, request.limit)
         is Request.AscentSince -> formatAscentRequest(request.sinceEpochMillis, request.limit)
         is Request.HrvSince -> formatHrvRequest(request.sinceEpochMillis, request.limit)
+        is Request.PhoneActive -> "$PHONE_ACTIVE ${request.epochMillis}"
         is Request.LiveHeartRate -> "$HEART_RATE_LIVE ${request.seconds.coerceIn(1, MAX_LIVE_SECONDS)}"
     }
 
@@ -230,6 +239,7 @@ object WearLinkProtocol {
         parseSinceRequest(line, HRV_SINCE, MAX_HRV_WINDOWS_PER_REQUEST)?.let { (since, limit) ->
             return Request.HrvSince(since, limit)
         }
+        parsePhoneActive(line)?.let { return it }
         parseLiveRequest(line)?.let { return Request.LiveHeartRate(it) }
         return null
     }
@@ -394,6 +404,13 @@ object WearLinkProtocol {
         val steps = fields[2].toIntOrNull() ?: return null
         if (at <= 0 || at % MINUTE_MILLIS != 0L || steps !in 1..MAX_STEPS_PER_MINUTE) return null
         return StepMinute(at, steps)
+    }
+
+    private fun parsePhoneActive(line: String): Request.PhoneActive? {
+        val fields = fields(line)
+        if (fields.size != 2 || fields[0] != PHONE_ACTIVE) return null
+        val at = fields[1].toLongOrNull()?.takeIf { it > 0 } ?: return null
+        return Request.PhoneActive(at)
     }
 
     fun formatHrvRequest(sinceEpochMillis: Long, limit: Int): String =

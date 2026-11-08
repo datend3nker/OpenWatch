@@ -198,6 +198,15 @@ class WearLinkProtocolTest {
     }
 
     @Test
+    fun `phone active round-trips and refuses a bad time`() {
+        assertEquals("PHONE_ACTIVE 1700000000000", WearLinkProtocol.formatRequest(WearLinkProtocol.Request.PhoneActive(1_700_000_000_000L)))
+        assertEquals(WearLinkProtocol.Request.PhoneActive(1_700_000_000_000L), WearLinkProtocol.parseRequest("PHONE_ACTIVE 1700000000000"))
+        assertNull(WearLinkProtocol.parseRequest("PHONE_ACTIVE 0"))
+        assertNull(WearLinkProtocol.parseRequest("PHONE_ACTIVE x"))
+        assertNull(WearLinkProtocol.parseRequest("PHONE_ACTIVE"))
+    }
+
+    @Test
     fun `an HRV window round-trips, and one with an impossible RMSSD or beat count is refused`() {
         val window = WearLinkProtocol.HrvWindow(1_700_000_100_000L, 452, 280)
         assertEquals("HV 1700000100000 452 280", WearLinkProtocol.formatHrvWindow(window))

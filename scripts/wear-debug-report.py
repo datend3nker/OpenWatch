@@ -72,6 +72,8 @@ def when(ms):
 
 def state_of(snap):
     parts = []
+    if snap.get("sleepHold"):
+        parts.append("hold synced" if snap.get("syncedHold") else "hold lock")
     hr = snap.get("hrSec")
     parts.append("hr off" if not hr else ("hr 10s" if hr == 10 else "hr save"))
     if hr:
@@ -108,9 +110,9 @@ def drain(snaps):
 
 def wakeups(per):
     print("\n## 2. Sensor deliveries per hour (each batch is a processor wake-up for a wake-up sensor)\n")
-    keys = ("hr.batches", "accel.batches", "steps.batches", "baro.batches", "offbody.batches",
+    keys = ("hr.batches", "wake.cycles", "accel.events", "steps.batches", "baro.batches", "offbody.batches",
             "hr.alarms", "samsung.deliveries")
-    labels = ("hr", "accel", "steps", "baro", "offbody", "alarms", "samsung")
+    labels = ("hr", "flushes", "accel/h", "steps", "baro", "offbody", "alarms", "samsung")
     print(f"{'state':38s} " + " ".join(f"{label:>8s}" for label in labels))
     for key, (hours, _, _, counters) in sorted(per.items(), key=lambda kv: -kv[1][0]):
         if hours < 0.1:
@@ -163,6 +165,21 @@ def samsung_lag(snaps):
     lags = [s["c"]["samsung.lagMs.max"] for s in snaps if "samsung.lagMs.max" in s.get("c", {})]
     if lags:
         print(f"oldest point at its delivery: {statistics.median(lags) / 1000:.0f} s median, {max(lags) / 1000:.0f} s max")
+
+
+def holds(snaps, events):
+    print("\n## 6. Sleep holds and synced wake-ups\n")
+    hold = [e for e in events if e["src"] == "SleepHold"]
+    print("events:", dict(collections.Counter(e["ev"] for e in hold)) or "none")
+    phone = [e for e in hold if e["ev"] == "phone_active"]
+    if phone:
+        print(f"phone unlocks seen {len(phone)}, of which ended a hold {sum(1 for e in phone if e.get('endedHold'))}")
+    c = collections.Counter()
+    for s in snaps:
+        c.update({k: v for k, v in s.get("c", {}).items() if k.startswith("wake.")})
+    if c.get("wake.cycles"):
+        print(f"flush cycles {c['wake.cycles']}, mean {c.get('wake.flushMs', 0) / c['wake.cycles']:.0f} ms awake each, timeouts {c.get('wake.timeouts', 0)}")
+    print("accelerometer completeness: compare accel/h per state in section 2; whole minutes hold 375 readings, 22,500 an hour")
 
 
 def hrv(events):
@@ -222,6 +239,7 @@ def main():
     samsung(events)
     samsung_lag(snaps)
     hrv(events)
+    holds(snaps, events)
 
 
 if __name__ == "__main__":
