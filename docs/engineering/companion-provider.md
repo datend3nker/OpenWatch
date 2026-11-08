@@ -190,6 +190,28 @@ OpenWatch will not carry a command out.
   watch's screen starts at once; the pause in the record starts when the phone has it, a moment
   later.
 
+### Stop on either side stops and saves both (decided, 2026-11-08)
+
+- **Stop in OpenVitals:** OpenVitals sends `stop_workout`; the watch ends its workout, and
+  OpenWatch writes the watch's samples for the session.
+- **Stop on the watch:** the watch asks once ("End workout?"), because a stop also ends the
+  phone's route recording. Pause asks nothing. OpenWatch then sets the desired state `stopped`
+  and announces it on `/devices`; OpenVitals follows as it does for a pause and stops its
+  recording.
+- **Saving without the phone in hand.** Today a stop in OpenVitals does not save:
+  `ActivityEntryViewModel.finishGpsRecording` keeps the finished recording on disk and opens the
+  review form, and the user saves there. A stop from the watch needs a second way: OpenVitals
+  finishes the recording, saves it at once with the values the review form would start with
+  (type, start, end, route, distance), and posts a notification "Workout saved", which opens the
+  saved activity in edit mode. The user corrects or deletes it there. The recording stays on disk
+  until the save succeeded, as today, so a process death in between loses nothing.
+- **Discard in OpenVitals:** OpenVitals sends `stop_workout`; the watch ends its workout. The
+  watch's heart rate samples stay in Health Connect, because they are measurements of their own;
+  no exercise session is written for them.
+- A stop that arrives while the link is lost: the watch keeps running until the link comes back,
+  then follows the desired state. The maximum length of a linked workout (6 hours) applies to
+  both sides.
+
 ### Desired state instead of a command queue
 
 OpenWatch does not forward each command to the watch as it comes. It stores the **desired
@@ -232,7 +254,7 @@ command) and brings the watch to it whenever the link is up:
   that the watch must be connected in OpenWatch first.
 - **The watch shows it.** The workout starts without a question on the watch, since the user
   just tapped start on the phone. The watch vibrates, shows "Started by OpenVitals" and offers
-  stop. What a stop on the watch does to OpenVitals' recording is open point 5.
+  stop. A stop on the watch stops and saves on both sides (below).
 - **Limits.** One `start_workout` per caller per 10 seconds; more answer `refused`. Every command
   goes into OpenWatch's log for that app (method, time, result; no values).
 - **No stop arrives.** If OpenVitals dies without `stop_workout`, the watch would run on.
@@ -248,8 +270,7 @@ command) and brings the watch to it whenever the link is up:
    linked workout, and whether the Wear OS onboarding should require
    the companion device association, which the background start needs.
 
-5. Stop on the watch: stop only the watch (OpenVitals keeps recording the route), or stop and save
-   on both sides. Pause and resume already go both ways.
+5. ~~Stop on the watch~~: stops and saves on both sides, the watch asks once (decided).
 
 ## First slice, once decided
 
