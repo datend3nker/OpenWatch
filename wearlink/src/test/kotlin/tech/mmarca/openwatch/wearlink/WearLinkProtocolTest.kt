@@ -262,4 +262,12 @@ class WearLinkProtocolTest {
     fun `ping tolerates surrounding whitespace`() {
         assertTrue(WearLinkProtocol.isPing(" PING\r"))
     }
+
+    @Test
+    fun `a workout request round-trips and clamps its limit`() {
+        assertEquals(WearLinkProtocol.Request.WorkoutsSince(10, WearLinkProtocol.MAX_WORKOUTS_PER_REQUEST), WearLinkProtocol.parseRequest("WO_SINCE 10 99999"))
+        assertEquals("WO_SINCE 10 5", WearLinkProtocol.formatRequest(WearLinkProtocol.Request.WorkoutsSince(10, 99999)))
+        assertNull(WearLinkProtocol.parseRequest("WO_SINCE 10"))
+        assertNull(WearLinkProtocol.parseRequest("WO_SINCE -1 5"))
+    }
 }

@@ -52,6 +52,9 @@ object WearPermissions {
     val oxygenSaturation: String
         get() = if (Build.VERSION.SDK_INT >= 36) "android.permission.health.READ_OXYGEN_SATURATION" else Manifest.permission.BODY_SENSORS
 
+    /** A workout's route needs the location grant; fine and coarse are asked together. */
+    fun hasLocation(context: Context): Boolean = isGranted(context, Manifest.permission.ACCESS_FINE_LOCATION)
+
     fun hasSkinTemperature(context: Context): Boolean = isGranted(context, skinTemperature)
 
     fun hasOxygenSaturation(context: Context): Boolean = isGranted(context, oxygenSaturation)

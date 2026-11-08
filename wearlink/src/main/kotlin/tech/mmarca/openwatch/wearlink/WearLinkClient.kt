@@ -115,6 +115,40 @@ class WearLinkSession internal constructor(
             if (line.trim() == WearLinkProtocol.PREFERENCE_OK) Reply.Done(Unit) else Reply.Unexpected
         }
 
+    /**
+     * The workouts that started after [sinceEpochMillis]. A header this side cannot read drops the
+     * pauses and points that follow it, so they never attach to the workout before.
+     */
+    fun pullWorkouts(sinceEpochMillis: Long, limit: Int): WearLinkOutcome<Page<WearLinkWorkout>> {
+        val items = ArrayList<WearLinkWorkout>()
+        var current: WearLinkWorkout? = null
+        val pauses = ArrayList<WearLinkWorkout.Pause>()
+        val points = ArrayList<WearLinkWorkout.RoutePoint>()
+        fun finish() {
+            current?.let { items += it.copy(pauses = pauses.toList(), route = points.toList()) }
+            current = null
+            pauses.clear()
+            points.clear()
+        }
+        return exchange(WearLinkProtocol.Request.WorkoutsSince(sinceEpochMillis, limit)) { line ->
+            if (line.startsWith("${WearLinkWorkoutLines.WORKOUT} ")) {
+                finish()
+                current = WearLinkWorkoutLines.parseHeader(line)
+                return@exchange Reply.More
+            }
+            if (current != null) {
+                WearLinkWorkoutLines.parsePause(line)?.let { if (pauses.size < WearLinkWorkoutLines.MAX_PAUSES) pauses += it; return@exchange Reply.More }
+                WearLinkWorkoutLines.parsePoint(line)?.let { if (points.size < WearLinkWorkoutLines.MAX_POINTS) points += it; return@exchange Reply.More }
+            }
+            WearLinkProtocol.parseEnd(line)?.let {
+                finish()
+                return@exchange Reply.Done(Page(items, it.more))
+            }
+            Reply.Unexpected
+        }
+    }
+
+
     /** Tells the watch the wearer used the phone at [epochMillis]. */
     fun notifyPhoneActive(epochMillis: Long): WearLinkOutcome<Unit> =
         exchange(WearLinkProtocol.Request.PhoneActive(epochMillis)) { line ->

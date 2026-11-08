@@ -86,6 +86,7 @@ class MemoryHandler(
     var respiratory: List<WearLinkProtocol.RespiratoryWindow> = emptyList(),
     var skin: List<WearLinkProtocol.SkinMinute> = emptyList(),
     var spo2: List<WearLinkProtocol.Spo2Measurement> = emptyList(),
+    var workouts: List<WearLinkWorkout> = emptyList(),
     val preferences: MutableMap<String, String> = linkedMapOf(WearLinkProtocol.Preferences.HEART_RATE_DAY to "10"),
     /** What one `HR_LIVE` window hands out; empty is a watch off the wrist. */
     var live: List<WearLinkProtocol.HeartRateSample> = emptyList(),
@@ -123,6 +124,10 @@ class MemoryHandler(
         if (key !in preferences) return false
         preferences[key] = value
         return true
+    }
+    override fun workoutsSince(sinceEpochMillis: Long, limit: Int): Page<WearLinkWorkout> {
+        val newer = workouts.filter { it.startMillis > sinceEpochMillis }.sortedBy { it.startMillis }
+        return Page(newer.take(limit), newer.size > limit)
     }
     override fun phoneActive(epochMillis: Long) {
         phoneActive += epochMillis

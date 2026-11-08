@@ -1,5 +1,9 @@
 package tech.mmarca.openwatch.wear
 
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.remember
+import tech.mmarca.openwatch.wear.workout.WorkoutScreen
+import tech.mmarca.openwatch.wear.workout.WorkoutState
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
@@ -40,7 +44,15 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             MaterialTheme {
+                // A running or just finished workout takes the screen; the status screen opens it otherwise.
+                val workout by WorkoutState.state.collectAsState()
+                var workoutOpen by remember { mutableStateOf(false) }
+                if (workoutOpen || workout.running || workout.finished) {
+                    WorkoutScreen(onClose = { workoutOpen = false })
+                    return@MaterialTheme
+                }
                 WatchStatusScreen(
+                    onOpenWorkout = { workoutOpen = true },
                     permissionsVersion = permissionsVersion,
                     hasHeartRate = { WearPermissions.hasHeartRate(this) },
                     hasBluetooth = { WearPermissions.hasBluetooth(this) },

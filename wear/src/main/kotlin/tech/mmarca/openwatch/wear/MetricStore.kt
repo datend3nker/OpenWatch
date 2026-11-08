@@ -79,13 +79,29 @@ class MetricStore(context: Context, name: String? = DB_NAME) : SQLiteOpenHelper(
         readableDatabase.query(STATE_TABLE, arrayOf(COL_VALUE), "$COL_KEY = ?", arrayOf(key), null, null, null)
             .use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
 
-    /** Up to [limit] values newer than [epochMillis], oldest first. Rows this build cannot read are skipped. */
-    fun <T> since(metric: WearMetric<T>, epochMillis: Long, limit: Int): List<T> =
+    /** Stores [value] under [key] alone, as a running workout's checkpoint. */
+    fun setState(key: String, value: String) {
+        val row = ContentValues(2).apply {
+            put(COL_KEY, key)
+            put(COL_VALUE, value)
+        }
+        writableDatabase.insertWithOnConflict(STATE_TABLE, null, row, SQLiteDatabase.CONFLICT_REPLACE)
+    }
+
+    fun clearState(key: String) {
+        writableDatabase.delete(STATE_TABLE, "$COL_KEY = ?", arrayOf(key))
+    }
+
+    /**
+     * Up to [limit] values newer than [epochMillis] and older than
+     * [untilEpochMillis], oldest first. Rows this build cannot read are skipped.
+     */
+    fun <T> since(metric: WearMetric<T>, epochMillis: Long, limit: Int, untilEpochMillis: Long = Long.MAX_VALUE): List<T> =
         readableDatabase.query(
             TABLE,
             arrayOf(COL_LINE),
-            "$COL_METRIC = ? AND $COL_TIME > ?",
-            arrayOf(metric.key, epochMillis.toString()),
+            "$COL_METRIC = ? AND $COL_TIME > ? AND $COL_TIME < ?",
+            arrayOf(metric.key, epochMillis.toString(), untilEpochMillis.toString()),
             null,
             null,
             "$COL_TIME ASC",
@@ -95,6 +111,15 @@ class MetricStore(context: Context, name: String? = DB_NAME) : SQLiteOpenHelper(
                 while (cursor.moveToNext()) metric.decode(cursor.getString(0))?.let(::add)
             }
         }
+
+    /** Deletes the rows of [metric] from [fromEpochMillis] to [toEpochMillis], both included. */
+    fun deleteRange(metric: WearMetric<*>, fromEpochMillis: Long, toEpochMillis: Long) {
+        writableDatabase.delete(
+            TABLE,
+            "$COL_METRIC = ? AND $COL_TIME >= ? AND $COL_TIME <= ?",
+            arrayOf(metric.key, fromEpochMillis.toString(), toEpochMillis.toString()),
+        )
+    }
 
     /** The newest value, or null when there is none or this build cannot read it. */
     fun <T> latest(metric: WearMetric<T>): T? =

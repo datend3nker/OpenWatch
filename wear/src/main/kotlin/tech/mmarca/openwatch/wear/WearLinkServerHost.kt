@@ -10,6 +10,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import tech.mmarca.openwatch.wearlink.Page
 import tech.mmarca.openwatch.wearlink.WearLinkConnection
 import tech.mmarca.openwatch.wearlink.WearLinkProtocol
+import tech.mmarca.openwatch.wearlink.WearLinkWorkout
 import tech.mmarca.openwatch.wearlink.WearLinkRequestHandler
 import tech.mmarca.openwatch.wearlink.WearLinkServer
 
@@ -34,10 +35,12 @@ class WearLinkServerHost(
     heldPreferences: () -> Map<String, String>,
     /** Applies a setting from the phone; false when refused. Called on the link's thread. */
     setPreference: (key: String, value: String) -> Boolean,
+    /** The finished workouts the phone pulls. Called on the link's thread. */
+    workouts: (sinceEpochMillis: Long, limit: Int) -> Page<WearLinkWorkout>,
     private val localName: () -> String,
     private val state: WearLinkState = WearLinkState,
 ) {
-    private val server = WearLinkServer(trust, Handler(store, live, hrvAvailable, skinAvailable, onPhoneActive, heldPreferences, setPreference, localName))
+    private val server = WearLinkServer(trust, Handler(store, live, hrvAvailable, skinAvailable, onPhoneActive, heldPreferences, setPreference, workouts, localName))
 
     @Volatile
     private var serverSocket: BluetoothServerSocket? = null
@@ -124,6 +127,7 @@ class WearLinkServerHost(
         private val onPhoneActive: (Long) -> Unit,
         private val heldPreferences: () -> Map<String, String>,
         private val setPreference: (String, String) -> Boolean,
+        private val workouts: (Long, Int) -> Page<WearLinkWorkout>,
         private val localName: () -> String,
     ) : WearLinkRequestHandler {
         override fun localName(): String = localName.invoke()
@@ -140,6 +144,9 @@ class WearLinkServerHost(
             }
             add(WearLinkProtocol.CAP_PHONE_ACTIVE)
             add(WearLinkProtocol.CAP_PREFERENCES)
+            // The metric list holds the workouts' pauses and route too; only the header key is a capability.
+            remove("wp")
+            remove("wr")
         }
 
         override fun heartRateSince(sinceEpochMillis: Long, limit: Int): Page<WearLinkProtocol.HeartRateSample> =
@@ -155,6 +162,8 @@ class WearLinkServerHost(
             page(WearMetrics.ASCENT, sinceEpochMillis, limit)
 
         override fun phoneActive(epochMillis: Long) = onPhoneActive(epochMillis)
+
+        override fun workoutsSince(sinceEpochMillis: Long, limit: Int): Page<WearLinkWorkout> = workouts(sinceEpochMillis, limit)
 
         override fun heldPreferences(): Map<String, String> = heldPreferences.invoke()
 

@@ -45,6 +45,10 @@ import java.util.UUID
  *   then `END <count> 0`. Only a watch announcing `pref` serves it.
  * - `SET_PREF <key> <value>` → `PREF_OK`, or `ERROR bad_request` for a key or
  *   value the watch does not take ([Preferences]).
+ * - `WO_SINCE <epochMillis> <limit>` → up to `limit` workouts, oldest first, each
+ *   started after `epochMillis` (exclusive): its `WO` header, then its `WP`
+ *   pauses and `WR` route points (see [WearLinkWorkout]), then one `END
+ *   <count> <more>` that counts workouts. Only a watch announcing `wo` serves it.
  * - `PHONE_ACTIVE <epochMillis>` → `END 0 0`. The wearer unlocked the phone at
  *   that time: they are awake, so the watch ends a sleep hold it started by
  *   itself. Only a watch announcing `pa` serves it.
@@ -122,6 +126,7 @@ object WearLinkProtocol {
     const val SKIN_MINUTE: String = "SK"
     const val HEART_RATE_LIVE: String = "HR_LIVE"
     const val PHONE_ACTIVE: String = "PHONE_ACTIVE"
+    const val WORKOUTS_SINCE: String = "WO_SINCE"
     const val SET_PREFERENCE: String = "SET_PREF"
     const val PREFERENCE_OK: String = "PREF_OK"
     const val GET_PREFERENCES: String = "GET_PREF"
@@ -154,6 +159,9 @@ object WearLinkProtocol {
 
     /** The watch takes `PHONE_ACTIVE`: the phone says when the wearer used it. */
     const val CAP_PHONE_ACTIVE: String = "pa"
+
+    /** The watch records workouts and serves `WO_SINCE`. */
+    const val CAP_WORKOUTS: String = "wo"
 
     /** The watch takes `GET_PREF` and `SET_PREF`: the phone can show and change its settings. */
     const val CAP_PREFERENCES: String = "pref"
@@ -244,6 +252,7 @@ object WearLinkProtocol {
         data class AscentSince(val sinceEpochMillis: Long, val limit: Int) : Request()
         data class HrvSince(val sinceEpochMillis: Long, val limit: Int) : Request()
         data class PhoneActive(val epochMillis: Long) : Request()
+        data class WorkoutsSince(val sinceEpochMillis: Long, val limit: Int) : Request()
         data class SetPreference(val key: String, val value: String) : Request()
         data object GetPreferences : Request()
         data class RespiratorySince(val sinceEpochMillis: Long, val limit: Int) : Request()
@@ -308,6 +317,7 @@ object WearLinkProtocol {
         is Request.AscentSince -> formatAscentRequest(request.sinceEpochMillis, request.limit)
         is Request.HrvSince -> formatHrvRequest(request.sinceEpochMillis, request.limit)
         is Request.PhoneActive -> "$PHONE_ACTIVE ${request.epochMillis}"
+        is Request.WorkoutsSince -> "$WORKOUTS_SINCE ${request.sinceEpochMillis} ${request.limit.coerceIn(1, MAX_WORKOUTS_PER_REQUEST)}"
         is Request.SetPreference -> "$SET_PREFERENCE ${request.key} ${request.value}"
         Request.GetPreferences -> GET_PREFERENCES
         is Request.RespiratorySince -> "$RESPIRATORY_SINCE ${request.sinceEpochMillis} ${request.limit.coerceIn(1, MAX_WINDOWS_PER_REQUEST)}"
@@ -331,6 +341,7 @@ object WearLinkProtocol {
             return Request.HrvSince(since, limit)
         }
         parsePhoneActive(line)?.let { return it }
+        parseSinceRequest(line, WORKOUTS_SINCE, MAX_WORKOUTS_PER_REQUEST)?.let { (since, limit) -> return Request.WorkoutsSince(since, limit) }
         if (fields(line) == listOf(GET_PREFERENCES)) return Request.GetPreferences
         parsePreferenceRequest(line)?.let { return it }
         parseSinceRequest(line, RESPIRATORY_SINCE, MAX_WINDOWS_PER_REQUEST)?.let { (since, limit) -> return Request.RespiratorySince(since, limit) }
@@ -383,6 +394,9 @@ object WearLinkProtocol {
 
     /** The most HRV windows one `HV_SINCE` reply carries: a week at 2 a night is far below it. */
     const val MAX_HRV_WINDOWS_PER_REQUEST: Int = 500
+
+    /** The most workouts one `WO_SINCE` reply carries; each brings its own route, so the phone pages by workout. */
+    const val MAX_WORKOUTS_PER_REQUEST: Int = 5
 
     /** The most breathing windows one `RR_SINCE` reply carries, as for HRV. */
     const val MAX_WINDOWS_PER_REQUEST: Int = 500
