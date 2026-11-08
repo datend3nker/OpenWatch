@@ -87,7 +87,14 @@ class WearAppService : Service() {
         // Off the main thread: a week of heart rate is tens of thousands of rows.
         Thread({ LegacyStoreImport.run(this, store) }, "LegacyStoreImport").start()
         ppgLogger = PpgRawLogger(this)
-        minuteRecorder = SleepMinuteRecorder(this, store, isHeartRateRecording = ::isHeartRateDense)
+        minuteRecorder = SleepMinuteRecorder(
+            this,
+            store,
+            isHeartRateRecording = ::isHeartRateDense,
+            stepsInMinute = ::stepsInMinute,
+            // The heart rate runs at full rate while sleep is held; the plan reads it.
+            onSleepHoldChange = { mainHandler.post { reconcileRecorders() } },
+        )
         recorder = HeartRateRecorder(
             this,
             store,
@@ -103,7 +110,7 @@ class WearAppService : Service() {
         nightHrv = NightHrvRecorder(
             this,
             store,
-            isHolding = { WearLinkState.state.value.bedtimeHold == BedtimeHold.HOLDING },
+            isHolding = { WearLinkState.state.value.sleepHoldActive },
             samsungFeed = samsungFeed,
         )
         bedtimeMonitor = BedtimeMonitor(this, mainHandler) { reconcileRecorders() }
@@ -243,7 +250,13 @@ class WearAppService : Service() {
         }
         val day = WearSettings.heartRateDay(this)
         val wanted = if (granted && heartRateWanted) {
-            HeartRateSchedule.interval(heartRate = true, sleepRecording = true, bedtime = bedtimeMonitor.isBedtime, day = day, night = day)
+            HeartRateSchedule.interval(
+                heartRate = true,
+                sleepRecording = true,
+                bedtime = bedtimeMonitor.isBedtime || minuteRecorder.isSleepHolding,
+                day = day,
+                night = day,
+            )
         } else {
             HeartRateInterval.OFF
         }
@@ -253,6 +266,11 @@ class WearAppService : Service() {
         stepRecorder.setHeartRateRunning(isHeartRateDense())
         if (before != (recorder.interval to recorder.source)) debugSnapshots.write("plan")
     }
+
+    /** The steps stored for the minute that starts at [minuteStartMillis]. Any thread. */
+    private fun stepsInMinute(minuteStartMillis: Long): Int =
+        store.since(WearMetrics.STEPS, minuteStartMillis - 1, 2)
+            .filter { it.epochMillis == minuteStartMillis }.sumOf { it.steps }
 
     /** Whether the heart rate arrives every few seconds and wakes the processor: the full rate from the sensor. */
     private fun isHeartRateDense(): Boolean =
@@ -266,6 +284,7 @@ class WearAppService : Service() {
         "hrvOn" to nightHrv.isRunning,
         "bedtime" to bedtimeMonitor.isBedtime,
         "hold" to WearLinkState.state.value.bedtimeHold.name,
+        "sleepHold" to minuteRecorder.isSleepHolding,
         "worn" to heartRateWanted,
         "steps" to stepRecorder.isRunning,
     )

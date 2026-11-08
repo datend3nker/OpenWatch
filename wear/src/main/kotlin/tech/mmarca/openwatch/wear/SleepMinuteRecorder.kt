@@ -15,6 +15,7 @@ import android.os.PowerManager
 import android.os.SystemClock
 import android.util.Log
 import java.util.TimeZone
+import tech.mmarca.openwatch.wearlink.WearLinkProtocol
 
 /**
  * Records the sleep pipeline's input, one row per clock minute, into the
@@ -26,9 +27,10 @@ import java.util.TimeZone
  * The accelerometer needs no permission. It is registered batched at five
  * readings a second with the same report latency as the heart rate, so the
  * two share their wake-ups. On a watch whose hub lets a still arm sleep for
- * minutes, that is not enough: while bedtime mode is on, the watch is worn
- * and off the charger, a wake lock keeps the processor up so every minute
- * is recorded whole ([BedtimeHold]). Everything runs on one handler thread;
+ * minutes, that is not enough: while bedtime mode is on, or [SleepHold] sees
+ * sleep starting (a still wrist and a falling pulse, any time of day), the
+ * watch is worn and off the charger, a wake lock keeps the processor up so
+ * every minute is recorded whole ([BedtimeHold]). Everything runs on one handler thread;
  * the heart rate recorder posts to it.
  */
 class SleepMinuteRecorder(
@@ -36,6 +38,10 @@ class SleepMinuteRecorder(
     private val store: MetricStore,
     /** Whether heart rate is being recorded: only then is a minute without one a sign of no wrist. */
     isHeartRateRecording: () -> Boolean,
+    /** The steps counted in the minute that starts at the given time; read when the minute closes. */
+    private val stepsInMinute: (minuteStartMillis: Long) -> Int = { 0 },
+    /** Called on the handler thread when the sleep hold starts or stops. */
+    private val onSleepHoldChange: (holding: Boolean) -> Unit = {},
 ) : SensorEventListener {
 
     private val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
@@ -53,6 +59,16 @@ class SleepMinuteRecorder(
     private var bedtime: BedtimeMonitor? = null
     private var hold = BedtimeHold.OFF
     private var holdRenewedAt = 0L
+    private val autoHold = SleepHold()
+
+    /**
+     * True while the wake lock is held for sleep, whatever started it:
+     * bedtime mode or [SleepHold]. The one state others read (also in
+     * `WearLinkState.sleepHoldActive`); heart rate runs at full rate while it is true.
+     */
+    @Volatile
+    var isSleepHolding: Boolean = false
+        private set
     private val wakeLock = (context.getSystemService(Context.POWER_SERVICE) as PowerManager)
         .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, WAKE_LOCK_TAG)
         .apply { setReferenceCounted(false) }
@@ -122,6 +138,8 @@ class SleepMinuteRecorder(
             bedtime = null
             if (wakeLock.isHeld) wakeLock.release()
             hold = BedtimeHold.OFF
+            autoHold.onNotWorn()
+            setSleepHolding(false)
             WearLinkState.update { it.copy(bedtimeHold = BedtimeHold.OFF) }
         }
         worker.quitSafely()
@@ -140,6 +158,7 @@ class SleepMinuteRecorder(
         if (SensorTime.isStale(epochMillis)) return
         handler?.post {
             this.worn = worn
+            if (!worn) autoHold.onNotWorn()
             aggregator.onWorn(epochMillis, worn)
             applyHold()
             closeMinutes(System.currentTimeMillis())
@@ -169,18 +188,22 @@ class SleepMinuteRecorder(
 
     private fun setCharging(now: Long, plugged: Boolean) {
         charging = plugged
+        if (plugged) autoHold.onNotWorn()
         aggregator.onCharging(now, plugged)
         applyHold()
     }
 
     /**
-     * Takes or drops the wake lock for the current state. Taken with a
-     * short timeout and renewed at most once a minute while holding, so a
-     * stuck thread or a missed broadcast costs at most [HOLD_TIMEOUT_MILLIS].
+     * Takes or drops the wake lock for the current state: held while
+     * bedtime mode is on or [SleepHold] sees sleep starting, the watch is
+     * worn and off the charger. Taken with a short timeout and renewed at
+     * most once a minute while holding, so a stuck thread or a missed
+     * broadcast costs at most [HOLD_TIMEOUT_MILLIS].
      */
     private fun applyHold() {
         val next = BedtimeHold.decide(bedtime?.isBedtime == true, worn, charging)
-        if (next == BedtimeHold.HOLDING) {
+        val holding = next == BedtimeHold.HOLDING || (autoHold.isHolding && worn && !charging)
+        if (holding) {
             val now = SystemClock.elapsedRealtime()
             if (!wakeLock.isHeld || now - holdRenewedAt >= HOLD_RENEW_EVERY_MILLIS) {
                 wakeLock.acquire(HOLD_TIMEOUT_MILLIS)
@@ -194,12 +217,40 @@ class SleepMinuteRecorder(
             Log.i(TAG, "Bedtime hold: $next")
             WearLinkState.update { it.copy(bedtimeHold = next) }
         }
+        setSleepHolding(holding)
+    }
+
+    private fun setSleepHolding(holding: Boolean) {
+        if (holding == isSleepHolding) return
+        isSleepHolding = holding
+        Log.i(TAG, "Sleep hold: $holding")
+        DebugProtocol.event("SleepHold", if (holding) "on" else "off", "bedtime" to (hold == BedtimeHold.HOLDING))
+        WearLinkState.update { it.copy(sleepHoldActive = holding) }
+        onSleepHoldChange(holding)
+    }
+
+    private fun feedAutoHold(closed: List<WearLinkProtocol.SleepMinute>) {
+        for (row in closed) {
+            val notWorn = row.hasFlag(WearLinkProtocol.FLAG_OFF_BODY) || row.hasFlag(WearLinkProtocol.FLAG_CHARGING)
+            autoHold.onMinute(
+                SleepHold.Minute(
+                    epochMillis = row.epochMillis,
+                    movement = row.movement,
+                    bpm = row.bpm,
+                    screenOn = row.hasFlag(WearLinkProtocol.FLAG_SCREEN_ON),
+                    steps = stepsInMinute(row.epochMillis),
+                    worn = !notWorn,
+                ),
+            )
+        }
     }
 
     private fun closeMinutes(now: Long) {
-        if (hold == BedtimeHold.HOLDING) applyHold()
+        if (wakeLock.isHeld) applyHold()
         val closed = aggregator.close(now)
         if (closed.isEmpty()) return
+        feedAutoHold(closed)
+        applyHold()
         store.putAll(WearMetrics.SLEEP_MINUTES, closed)
         Log.d(TAG, "Stored ${closed.size} minute(s) up to ${closed.last().epochMillis}")
         if (now - lastPrunedAt > PRUNE_EVERY_MILLIS) {

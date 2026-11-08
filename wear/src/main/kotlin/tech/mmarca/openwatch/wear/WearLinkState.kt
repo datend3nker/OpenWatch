@@ -32,6 +32,12 @@ data class WearLinkUiState(
     val ppgLogging: Boolean = false,
     /** Whether the sleep recorder holds the processor awake for bedtime. */
     val bedtimeHold: BedtimeHold = BedtimeHold.OFF,
+    /**
+     * True while the wake lock is held for sleep, from bedtime mode or from
+     * [SleepHold]. Night recorders (the heart rate variability one among
+     * them) run only while this is true.
+     */
+    val sleepHoldActive: Boolean = false,
 )
 
 /**

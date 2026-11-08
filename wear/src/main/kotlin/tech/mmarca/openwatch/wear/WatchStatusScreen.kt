@@ -114,7 +114,7 @@ internal fun WatchStatusScreen(
         Line(
             stringResource(
                 when (link.bedtimeHold) {
-                    BedtimeHold.OFF -> R.string.status_bedtime_off
+                    BedtimeHold.OFF -> if (link.sleepHoldActive) R.string.status_sleep_holding else R.string.status_bedtime_off
                     BedtimeHold.HOLDING -> R.string.status_bedtime_holding
                     BedtimeHold.PAUSED_OFF_WRIST -> R.string.status_bedtime_paused_off_wrist
                     BedtimeHold.PAUSED_CHARGING -> R.string.status_bedtime_paused_charging
