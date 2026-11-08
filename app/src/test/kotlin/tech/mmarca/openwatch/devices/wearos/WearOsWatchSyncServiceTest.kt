@@ -29,6 +29,7 @@ import tech.mmarca.openwatch.domain.model.DeviceIntegration
 import tech.mmarca.openwatch.healthconnect.HealthConnectGateway
 import tech.mmarca.openwatch.domain.model.WearSleepMinute
 import androidx.health.connect.client.records.HeartRateVariabilityRmssdRecord
+import androidx.health.connect.client.records.OxygenSaturationRecord
 import androidx.health.connect.client.records.RespiratoryRateRecord
 import androidx.health.connect.client.records.RestingHeartRateRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
@@ -82,6 +83,9 @@ class WearOsWatchSyncServiceTest {
     /** Breathing rate pages; with none queued the watch answers an empty page. */
     private val respiratoryPages = ArrayDeque<WearOsRespiratoryPage>()
     private var respiratoryPulls = 0
+
+    /** SpO2 pages; with none queued the watch answers an empty page. */
+    private val spo2Pages = ArrayDeque<WearOsSpo2Page>()
     private val nodePort = object : WearOsNodePort {
         override suspend fun checkStatus(targetAddress: String?, targetName: String?) = WearOsCompanionStatus()
         override suspend fun pullHeartRate(targetAddress: String?, targetName: String?, since: Instant): WearOsHeartRatePage? {
@@ -128,6 +132,9 @@ class WearOsWatchSyncServiceTest {
             respiratoryPulls++
             return respiratoryPages.removeFirstOrNull() ?: WearOsRespiratoryPage(emptyList(), hasMore = false)
         }
+
+        override suspend fun pullSpo2(targetAddress: String?, targetName: String?, since: Instant): WearOsSpo2Page? =
+            spo2Pages.removeFirstOrNull() ?: WearOsSpo2Page(emptyList(), hasMore = false)
 
         override suspend fun notifyPhoneActive(targetAddress: String?, targetName: String?, at: Instant): Boolean = false
     }
@@ -1067,7 +1074,22 @@ class WearOsWatchSyncServiceTest {
         assertEquals(t0, cursors.respiratoryCursor(WATCH.id))
     }
 
+    @Test
+    fun `an SpO2 measurement is one oxygen saturation record with a deterministic id`() = runTest {
+        pages += WearOsHeartRatePage(emptyList(), hasMore = false)
+        coEvery { healthConnect.grantedPermissions() } returns setOf(SPO2_WRITE)
+        spo2Pages += WearOsSpo2Page(listOf(WearOsSpo2Measurement(t0, 95)), hasMore = false)
+
+        service().sync(WATCH, Duration.ZERO, null)
+
+        val record = insertedOf<OxygenSaturationRecord>().single()
+        assertEquals(95.0, record.percentage.value, 1e-9)
+        assertEquals("wearos_spo2_${t0.toEpochMilli()}", record.metadata.clientRecordId)
+        assertEquals(t0, cursors.spo2Cursor(WATCH.id))
+    }
+
     private companion object {
+        val SPO2_WRITE = HealthPermission.getWritePermission(OxygenSaturationRecord::class)
         val RESPIRATORY_WRITE = HealthPermission.getWritePermission(RespiratoryRateRecord::class)
         val HRV_WRITE = HealthPermission.getWritePermission(HeartRateVariabilityRmssdRecord::class)
         const val STEP_PAGE = 2

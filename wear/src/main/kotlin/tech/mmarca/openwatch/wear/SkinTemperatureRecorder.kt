@@ -4,7 +4,10 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.util.Log
 import kotlin.math.roundToInt
+import tech.mmarca.openwatch.wear.samsung.RawPoint
+import tech.mmarca.openwatch.wear.samsung.SamsungHealthPlatform
 import tech.mmarca.openwatch.wear.samsung.SamsungHeartRateFeed
+import tech.mmarca.openwatch.wear.samsung.toSkinPoint
 import tech.mmarca.openwatch.wear.samsung.SkinPoint
 import tech.mmarca.openwatch.wearlink.WearLinkProtocol
 
@@ -13,8 +16,8 @@ import tech.mmarca.openwatch.wearlink.WearLinkProtocol
  * [WearMetrics.SKIN_TEMPERATURE] row per clock minute: the mean of the
  * minute's good points, skin and ambient.
  *
- * Runs only while sleep is held and the wearer chose the Samsung platform for
- * the heart rate or the HRV ([WearSettings]); a watch without the platform has
+ * Runs only while sleep is held and the wearer switched it on
+ * ([WearSettings.skinTemperature]); a watch without the platform has
  * no skin temperature, since the sensor itself is closed to ordinary apps.
  * In the bench test on a Galaxy Watch7 the tracker delivered nothing; the
  * debug protocol counts what arrives (`samsung.skinPoints`, `skin.*`).
@@ -22,7 +25,7 @@ import tech.mmarca.openwatch.wearlink.WearLinkProtocol
 internal class SkinTemperatureRecorder(
     private val store: MetricStore,
     private val feed: SamsungHeartRateFeed,
-) : SamsungHeartRateFeed.SkinSubscriber {
+) : SamsungHeartRateFeed.RawSubscriber {
 
     private var thread: HandlerThread? = null
 
@@ -40,7 +43,7 @@ internal class SkinTemperatureRecorder(
     private fun start() {
         if (thread != null) return
         val worker = HandlerThread("SkinTemperatureRecorder").apply { start() }
-        if (!feed.subscribeSkin(this, Handler(worker.looper))) {
+        if (!feed.subscribeRaw(SamsungHealthPlatform.TRACKER_SKIN_TEMPERATURE, this, Handler(worker.looper))) {
             worker.quitSafely()
             return
         }
@@ -50,13 +53,14 @@ internal class SkinTemperatureRecorder(
 
     fun stop() {
         val worker = thread ?: return
-        feed.unsubscribeSkin(this)
+        feed.unsubscribeRaw(SamsungHealthPlatform.TRACKER_SKIN_TEMPERATURE, this)
         worker.quitSafely()
         thread = null
         Log.i(TAG, "Skin temperature off")
     }
 
-    override fun onSkinPoints(points: List<SkinPoint>) {
+    override fun onRawPoints(raw: List<RawPoint>) {
+        val points = raw.map { it.toSkinPoint() }
         val rows = minutes(points)
         DebugProtocol.count("skin.points", points.size.toLong())
         DebugProtocol.count("skin.rows", rows.size.toLong())

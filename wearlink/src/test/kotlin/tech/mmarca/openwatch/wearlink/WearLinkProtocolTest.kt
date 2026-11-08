@@ -213,6 +213,17 @@ class WearLinkProtocolTest {
     }
 
     @Test
+    fun `an SpO2 line round-trips with or without its heart rate and refuses a failed reading`() {
+        val o2 = WearLinkProtocol.Spo2Measurement(1_700_000_300_000L, 96, 54)
+        assertEquals("O2 1700000300000 96 54", WearLinkProtocol.formatSpo2(o2))
+        assertEquals(o2, WearLinkProtocol.parseSpo2(WearLinkProtocol.formatSpo2(o2)))
+        assertEquals(o2.copy(bpm = null), WearLinkProtocol.parseSpo2("O2 1700000300000 96 -"))
+        assertNull(WearLinkProtocol.parseSpo2("O2 1700000300000 0 54"))
+        assertNull(WearLinkProtocol.parseSpo2("O2 1700000300000 101 54"))
+        assertEquals(WearLinkProtocol.Request.Spo2Since(10, 500), WearLinkProtocol.parseRequest("O2_SINCE 10 99999"))
+    }
+
+    @Test
     fun `phone active round-trips and refuses a bad time`() {
         assertEquals("PHONE_ACTIVE 1700000000000", WearLinkProtocol.formatRequest(WearLinkProtocol.Request.PhoneActive(1_700_000_000_000L)))
         assertEquals(WearLinkProtocol.Request.PhoneActive(1_700_000_000_000L), WearLinkProtocol.parseRequest("PHONE_ACTIVE 1700000000000"))

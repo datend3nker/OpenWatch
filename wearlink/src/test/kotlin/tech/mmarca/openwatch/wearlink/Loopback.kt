@@ -85,6 +85,7 @@ class MemoryHandler(
     val phoneActive: MutableList<Long> = mutableListOf(),
     var respiratory: List<WearLinkProtocol.RespiratoryWindow> = emptyList(),
     var skin: List<WearLinkProtocol.SkinMinute> = emptyList(),
+    var spo2: List<WearLinkProtocol.Spo2Measurement> = emptyList(),
     /** What one `HR_LIVE` window hands out; empty is a watch off the wrist. */
     var live: List<WearLinkProtocol.HeartRateSample> = emptyList(),
     var name: String = "Galaxy Watch8 (89FZ)",
@@ -106,6 +107,10 @@ class MemoryHandler(
     }
     override fun respiratorySince(sinceEpochMillis: Long, limit: Int): Page<WearLinkProtocol.RespiratoryWindow> {
         val newer = respiratory.filter { it.epochMillis > sinceEpochMillis }
+        return Page(newer.take(limit), newer.size > limit)
+    }
+    override fun spo2Since(sinceEpochMillis: Long, limit: Int): Page<WearLinkProtocol.Spo2Measurement> {
+        val newer = spo2.filter { it.epochMillis > sinceEpochMillis }
         return Page(newer.take(limit), newer.size > limit)
     }
     override fun skinSince(sinceEpochMillis: Long, limit: Int): Page<WearLinkProtocol.SkinMinute> {

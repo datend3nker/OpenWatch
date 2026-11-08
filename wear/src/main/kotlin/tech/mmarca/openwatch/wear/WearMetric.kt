@@ -129,5 +129,14 @@ object WearMetrics {
         onSameTime = WearMetric.OnSameTime.REPLACE,
     )
 
-    val ALL: List<WearMetric<*>> = listOf(HEART_RATE, SLEEP_MINUTES, STEPS, ASCENT, HRV, RESPIRATORY_RATE, SKIN_TEMPERATURE)
+    /** One SpO2 spot measurement at night from the Samsung platform; see `Spo2Recorder`. Final once taken. */
+    val SPO2 = WearMetric(
+        key = WearLinkProtocol.CAP_SPO2,
+        encode = WearLinkProtocol::formatSpo2,
+        decode = WearLinkProtocol::parseSpo2,
+        timeOf = { it.epochMillis },
+        onSameTime = WearMetric.OnSameTime.KEEP,
+    )
+
+    val ALL: List<WearMetric<*>> = listOf(HEART_RATE, SLEEP_MINUTES, STEPS, ASCENT, HRV, RESPIRATORY_RATE, SKIN_TEMPERATURE, SPO2)
 }

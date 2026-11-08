@@ -39,6 +39,8 @@ import java.util.UUID
  *   announcing `rr` serves it.
  * - `SK_SINCE <epochMillis> <limit>` → `SK` lines, as `HV_SINCE`; only a watch
  *   announcing `sk` serves it.
+ * - `O2_SINCE <epochMillis> <limit>` → `O2` lines, as `HV_SINCE`; only a watch
+ *   announcing `o2` serves it.
  * - `PHONE_ACTIVE <epochMillis>` → `END 0 0`. The wearer unlocked the phone at
  *   that time: they are awake, so the watch ends a sleep hold it started by
  *   itself. Only a watch announcing `pa` serves it.
@@ -54,6 +56,8 @@ import java.util.UUID
  * - `RR <epochMillis> <breaths10> <routes>` — the breathing rate of one
  *   night-time window, in tenths of a breath a minute, and how many routes
  *   (beat intervals, signal baseline) agreed on it.
+ * - `O2 <epochMillis> <percent> <bpm|->` — one SpO2 spot measurement by the
+ *   Samsung platform: its time, the saturation in percent, the heart rate.
  * - `SK <minuteMillis> <skin100> <ambient100>` — one minute of the Samsung
  *   platform's skin temperature, in hundredths of a degree Celsius.
  * - `SM <epochMillis> <kind> <offsetSeconds> <flags> <n> <mv10> <bpm|-> <hsd10|->
@@ -109,6 +113,8 @@ object WearLinkProtocol {
     const val RESPIRATORY_SINCE: String = "RR_SINCE"
     const val RESPIRATORY_WINDOW: String = "RR"
     const val SKIN_SINCE: String = "SK_SINCE"
+    const val SPO2_SINCE: String = "O2_SINCE"
+    const val SPO2_MEASUREMENT: String = "O2"
     const val SKIN_MINUTE: String = "SK"
     const val HEART_RATE_LIVE: String = "HR_LIVE"
     const val PHONE_ACTIVE: String = "PHONE_ACTIVE"
@@ -134,6 +140,9 @@ object WearLinkProtocol {
 
     /** The watch records skin temperature from the Samsung platform and serves `SK_SINCE`. */
     const val CAP_SKIN_TEMPERATURE: String = "sk"
+
+    /** The watch measures SpO2 at night with the Samsung platform and serves `O2_SINCE`. */
+    const val CAP_SPO2: String = "o2"
 
     /** The watch takes `PHONE_ACTIVE`: the phone says when the wearer used it. */
     const val CAP_PHONE_ACTIVE: String = "pa"
@@ -184,6 +193,7 @@ object WearLinkProtocol {
         data class PhoneActive(val epochMillis: Long) : Request()
         data class RespiratorySince(val sinceEpochMillis: Long, val limit: Int) : Request()
         data class SkinSince(val sinceEpochMillis: Long, val limit: Int) : Request()
+        data class Spo2Since(val sinceEpochMillis: Long, val limit: Int) : Request()
         data class LiveHeartRate(val seconds: Int) : Request()
     }
 
@@ -244,6 +254,7 @@ object WearLinkProtocol {
         is Request.HrvSince -> formatHrvRequest(request.sinceEpochMillis, request.limit)
         is Request.PhoneActive -> "$PHONE_ACTIVE ${request.epochMillis}"
         is Request.RespiratorySince -> "$RESPIRATORY_SINCE ${request.sinceEpochMillis} ${request.limit.coerceIn(1, MAX_WINDOWS_PER_REQUEST)}"
+        is Request.Spo2Since -> "$SPO2_SINCE ${request.sinceEpochMillis} ${request.limit.coerceIn(1, MAX_WINDOWS_PER_REQUEST)}"
         is Request.SkinSince -> "$SKIN_SINCE ${request.sinceEpochMillis} ${request.limit.coerceIn(1, MAX_SKIN_MINUTES_PER_REQUEST)}"
         is Request.LiveHeartRate -> "$HEART_RATE_LIVE ${request.seconds.coerceIn(1, MAX_LIVE_SECONDS)}"
     }
@@ -264,6 +275,7 @@ object WearLinkProtocol {
         }
         parsePhoneActive(line)?.let { return it }
         parseSinceRequest(line, RESPIRATORY_SINCE, MAX_WINDOWS_PER_REQUEST)?.let { (since, limit) -> return Request.RespiratorySince(since, limit) }
+        parseSinceRequest(line, SPO2_SINCE, MAX_WINDOWS_PER_REQUEST)?.let { (since, limit) -> return Request.Spo2Since(since, limit) }
         parseSinceRequest(line, SKIN_SINCE, MAX_SKIN_MINUTES_PER_REQUEST)?.let { (since, limit) -> return Request.SkinSince(since, limit) }
         parseLiveRequest(line)?.let { return Request.LiveHeartRate(it) }
         return null
@@ -332,6 +344,9 @@ object WearLinkProtocol {
     data class RespiratoryWindow(val epochMillis: Long, val breaths10: Int, val routes: Int) {
         val breathsPerMinute: Double get() = breaths10 / 10.0
     }
+
+    /** One SpO2 spot measurement, keyed on its time; [bpm] is the heart rate the platform took with it. */
+    data class Spo2Measurement(val epochMillis: Long, val percent: Int, val bpm: Int?)
 
     /** One minute of skin temperature, keyed on the minute's start, in hundredths of a degree Celsius. */
     data class SkinMinute(val epochMillis: Long, val skin100: Int, val ambient100: Int) {
@@ -466,6 +481,20 @@ object WearLinkProtocol {
         val routes = fields[3].toIntOrNull() ?: return null
         if (at <= 0 || breaths10 !in MIN_BREATHS10..MAX_BREATHS10 || routes !in 1..2) return null
         return RespiratoryWindow(at, breaths10, routes)
+    }
+
+    fun formatSpo2(measurement: Spo2Measurement): String =
+        "$SPO2_MEASUREMENT ${measurement.epochMillis} ${measurement.percent} ${measurement.bpm ?: NO_VALUE}"
+
+    /** Null unless [line] is a well-formed `O2` line: a time, 70 to 100 percent, and a plausible heart rate or none. */
+    fun parseSpo2(line: String): Spo2Measurement? {
+        val fields = fields(line)
+        if (fields.size != 4 || fields[0] != SPO2_MEASUREMENT) return null
+        val at = fields[1].toLongOrNull() ?: return null
+        val percent = fields[2].toIntOrNull() ?: return null
+        val bpm = if (fields[3] == NO_VALUE) null else fields[3].toIntOrNull() ?: return null
+        if (at <= 0 || percent !in MIN_SPO2..MAX_SPO2 || (bpm != null && bpm !in MIN_BPM..MAX_BPM)) return null
+        return Spo2Measurement(at, percent, bpm)
     }
 
     fun formatSkinMinute(minute: SkinMinute): String = "$SKIN_MINUTE ${minute.epochMillis} ${minute.skin100} ${minute.ambient100}"
@@ -634,6 +663,10 @@ object WearLinkProtocol {
     /** 6 to 30 breaths a minute, in tenths: the band the estimate reads. */
     const val MIN_BREATHS10: Int = 60
     const val MAX_BREATHS10: Int = 300
+
+    /** Below 70 percent the reading is a failed measurement, not a sleeper. */
+    const val MIN_SPO2: Int = 70
+    const val MAX_SPO2: Int = 100
 
     /** A wrist reads 20 to 42 °C; the air around it -20 to 50 °C. In hundredths. */
     const val MIN_SKIN100: Int = 2000

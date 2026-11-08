@@ -54,6 +54,8 @@ internal class HeartRateRecorder(
     private val samsungFeed: SamsungHeartRateFeed,
     /** Told at each batch, so every sensor's buffer is emptied in the same wake-up. */
     private val wakeSync: SensorWakeSync? = null,
+    /** The source in use changed by itself (a fall-back to the sensor). Called on the recorder's thread. */
+    private val onSourceChanged: () -> Unit = {},
     /** Every stored sample, for the sleep minute recorder. Called on this recorder's thread. */
     private val onSample: (epochMillis: Long, bpm: Int) -> Unit = { _, _ -> },
     /** False when the sensor reported no contact, an unreliable reading or 0 bpm. */
@@ -89,6 +91,16 @@ internal class HeartRateRecorder(
     internal var source: WearSettings.Source = WearSettings.Source.RAW_SENSOR
         private set
 
+    /** The source the plan asked for; [source] differs from it after a fall-back. */
+    @Volatile
+    private var requestedSource: WearSettings.Source = WearSettings.Source.RAW_SENSOR
+
+    /** Set when the Samsung platform failed; the sensor stands in until [resetFallBack]. */
+    @Volatile
+    private var samsungFailed = false
+    private var samsungDelivered = false
+    private val noDataTask = Runnable { fallBack("no_data") }
+
     private var sensor: Sensor? = null
     private var lastStoredAt = 0L
     private var lastPrunedAt = 0L
@@ -113,10 +125,11 @@ internal class HeartRateRecorder(
      */
     internal fun setPlan(wanted: HeartRateInterval, wantedSource: WearSettings.Source): Boolean {
         val running = wanted != HeartRateInterval.OFF && thread != null
-        if (wanted == interval && (wanted == HeartRateInterval.OFF || (running && wantedSource == source))) return true
+        if (wanted == interval && (wanted == HeartRateInterval.OFF || (running && wantedSource == requestedSource))) return true
         stop()
+        requestedSource = wantedSource
         if (wanted == HeartRateInterval.OFF) return true
-        val started = if (wantedSource == WearSettings.Source.SAMSUNG_PLATFORM && samsungFeed.isAvailable) {
+        val started = if (wantedSource == WearSettings.Source.SAMSUNG_PLATFORM && samsungFeed.isAvailable && !samsungFailed) {
             startSamsung(wanted)
         } else {
             start(wanted)
@@ -156,11 +169,15 @@ internal class HeartRateRecorder(
         interval = wanted
         source = WearSettings.Source.SAMSUNG_PLATFORM
         subscribedAt = System.currentTimeMillis()
+        samsungDelivered = false
         if (!samsungFeed.subscribe(this, workerHandler)) {
             Log.w(TAG, "Samsung platform refused")
             stop()
-            return false
+            samsungFailed = true
+            DebugProtocol.event("HeartRate", "fallback", "why" to "bind_refused")
+            return start(wanted)
         }
+        workerHandler.postDelayed(noDataTask, FIRST_POINT_TIMEOUT_MILLIS)
         Log.i(TAG, "Recording heart rate from the Samsung platform")
         return true
     }
@@ -289,8 +306,33 @@ internal class HeartRateRecorder(
         if (interval == HeartRateInterval.POWER_SAVE && windowOpen) closeWindow()
     }
 
+    override fun onError() {
+        handler?.post { fallBack("error") }
+    }
+
+    /** The Samsung platform failed or stayed silent: the sensor takes over at the same interval. Recorder thread. */
+    private fun fallBack(why: String) {
+        if (source != WearSettings.Source.SAMSUNG_PLATFORM || thread == null) return
+        val keep = interval
+        Log.w(TAG, "Samsung platform failed, falling back to the sensor")
+        DebugProtocol.event("HeartRate", "fallback", "why" to why)
+        samsungFailed = true
+        stop()
+        start(keep)
+        onSourceChanged()
+    }
+
+    /** The wearer changed a setting: the Samsung platform may be tried again. */
+    fun resetFallBack() {
+        samsungFailed = false
+    }
+
     override fun onPoints(points: List<IbiPoint>) {
         if (source != WearSettings.Source.SAMSUNG_PLATFORM || thread == null) return
+        if (!samsungDelivered && points.any { it.hasHeartRate }) {
+            samsungDelivered = true
+            handler?.removeCallbacks(noDataTask)
+        }
         for (point in points) {
             // The first delivery can reach back before the subscription; that part is not this recording.
             if (point.epochMillis < subscribedAt - SensorTime.MAX_EVENT_AGE_MILLIS) continue
@@ -364,6 +406,9 @@ internal class HeartRateRecorder(
 
         const val PRUNE_EVERY_MILLIS = 6L * 60 * 60 * 1000
         const val SKIP_LOG_EVERY_MILLIS = 60_000L
+
+        /** The platform's first point came after 125 s on a fresh boot; past this it is taken as silent. */
+        const val FIRST_POINT_TIMEOUT_MILLIS = 5L * 60 * 1000
 
         /** Readings closer than this arrived in one batch, one wake-up. */
         const val BATCH_GAP_MILLIS = 2_000L

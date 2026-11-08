@@ -39,6 +39,10 @@
     <string name="settings_sleep_hold_synced">Sleep: synced wake-ups</string>
     <string name="settings_heart_rate_source_sensor">Heart rate: sensor</string>
     <string name="settings_heart_rate_source_samsung">Heart rate: Samsung platform</string>
+    <string name="settings_skin_temperature_off">Skin temperature: off</string>
+    <string name="settings_skin_temperature_on">Skin temperature: Samsung, at night</string>
+    <string name="settings_spo2_off">SpO2: off</string>
+    <string name="settings_spo2_on">SpO2: Samsung, hourly at night</string>
     <string name="status_hrv_source_ppg">HRV: raw PPG</string>
     <string name="status_hrv_source_samsung">HRV: Samsung platform</string>
     <string name="status_hrv_source_samsung_note">Samsung platform: needs Health Platform Developer Mode. Without it the platform asks Samsung about this app.</string>

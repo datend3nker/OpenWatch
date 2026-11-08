@@ -25,6 +25,8 @@ internal object WearSettings {
     private const val KEY_HEART_RATE_SOURCE = "heart_rate_source"
     private const val KEY_HRV_SOURCE = "hrv_source"
     private const val KEY_SYNCED_SLEEP_HOLD = "synced_sleep_hold"
+    private const val KEY_SKIN_TEMPERATURE = "skin_temperature"
+    private const val KEY_SPO2 = "spo2_at_night"
 
     fun heartRateDay(context: Context): HeartRateInterval =
         prefs(context).getString(KEY_HEART_RATE_DAY, null)?.let(HeartRateInterval::fromWire)
@@ -53,6 +55,20 @@ internal object WearSettings {
 
     fun setSyncedSleepHold(context: Context, synced: Boolean) {
         prefs(context).edit().putBoolean(KEY_SYNCED_SLEEP_HOLD, synced).apply()
+    }
+
+    /** Skin temperature at night from the Samsung platform, the only source. Off by default. */
+    fun skinTemperature(context: Context): Boolean = prefs(context).getBoolean(KEY_SKIN_TEMPERATURE, false)
+
+    fun setSkinTemperature(context: Context, on: Boolean) {
+        prefs(context).edit().putBoolean(KEY_SKIN_TEMPERATURE, on).apply()
+    }
+
+    /** SpO2 spot measurements at night from the Samsung platform, the only source. Off by default. */
+    fun spo2AtNight(context: Context): Boolean = prefs(context).getBoolean(KEY_SPO2, false)
+
+    fun setSpo2AtNight(context: Context, on: Boolean) {
+        prefs(context).edit().putBoolean(KEY_SPO2, on).apply()
     }
 
     private fun source(context: Context, key: String): Source {

@@ -142,6 +142,17 @@ class WearOsWatchSyncService(
         label = "breathing",
     )
 
+    private val spo2 = WearOsWindowSync<WearOsSpo2Measurement>(
+        importRepository = importRepository,
+        granted = { healthConnect.grantedPermissions() },
+        writePermission = WearOsSpo2Import.writePermission,
+        cursor = cursors::spo2Cursor,
+        setCursor = cursors::setSpo2Cursor,
+        startOf = { it.time },
+        record = { WearOsSpo2Import.record(it, zone()) },
+        label = "spo2",
+    )
+
     init {
         WearOsLog.installLogcatSink()
     }
@@ -172,6 +183,7 @@ class WearOsWatchSyncService(
             if (!pullSleep(device, progress)) return notPaired(device)
             if (!pullHrv(device, progress)) return notPaired(device)
             if (writeRespiratoryRate() && !pullRespiratory(device, progress)) return notPaired(device)
+            if (!pullSpo2(device, progress)) return notPaired(device)
         } catch (error: CancellationException) {
             throw error
         } catch (failure: WearOsLinkFailure) {
@@ -557,6 +569,24 @@ class WearOsWatchSyncService(
             WearOsLog.log("breathing: not written, Health Connect permission missing")
         }
         WearOsLog.log("breathing: ${outcome.written} window(s) written")
+        return true
+    }
+
+    /**
+     * The watch's SpO2 spot measurements, written as `OxygenSaturationRecord`s.
+     * A missing grant leaves them on the watch and the sync goes on. False
+     * when no bonded watch matches.
+     */
+    private suspend fun pullSpo2(device: BleSensorDevice, progress: Progress): Boolean {
+        val outcome = spo2.sync(device.id) { since ->
+            retryOnce { nodePort.pullSpo2(device.address, device.bluetoothName, since) }?.let { it.measurements to it.hasMore }
+        } ?: return false
+        if (outcome.withheld) {
+            progress.unwritten += UnwrittenSeries.OXYGEN_SATURATION
+            progress.withheldPermissions += WearOsSpo2Import.writePermission
+            WearOsLog.log("spo2: not written, Health Connect permission missing")
+        }
+        WearOsLog.log("spo2: ${outcome.written} measurement(s) written")
         return true
     }
 

@@ -115,7 +115,7 @@ chosen on the status screen of a watch that has the platform (`WearSettings`):
 `HeartRateRecorder`, for the heart rate itself (the platform then sets the pace and the
 batching; with the screen off a delivery can be minutes late, so the sleep minutes count such
 a heart rate as not dense and the step counter wakes the watch itself), and the night-time HRV
-windows. The night-time HRV windows take their beats from an `HrvWindowSource`:
+windows. The same binding carries the platform's other trackers, one per type (the platform keeps one client per package with one tracker per type): skin temperature at night and SpO2 spot measurements, each switched on by itself on a watch with the platform. The night-time HRV windows take their beats from an `HrvWindowSource`:
 `PpgWindowSource` (Samsung's raw PPG, beats found by `PpgBeats`) by default, or
 `SamsungIbiSource` (the platform's own intervals, through `SamsungHealthPlatform`, the
 clean-room client in `wear/.../samsung/`) once chosen on the status screen. The choice

@@ -29,6 +29,8 @@ internal fun WatchSettingsSection(context: Context) {
     var heartRateSource by remember { mutableStateOf(WearSettings.heartRateSource(context)) }
     var hrvSource by remember { mutableStateOf(WearSettings.hrvSource(context)) }
     var synced by remember { mutableStateOf(WearSettings.syncedSleepHold(context)) }
+    var skin by remember { mutableStateOf(WearSettings.skinTemperature(context)) }
+    var spo2 by remember { mutableStateOf(WearSettings.spo2AtNight(context)) }
 
     val powerSave = day == HeartRateInterval.POWER_SAVE
     Toggle(stringResource(if (powerSave) R.string.settings_heart_rate_power_save else R.string.settings_heart_rate_every_10_seconds)) {
@@ -56,7 +58,17 @@ internal fun WatchSettingsSection(context: Context) {
         WearSettings.setHrvSource(context, hrvSource)
         WearAppService.settingsChanged(context)
     }
-    if (heartRateSamsung || hrvSamsung) Line(stringResource(R.string.status_hrv_source_samsung_note))
+    Toggle(stringResource(if (skin) R.string.settings_skin_temperature_on else R.string.settings_skin_temperature_off)) {
+        skin = !skin
+        WearSettings.setSkinTemperature(context, skin)
+        WearAppService.settingsChanged(context)
+    }
+    Toggle(stringResource(if (spo2) R.string.settings_spo2_on else R.string.settings_spo2_off)) {
+        spo2 = !spo2
+        WearSettings.setSpo2AtNight(context, spo2)
+        WearAppService.settingsChanged(context)
+    }
+    if (heartRateSamsung || hrvSamsung || skin || spo2) Line(stringResource(R.string.status_hrv_source_samsung_note))
 }
 
 private fun flip(source: WearSettings.Source): WearSettings.Source =

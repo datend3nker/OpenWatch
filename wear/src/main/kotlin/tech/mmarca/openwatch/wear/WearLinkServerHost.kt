@@ -26,7 +26,7 @@ class WearLinkServerHost(
     live: LiveHeartRate,
     /** Whether the watch has the raw PPG sensor a night-time HRV window needs. */
     hrvAvailable: () -> Boolean,
-    /** Whether the watch has the Samsung platform, the only source of skin temperature. */
+    /** Whether the watch has the Samsung platform, the only source of skin temperature and SpO2. */
     skinAvailable: () -> Boolean,
     /** The phone reported the wearer active at the given time. Called on the link's thread. */
     onPhoneActive: (Long) -> Unit,
@@ -128,7 +128,10 @@ class WearLinkServerHost(
                 remove(WearLinkProtocol.CAP_HRV)
                 remove(WearLinkProtocol.CAP_RESPIRATORY_RATE)
             }
-            if (!skinAvailable()) remove(WearLinkProtocol.CAP_SKIN_TEMPERATURE)
+            if (!skinAvailable()) {
+                remove(WearLinkProtocol.CAP_SKIN_TEMPERATURE)
+                remove(WearLinkProtocol.CAP_SPO2)
+            }
             add(WearLinkProtocol.CAP_PHONE_ACTIVE)
         }
 
@@ -148,6 +151,9 @@ class WearLinkServerHost(
 
         override fun respiratorySince(sinceEpochMillis: Long, limit: Int): Page<WearLinkProtocol.RespiratoryWindow> =
             page(WearMetrics.RESPIRATORY_RATE, sinceEpochMillis, limit)
+
+        override fun spo2Since(sinceEpochMillis: Long, limit: Int): Page<WearLinkProtocol.Spo2Measurement> =
+            page(WearMetrics.SPO2, sinceEpochMillis, limit)
 
         override fun skinSince(sinceEpochMillis: Long, limit: Int): Page<WearLinkProtocol.SkinMinute> =
             page(WearMetrics.SKIN_TEMPERATURE, sinceEpochMillis, limit)

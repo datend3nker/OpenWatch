@@ -67,6 +67,9 @@ interface WearLinkRequestHandler {
     fun respiratorySince(sinceEpochMillis: Long, limit: Int): Page<WearLinkProtocol.RespiratoryWindow>
 
     /** The skin temperature minutes newer than [sinceEpochMillis]. Only called when the watch advertised [WearLinkProtocol.CAP_SKIN_TEMPERATURE]. */
+    /** The SpO2 spot measurements newer than [sinceEpochMillis]. Only called when the watch advertised [WearLinkProtocol.CAP_SPO2]. */
+    fun spo2Since(sinceEpochMillis: Long, limit: Int): Page<WearLinkProtocol.Spo2Measurement>
+
     fun skinSince(sinceEpochMillis: Long, limit: Int): Page<WearLinkProtocol.SkinMinute>
 
     /**

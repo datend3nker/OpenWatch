@@ -170,7 +170,7 @@ def samsung_lag(snaps):
 
 
 def breathing_and_skin(snaps, events):
-    print("\n## 7. Breathing rate and skin temperature\n")
+    print("\n## 7. Breathing rate, skin temperature, SpO2 and fall-backs\n")
     windows = [e for e in events if e["src"] == "NightHrv" and e["ev"] in ("ppg_window", "samsung_window")]
     for e in windows:
         if e["ev"] == "ppg_window":
@@ -181,9 +181,19 @@ def breathing_and_skin(snaps, events):
         print("no night windows")
     c = collections.Counter()
     for s in snaps:
-        c.update({k: v for k, v in s.get("c", {}).items() if k.startswith("skin.") or k == "samsung.skinPoints"})
+        c.update({k: v for k, v in s.get("c", {}).items() if k.startswith("skin.") or k == "samsung.points.SKIN_TEMPERATURE_CONTINUOUS"})
+    o2 = [e for e in events if e["src"] == "Spo2" and e["ev"] == "ended"]
+    if o2:
+        done = [e for e in o2 if e.get("percent") is not None]
+        print(f"SpO2 measurements {len(o2)}, completed {len(done)}"
+              + (f", {statistics.median(e['afterMs'] for e in done) / 1000:.0f} s median" if done else "")
+              + "".join(f"\n  {when(e['t'])}  {e['percent']} %  {e.get('bpm')} bpm" for e in done)
+              + "".join(f"\n  {when(e['t'])}  failed: {e['why']}{' (moving)' if e.get('moving') else ''}" for e in o2 if e.get("percent") is None))
+    fallbacks = [e for e in events if e["ev"] == "fallback"]
+    for e in fallbacks:
+        print(f"fallback to the raw sensor: {e['src']} at {when(e['t'])} ({e.get('why', 'window failed')})")
     started = [e for e in events if e["src"] == "SamsungFeed" and e.get("type") == "SKIN_TEMPERATURE_CONTINUOUS"]
-    print(f"skin tracker events {len(started)}, points {c.get('samsung.skinPoints', 0)}, stored minutes {c.get('skin.rows', 0)}")
+    print(f"skin tracker events {len(started)}, points {c.get('samsung.points.SKIN_TEMPERATURE_CONTINUOUS', 0)}, stored minutes {c.get('skin.rows', 0)}")
 
 
 def holds(snaps, events):

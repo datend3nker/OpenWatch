@@ -203,6 +203,7 @@ internal class SamsungHealthPlatform(
         private const val LISTENER_TOKEN = "com.samsung.android.service.health.tracking.IServiceEventListener"
         const val TRACKER_HEART_RATE = "HEART_RATE"
         const val TRACKER_SKIN_TEMPERATURE = "SKIN_TEMPERATURE_CONTINUOUS"
+        const val TRACKER_SPO2 = "SPO2"
         private const val TX_CREATE = 1
         private const val TX_SET_LISTENER = 2
         private const val TX_UNSET_LISTENER = 3
@@ -258,3 +259,20 @@ internal class SkinPoint(val epochMillis: Long, val objectCelsius: Float, val am
 
 internal fun RawPoint.toSkinPoint(): SkinPoint =
     SkinPoint(epochMillis, floats.getOrElse(0) { Float.NaN }, floats.getOrElse(1) { Float.NaN }, ints.getOrElse(2) { 0 })
+
+/**
+ * An SpO2 point: the status at int 0 (2 when the measurement completed, -4
+ * when the watch moved, -6 after the measurement ended, 0 while it runs, as
+ * seen on a Galaxy Watch7), the percentage at 1, the heart rate at 2.
+ */
+internal class Spo2Point(val epochMillis: Long, val status: Int, val percent: Int, val bpm: Int) {
+    val isComplete: Boolean get() = status == STATUS_COMPLETED && percent in 70..100
+
+    companion object {
+        const val STATUS_COMPLETED = 2
+        const val STATUS_MOVING = -4
+    }
+}
+
+internal fun RawPoint.toSpo2Point(): Spo2Point =
+    Spo2Point(epochMillis, ints.getOrElse(0) { 0 }, ints.getOrElse(1) { 0 }, ints.getOrElse(2) { 0 })

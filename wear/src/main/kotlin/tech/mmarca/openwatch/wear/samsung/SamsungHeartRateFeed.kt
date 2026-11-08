@@ -9,7 +9,7 @@ import tech.mmarca.openwatch.wear.DebugProtocol
 /**
  * The one connection this app holds to the Samsung Health Platform, shared
  * by everything that reads it: the heart rate tracker (the heart rate
- * recorder and the HRV window) and the skin temperature tracker. The
+ * recorder and the HRV window) and the other trackers (skin temperature, SpO2). The
  * platform keeps one client per package, so a second binding of its own
  * would be no gain; one binding with one tracker per type is what it serves.
  *
@@ -30,13 +30,14 @@ internal class SamsungHeartRateFeed(private val context: Context) {
         fun onError() = Unit
     }
 
-    fun interface SkinSubscriber {
-        fun onSkinPoints(points: List<SkinPoint>)
+    /** A reader of one other tracker type (skin temperature, SpO2): the raw points, decoded by the reader. */
+    fun interface RawSubscriber {
+        fun onRawPoints(points: List<RawPoint>)
     }
 
     private val lock = Any()
     private val subscribers = LinkedHashMap<Subscriber, Handler>()
-    private val skinSubscribers = LinkedHashMap<SkinSubscriber, Handler>()
+    private val rawSubscribers = LinkedHashMap<String, LinkedHashMap<RawSubscriber, Handler>>()
     private var thread: HandlerThread? = null
     private var handler: Handler? = null
     private var platform: SamsungHealthPlatform? = null
@@ -62,20 +63,23 @@ internal class SamsungHeartRateFeed(private val context: Context) {
         untrack(SamsungHealthPlatform.TRACKER_HEART_RATE)
     }
 
-    /** Joins the skin temperature and starts its tracker if this is the first. */
-    fun subscribeSkin(subscriber: SkinSubscriber, handler: Handler): Boolean = synchronized(lock) {
-        skinSubscribers[subscriber] = handler
+    /** Joins tracker [type] and starts it if this is its first reader. False when the platform refused the bind. */
+    fun subscribeRaw(type: String, subscriber: RawSubscriber, handler: Handler): Boolean = synchronized(lock) {
+        val readers = rawSubscribers.getOrPut(type) { LinkedHashMap() }
+        readers[subscriber] = handler
         if (!ensurePlatform()) {
-            skinSubscribers.remove(subscriber)
+            readers.remove(subscriber)
             return false
         }
-        if (skinSubscribers.size == 1) track(SamsungHealthPlatform.TRACKER_SKIN_TEMPERATURE, subscriber.javaClass.simpleName)
+        if (readers.size == 1) track(type, subscriber.javaClass.simpleName)
         true
     }
 
-    fun unsubscribeSkin(subscriber: SkinSubscriber) = synchronized(lock) {
-        if (skinSubscribers.remove(subscriber) == null || skinSubscribers.isNotEmpty()) return
-        untrack(SamsungHealthPlatform.TRACKER_SKIN_TEMPERATURE)
+    fun unsubscribeRaw(type: String, subscriber: RawSubscriber) = synchronized(lock) {
+        val readers = rawSubscribers[type] ?: return
+        if (readers.remove(subscriber) == null || readers.isNotEmpty()) return
+        rawSubscribers.remove(type)
+        untrack(type)
     }
 
     /** Asks the platform for the heart rate points it still batches. False when the tracker is not connected. */
@@ -120,7 +124,7 @@ internal class SamsungHeartRateFeed(private val context: Context) {
                 onFlushed = ::flushed,
             )
             else -> SamsungHealthPlatform.Tracker(
-                onPoints = { raw -> deliverSkin(raw.map { it.toSkinPoint() }) },
+                onPoints = { raw -> deliverRaw(type, raw) },
                 onFlushed = {},
             )
         }
@@ -132,7 +136,7 @@ internal class SamsungHeartRateFeed(private val context: Context) {
         val client = platform ?: return
         val workerHandler = handler ?: return
         DebugProtocol.event("SamsungFeed", "stopped", "type" to type, "ranMs" to SystemClock.elapsedRealtime() - (startedAt[type] ?: 0L))
-        val last = subscribers.isEmpty() && skinSubscribers.isEmpty()
+        val last = subscribers.isEmpty() && rawSubscribers.isEmpty()
         val worker = thread
         workerHandler.post {
             client.untrack(type)
@@ -170,12 +174,12 @@ internal class SamsungHeartRateFeed(private val context: Context) {
         forEach { it.onPoints(points) }
     }
 
-    private fun deliverSkin(points: List<SkinPoint>) {
+    private fun deliverRaw(type: String, points: List<RawPoint>) {
         if (points.isEmpty()) return
-        firstDelivery(SamsungHealthPlatform.TRACKER_SKIN_TEMPERATURE, points.size, 0)
-        DebugProtocol.count("samsung.skinPoints", points.size.toLong())
-        val targets = synchronized(lock) { skinSubscribers.toList() }
-        for ((subscriber, target) in targets) target.post { subscriber.onSkinPoints(points) }
+        firstDelivery(type, points.size, 0)
+        DebugProtocol.count("samsung.points.$type", points.size.toLong())
+        val targets = synchronized(lock) { rawSubscribers[type]?.toList().orEmpty() }
+        for ((subscriber, target) in targets) target.post { subscriber.onRawPoints(points) }
     }
 
     private fun flushed() {

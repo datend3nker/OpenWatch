@@ -113,6 +113,8 @@ class WearLinkLoopbackTest {
         loopback.handler.skin = listOf(WearLinkProtocol.SkinMinute(1_700_000_040_000L, 3412, 2250))
         assertEquals(loopback.handler.respiratory, (session.pullRespiratory(0, 500) as WearLinkOutcome.Ok).value.items)
         assertEquals(loopback.handler.skin, (session.pullSkin(0, 2000) as WearLinkOutcome.Ok).value.items)
+        loopback.handler.spo2 = listOf(WearLinkProtocol.Spo2Measurement(1_700_000_300_000L, 96, 54))
+        assertEquals(loopback.handler.spo2, (session.pullSpo2(0, 500) as WearLinkOutcome.Ok).value.items)
         assertEquals(listOf(1_700_000_200_000L), loopback.handler.phoneActive)
         assertFalse(link.serverReturned())
         session.close()

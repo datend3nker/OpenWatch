@@ -52,6 +52,10 @@ internal class NightHrvRecorder(
     private var finishing = false
     private var pending: Pending? = null
 
+    /** Set when a Samsung window failed; the raw PPG stands in until [resetFallBack]. */
+    @Volatile
+    private var samsungFailed = false
+
     private class Pending(val startMillis: Long, val endMillis: Long, val result: NightWindowResult)
 
     /** Whether the Samsung Health Platform can be chosen as the source on this watch. */
@@ -72,9 +76,14 @@ internal class NightHrvRecorder(
 
     /** The source chosen now, or the raw PPG when the choice is not on this watch. */
     private fun chosenSource(): HrvWindowSource? = when {
-        WearSettings.hrvSource(context) == WearSettings.Source.SAMSUNG_PLATFORM && samsung.isAvailable -> samsung
+        WearSettings.hrvSource(context) == WearSettings.Source.SAMSUNG_PLATFORM && samsung.isAvailable && !samsungFailed -> samsung
         ppg.isAvailable -> ppg
         else -> null
+    }
+
+    /** The wearer changed a setting: the Samsung platform may be tried again. */
+    fun resetFallBack() {
+        samsungFailed = false
     }
 
     private fun start() {
@@ -149,6 +158,11 @@ internal class NightHrvRecorder(
         finishing = true
         finished.finish(now) { result ->
             finishing = false
+            if (finished === samsung && samsung.lastWindowFailed && !samsungFailed) {
+                samsungFailed = true
+                Log.w(TAG, "Samsung platform failed, the next windows use the raw PPG")
+                DebugProtocol.event("NightHrv", "fallback", "startedAt" to started)
+            }
             if (wakeLock.isHeld) wakeLock.release()
             if (result.isEmpty) {
                 Log.i(TAG, "Window gave no value")

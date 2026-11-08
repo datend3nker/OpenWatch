@@ -25,6 +25,10 @@ internal class SamsungIbiSource(private val feed: SamsungHeartRateFeed) : HrvWin
     private var waiting: (() -> Unit)? = null
     private var subscribed = false
 
+    /** Whether the last window ended with a platform error or no point at all: the platform is not serving. */
+    var lastWindowFailed: Boolean = false
+        private set
+
     override val isAvailable: Boolean
         get() = feed.isAvailable
 
@@ -60,6 +64,7 @@ internal class SamsungIbiSource(private val feed: SamsungHeartRateFeed) : HrvWin
             workerHandler.removeCallbacksAndMessages(FLUSH_TOKEN)
             val intervals = SamsungIbiWindow.intervals(points, startedAt, endMillis)
             val hadError = failed
+            lastWindowFailed = hadError || points.isEmpty()
             val result = if (hadError) null else HrvRmssd.ofIntervals(intervals)
             val (times, values) = SamsungIbiWindow.timedIntervals(points, startedAt, endMillis)
             val breathing = if (hadError) null else RespiratoryRate.fromIntervalSeries(times, values)

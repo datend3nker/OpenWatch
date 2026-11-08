@@ -163,6 +163,19 @@ class BluetoothWearOsNodePort @Inject constructor(
         }
     }
 
+    override suspend fun pullSpo2(
+        targetAddress: String?,
+        targetName: String?,
+        since: Instant,
+    ): WearOsSpo2Page? = withContext(Dispatchers.IO) {
+        val match = bondedWatchOrNull(targetAddress, targetName) ?: return@withContext null
+        withSession(match, targetAddress, PULL_TIMEOUT_MS) { session ->
+            if (WearLinkProtocol.CAP_SPO2 !in session.peer.capabilities) return@withSession WearOsSpo2Page(emptyList(), false)
+            val page = unwrap(session.pullSpo2(since.toEpochMilli(), WearLinkProtocol.MAX_WINDOWS_PER_REQUEST))
+            WearOsSpo2Page(page.items.map { WearOsSpo2Measurement(Instant.ofEpochMilli(it.epochMillis), it.percent) }, page.more)
+        }
+    }
+
     override suspend fun notifyPhoneActive(
         targetAddress: String?,
         targetName: String?,
