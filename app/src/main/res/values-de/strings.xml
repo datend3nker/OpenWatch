@@ -91,6 +91,7 @@
     <string name="settings_watch_wearos_needs_weight_read">Gehkalorien nicht geschätzt: Trage dein Gewicht im Körperprofil ein oder erlaube OpenWatch, dein Gewicht in Health Connect zu lesen.</string>
     <string name="settings_watch_wearos_needs_steps_write">Schritte nicht geschrieben: Erlaube OpenWatch, Schritte in Health Connect zu schreiben, und synchronisiere erneut.</string>
     <string name="settings_watch_wearos_needs_calories_write">Gehkalorien nicht geschrieben: Erlaube OpenWatch, in Health Connect aktive Kalorien zu schreiben und Trainings zu lesen, damit sie ab dem nächsten Sync geschätzt werden.</string>
+    <string name="settings_watch_wearos_needs_hrv_write">Herzfrequenzvariabilität nicht geschrieben: Erlaube OpenWatch, sie in Health Connect zu schreiben, und synchronisiere dann erneut.</string>
     <string name="settings_watch_wearos_needs_resting_heart_rate">Ruheherzfrequenz nicht geschrieben: Erlaube OpenWatch, in Health Connect die Ruheherzfrequenz zu lesen und zu schreiben, damit sie ab dem nächsten Sync geschätzt wird.</string>
     <plurals name="settings_watch_wearos_synced_samples">
         <item quantity="one">%1$d Herzfrequenz-Messwert synchronisiert</item>

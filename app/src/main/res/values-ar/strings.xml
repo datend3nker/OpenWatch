@@ -7,4 +7,5 @@
     <string name="action_grant">منح</string>
     <string name="action_grant_permission">منح الإذن</string>
     <string name="action_not_now">ليس الأن</string>
+    <string name="settings_watch_wearos_needs_hrv_write">لم يُكتب تقلّب معدل ضربات القلب: اسمح لـ OpenWatch بكتابته في Health Connect، ثم زامن مرة أخرى.</string>
 </resources>

@@ -55,12 +55,21 @@ class WearOsSyncCursorStore(private val prefs: SharedPreferences) {
         prefs.edit { putLong(ascentKey(deviceId), at.toEpochMilli()) }
     }
 
+    /** The HRV cursor: the start of the newest window written. [Instant.EPOCH] for a watch never synced. */
+    fun hrvCursor(deviceId: String): Instant =
+        Instant.ofEpochMilli(prefs.getLong(hrvKey(deviceId), 0L))
+
+    fun setHrvCursor(deviceId: String, at: Instant) {
+        prefs.edit { putLong(hrvKey(deviceId), at.toEpochMilli()) }
+    }
+
     fun clear(deviceId: String) {
         prefs.edit {
             remove(key(deviceId))
             remove(sleepKey(deviceId))
             remove(stepsKey(deviceId))
             remove(ascentKey(deviceId))
+            remove(hrvKey(deviceId))
         }
     }
 
@@ -71,6 +80,8 @@ class WearOsSyncCursorStore(private val prefs: SharedPreferences) {
     private fun stepsKey(deviceId: String) = "steps_cursor_$deviceId"
 
     private fun ascentKey(deviceId: String) = "ascent_cursor_$deviceId"
+
+    private fun hrvKey(deviceId: String) = "hrv_cursor_$deviceId"
 
     private companion object {
         const val PREFS_FILE = "wearos_sync_cursors"

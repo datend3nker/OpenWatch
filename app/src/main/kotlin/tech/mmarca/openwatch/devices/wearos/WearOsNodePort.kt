@@ -93,6 +93,15 @@ data class WearOsAscentPage(
     val hasMore: Boolean,
 )
 
+/** One night-time HRV window the watch measured: its start, the RMSSD and the clean beats it rests on. */
+data class WearOsHrvWindow(val start: Instant, val rmssdMillis: Double, val beats: Int)
+
+/** One page of an HRV pull. [hasMore] means the watch cut the reply at its limit. */
+data class WearOsHrvPage(
+    val windows: List<WearOsHrvWindow>,
+    val hasMore: Boolean,
+)
+
 /**
  * Port for talking to the OpenWatch app on a Wear OS watch.
  *
@@ -154,6 +163,18 @@ interface WearOsNodePort {
         targetName: String?,
         since: Instant,
     ): WearOsAscentPage?
+
+    /**
+     * Night-time HRV windows newer than [since], oldest first, up to the
+     * watch's page limit. Empty page: the watch app is too old or has no raw
+     * PPG sensor. Null: no bonded watch matches. Any other failure throws
+     * [WearOsLinkFailure].
+     */
+    suspend fun pullHrv(
+        targetAddress: String?,
+        targetName: String?,
+        since: Instant,
+    ): WearOsHrvPage?
 
     /**
      * Holds one connection and hands each heart rate reading to [onSample],

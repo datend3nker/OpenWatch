@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
 
+    <string name="settings_watch_wearos_needs_hrv_write">שונות קצב הלב לא נכתבה: אשר ל-OpenWatch לכתוב אותה ב-Health Connect, ואז סנכרן שוב.</string>
 </resources>

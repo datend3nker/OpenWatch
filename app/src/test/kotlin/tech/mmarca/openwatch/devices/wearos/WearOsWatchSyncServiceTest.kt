@@ -28,6 +28,7 @@ import tech.mmarca.openwatch.domain.model.BleSensorDevice
 import tech.mmarca.openwatch.domain.model.DeviceIntegration
 import tech.mmarca.openwatch.healthconnect.HealthConnectGateway
 import tech.mmarca.openwatch.domain.model.WearSleepMinute
+import androidx.health.connect.client.records.HeartRateVariabilityRmssdRecord
 import androidx.health.connect.client.records.RestingHeartRateRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.SleepSessionRecord
@@ -72,6 +73,10 @@ class WearOsWatchSyncServiceTest {
     /** Floor pages the same way. */
     private val ascentPages = ArrayDeque<WearOsAscentPage>()
     private val ascentPullsSince = mutableListOf<Instant>()
+
+    /** HRV pages the same way; with none queued the watch answers an empty page. */
+    private val hrvPages = ArrayDeque<WearOsHrvPage?>()
+    private val hrvPullsSince = mutableListOf<Instant>()
     private val nodePort = object : WearOsNodePort {
         override suspend fun checkStatus(targetAddress: String?, targetName: String?) = WearOsCompanionStatus()
         override suspend fun pullHeartRate(targetAddress: String?, targetName: String?, since: Instant): WearOsHeartRatePage? {
@@ -100,6 +105,12 @@ class WearOsWatchSyncServiceTest {
         override suspend fun pullAscent(targetAddress: String?, targetName: String?, since: Instant): WearOsAscentPage? {
             ascentPullsSince += since
             return ascentPages.removeFirstOrNull() ?: WearOsAscentPage(emptyList(), hasMore = false)
+        }
+
+        override suspend fun pullHrv(targetAddress: String?, targetName: String?, since: Instant): WearOsHrvPage? {
+            hrvPullsSince += since
+            if (hrvPages.isEmpty()) return WearOsHrvPage(emptyList(), hasMore = false)
+            return hrvPages.removeFirst()
         }
 
         override suspend fun liveHeartRate(
@@ -864,7 +875,100 @@ class WearOsWatchSyncServiceTest {
         assertEquals(Instant.EPOCH, cursors.heartRateCursor(WATCH.id))
     }
 
+    private fun hrvWindow(minutesAfterT0: Long, rmssd: Double = 45.0) =
+        WearOsHrvWindow(t0.plusSeconds(minutesAfterT0 * 60), rmssd, beats = 280)
+
+    @Test
+    fun `night HRV windows are written as RMSSD records with a deterministic id, and the cursor moves`() = runTest {
+        pages += WearOsHeartRatePage(emptyList(), hasMore = false)
+        coEvery { healthConnect.grantedPermissions() } returns setOf(HRV_WRITE)
+        hrvPages += WearOsHrvPage(listOf(hrvWindow(0), hrvWindow(30, 61.5)), hasMore = false)
+
+        val result = service().sync(WATCH, Duration.ZERO, null)
+
+        val records = insertedOf<HeartRateVariabilityRmssdRecord>()
+        assertEquals(listOf(45.0, 61.5), records.map { it.heartRateVariabilityMillis })
+        assertEquals("wearos_hrv_${t0.toEpochMilli()}", records[0].metadata.clientRecordId)
+        assertEquals(t0.plusSeconds(1800), cursors.hrvCursor(WATCH.id))
+        assertTrue(UnwrittenSeries.HEART_RATE_VARIABILITY !in (result as DeviceSyncResult.Succeeded).unwritten)
+    }
+
+    @Test
+    fun `a window pulled twice is written once`() = runTest {
+        pages += WearOsHeartRatePage(emptyList(), hasMore = false)
+        coEvery { healthConnect.grantedPermissions() } returns setOf(HRV_WRITE)
+        hrvPages += WearOsHrvPage(listOf(hrvWindow(0)), hasMore = false)
+        service().sync(WATCH, Duration.ZERO, null)
+        cursors.setHrvCursor(WATCH.id, Instant.EPOCH)
+        hrvPages += WearOsHrvPage(listOf(hrvWindow(0)), hasMore = false)
+
+        service().sync(WATCH, Duration.ZERO, null)
+
+        assertEquals(1, insertedOf<HeartRateVariabilityRmssdRecord>().size)
+    }
+
+    @Test
+    fun `the next HRV pull starts at the cursor`() = runTest {
+        pages += WearOsHeartRatePage(emptyList(), hasMore = false)
+        coEvery { healthConnect.grantedPermissions() } returns setOf(HRV_WRITE)
+        cursors.setHrvCursor(WATCH.id, t0)
+
+        service().sync(WATCH, Duration.ZERO, null)
+
+        assertEquals(listOf(t0), hrvPullsSince)
+    }
+
+    @Test
+    fun `without the write grant the windows stay on the watch, the card is told and the sync goes on`() = runTest {
+        pages += WearOsHeartRatePage(emptyList(), hasMore = false)
+        hrvPages += WearOsHrvPage(listOf(hrvWindow(0)), hasMore = false)
+
+        val result = service().sync(WATCH, Duration.ZERO, null)
+
+        assertTrue(insertedOf<HeartRateVariabilityRmssdRecord>().isEmpty())
+        assertEquals(Instant.EPOCH, cursors.hrvCursor(WATCH.id))
+        assertEquals(
+            DeviceSyncResult.Succeeded(0, unwritten = setOf(UnwrittenSeries.HEART_RATE_VARIABILITY), withheldPermissions = setOf(HRV_WRITE)),
+            result,
+        )
+    }
+
+    @Test
+    fun `a write refused after the grant check is the same as a missing grant`() = runTest {
+        pages += WearOsHeartRatePage(emptyList(), hasMore = false)
+        coEvery { healthConnect.grantedPermissions() } returns setOf(HRV_WRITE)
+        refused = { it is HeartRateVariabilityRmssdRecord }
+        hrvPages += WearOsHrvPage(listOf(hrvWindow(0)), hasMore = false)
+
+        val result = service().sync(WATCH, Duration.ZERO, null)
+
+        assertEquals(Instant.EPOCH, cursors.hrvCursor(WATCH.id))
+        assertTrue(result is DeviceSyncResult.Succeeded)
+    }
+
+    @Test
+    fun `no HRV on the watch is no entry on the card`() = runTest {
+        pages += WearOsHeartRatePage(emptyList(), hasMore = false)
+        val result = service().sync(WATCH, Duration.ZERO, null)
+
+        assertEquals(DeviceSyncResult.Succeeded(0), result)
+        assertEquals(Instant.EPOCH, cursors.hrvCursor(WATCH.id))
+    }
+
+    @Test
+    fun `a value Health Connect would refuse is dropped and the cursor still moves`() = runTest {
+        pages += WearOsHeartRatePage(emptyList(), hasMore = false)
+        coEvery { healthConnect.grantedPermissions() } returns setOf(HRV_WRITE)
+        hrvPages += WearOsHrvPage(listOf(hrvWindow(0, rmssd = 250.0)), hasMore = false)
+
+        service().sync(WATCH, Duration.ZERO, null)
+
+        assertTrue(insertedOf<HeartRateVariabilityRmssdRecord>().isEmpty())
+        assertEquals(t0, cursors.hrvCursor(WATCH.id))
+    }
+
     private companion object {
+        val HRV_WRITE = HealthPermission.getWritePermission(HeartRateVariabilityRmssdRecord::class)
         const val STEP_PAGE = 2
 
         val RESTING_HR_READ = HealthPermission.getReadPermission(RestingHeartRateRecord::class)

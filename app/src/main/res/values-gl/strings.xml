@@ -91,6 +91,7 @@
     <string name="settings_watch_wearos_needs_weight_read">Calorías ao camiñar sen estimar: engade o teu peso en Perfil corporal ou permite que OpenWatch lea o teu peso en Health Connect.</string>
     <string name="settings_watch_wearos_needs_steps_write">Pasos sen escribir: permite que OpenWatch escriba pasos en Health Connect e volve sincronizar.</string>
     <string name="settings_watch_wearos_needs_calories_write">Calorías ao camiñar sen escribir: permite que OpenWatch escriba calorías activas e lea adestramentos en Health Connect para estimalas desde a próxima sincronización.</string>
+    <string name="settings_watch_wearos_needs_hrv_write">Variabilidade da frecuencia cardíaca sen escribir: permite que OpenWatch a escriba en Health Connect e sincroniza de novo.</string>
     <string name="settings_watch_wearos_needs_resting_heart_rate">Frecuencia cardíaca en repouso sen escribir: permite que OpenWatch lea e escriba a frecuencia cardíaca en repouso en Health Connect para estimala desde a próxima sincronización.</string>
     <plurals name="settings_watch_wearos_synced_samples">
         <item quantity="one">%1$d mostra de frecuencia cardíaca sincronizada</item>

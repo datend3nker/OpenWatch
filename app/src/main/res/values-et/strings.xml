@@ -91,6 +91,7 @@
     <string name="settings_watch_wearos_needs_weight_read">Kõndimise kaloreid ei hinnatud: lisa oma kaal Kehaprofiili või luba OpenWatchil lugeda sinu kaalu Health Connectist.</string>
     <string name="settings_watch_wearos_needs_steps_write">Samme ei kirjutatud: luba OpenWatchil kirjutada Health Connecti samme ja sünkrooni uuesti.</string>
     <string name="settings_watch_wearos_needs_calories_write">Kõndimise kaloreid ei kirjutatud: luba OpenWatchil Health Connectis aktiivseid kaloreid kirjutada ja treeninguid lugeda, et neid järgmisest sünkroonimisest alates hinnata.</string>
+    <string name="settings_watch_wearos_needs_hrv_write">Südame löögisageduse varieeruvust ei kirjutatud: luba OpenWatchil see Health Connectis kirjutada ja sünkrooni siis uuesti.</string>
     <string name="settings_watch_wearos_needs_resting_heart_rate">Puhkeoleku pulssi ei kirjutatud: luba OpenWatchil Health Connectis puhkeoleku pulssi lugeda ja kirjutada, et seda järgmisest sünkroonimisest alates hinnata.</string>
     <plurals name="settings_watch_wearos_synced_samples">
         <item quantity="one">%1$d pulsinäit sünkroonitud</item>

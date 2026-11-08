@@ -113,6 +113,13 @@ class WearOsWatchSyncService(
 
     private val syncMutex = Mutex()
 
+    private val hrv = WearOsHrvSync(
+        importRepository = importRepository,
+        cursors = cursors,
+        granted = { healthConnect.grantedPermissions() },
+        zone = zone,
+    )
+
     init {
         WearOsLog.installLogcatSink()
     }
@@ -141,6 +148,7 @@ class WearOsWatchSyncService(
                 return notPaired(device)
             }
             if (!pullSleep(device, progress)) return notPaired(device)
+            if (!pullHrv(device, progress)) return notPaired(device)
         } catch (error: CancellationException) {
             throw error
         } catch (failure: WearOsLinkFailure) {
@@ -449,6 +457,24 @@ class WearOsWatchSyncService(
         cursors.setSleepCursor(device.id, newest)
         progress.nights = nights
         WearOsLog.log("sleep: $nights night(s) written from ${minutes.size} minutes")
+        return true
+    }
+
+    /**
+     * The night-time HRV windows, written as RMSSD records ([WearOsHrvSync]).
+     * Optional like the other estimates: a missing grant leaves them on the
+     * watch and the sync goes on. False when no bonded watch matches.
+     */
+    private suspend fun pullHrv(device: BleSensorDevice, progress: Progress): Boolean {
+        val outcome = hrv.sync(device.id) { since ->
+            retryOnce { nodePort.pullHrv(device.address, device.bluetoothName, since) }
+        } ?: return false
+        if (outcome.withheld) {
+            progress.unwritten += UnwrittenSeries.HEART_RATE_VARIABILITY
+            progress.withheldPermissions += WearOsHrvImport.writePermission
+            WearOsLog.log("hrv: not written, Health Connect permission missing")
+        }
+        WearOsLog.log("hrv: ${outcome.written} window(s) written")
         return true
     }
 

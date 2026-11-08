@@ -130,6 +130,23 @@ class BluetoothWearOsNodePort @Inject constructor(
         }
     }
 
+    override suspend fun pullHrv(
+        targetAddress: String?,
+        targetName: String?,
+        since: Instant,
+    ): WearOsHrvPage? = withContext(Dispatchers.IO) {
+        val match = bondedWatchOrNull(targetAddress, targetName) ?: return@withContext null
+        withSession(match, targetAddress, PULL_TIMEOUT_MS) { session ->
+            // A watch app from before HRV, or one without the raw PPG sensor, would answer with an error.
+            if (WearLinkProtocol.CAP_HRV !in session.peer.capabilities) return@withSession WearOsHrvPage(emptyList(), false)
+            val page = unwrap(session.pullHrv(since.toEpochMilli(), WearLinkProtocol.MAX_HRV_WINDOWS_PER_REQUEST))
+            WearOsHrvPage(
+                windows = page.items.map { WearOsHrvWindow(Instant.ofEpochMilli(it.epochMillis), it.rmssdMillis, it.beats) },
+                hasMore = page.more,
+            )
+        }
+    }
+
     override suspend fun liveHeartRate(
         targetAddress: String?,
         targetName: String?,

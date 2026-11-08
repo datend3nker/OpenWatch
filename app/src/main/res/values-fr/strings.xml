@@ -91,6 +91,7 @@
     <string name="settings_watch_wearos_needs_weight_read">Calories de marche non estimées : ajoutez votre poids dans Profil corporel ou autorisez OpenWatch à lire votre poids dans Health Connect.</string>
     <string name="settings_watch_wearos_needs_steps_write">Pas non écrits : autorisez OpenWatch à écrire les pas dans Health Connect, puis synchronisez à nouveau.</string>
     <string name="settings_watch_wearos_needs_calories_write">Calories de marche non écrites : autorisez OpenWatch à écrire les calories actives et à lire les entraînements dans Health Connect pour les estimer dès la prochaine synchronisation.</string>
+    <string name="settings_watch_wearos_needs_hrv_write">Variabilité de la fréquence cardiaque non écrite : autorisez OpenWatch à l\'écrire dans Health Connect, puis synchronisez à nouveau.</string>
     <string name="settings_watch_wearos_needs_resting_heart_rate">Fréquence cardiaque au repos non écrite : autorisez OpenWatch à lire et à écrire la fréquence cardiaque au repos dans Health Connect pour l\'estimer dès la prochaine synchronisation.</string>
     <plurals name="settings_watch_wearos_synced_samples">
         <item quantity="one">%1$d échantillon de fréquence cardiaque synchronisé</item>
