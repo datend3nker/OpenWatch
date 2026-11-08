@@ -52,7 +52,7 @@
          accelerometer's 48-second buffer is read before it overflows. -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
-    <!-- The Samsung Health Platform, an optional HRV source; see HrvSourceSetting. -->
+    <!-- The Samsung Health Platform, an optional heart rate and HRV source; see WearSettings. -->
     <queries>
         <package android:name="com.samsung.android.service.health" />
     </queries>
@@ -87,6 +87,11 @@
         <!-- Allow or Block from the phone request notification. -->
         <receiver
             android:name=".WearPhoneConfirmReceiver"
+            android:exported="false" />
+
+        <!-- The power-save heart rate window's alarm; see HeartRateRecorder. -->
+        <receiver
+            android:name=".HeartRateAlarmReceiver"
             android:exported="false" />
 
         <!-- The metric tiles: each reads what the recorders stored and starts no sensor. -->

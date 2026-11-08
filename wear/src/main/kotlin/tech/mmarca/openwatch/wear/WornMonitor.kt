@@ -84,6 +84,7 @@ class WornMonitor(
 
     override fun onSensorChanged(event: SensorEvent) {
         if (event.sensor.type != Sensor.TYPE_LOW_LATENCY_OFFBODY_DETECT) return
+        DebugProtocol.arrival("offbody")
         val at = SensorTime.epochMillisOf(event.timestamp)
         // 1 on the body, 0 off it.
         val worn = (event.values.firstOrNull() ?: 1f) >= 0.5f

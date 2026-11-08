@@ -31,9 +31,14 @@
     <string name="link_requests_channel_name">Phone requests</string>
     <string name="status_samsung_diagnostics_off">Samsung diagnostics: off</string>
     <string name="status_samsung_diagnostics_on">Samsung diagnostics: on · turn off in Settings</string>
+    <string name="settings_heart_rate_every_10_seconds">Heart rate: every 10 s</string>
+    <string name="settings_heart_rate_power_save">Heart rate: power save</string>
+    <string name="settings_heart_rate_power_save_note">About every 10 minutes outside bedtime mode. Sleep without bedtime mode is then detected from sparse readings.</string>
+    <string name="settings_heart_rate_source_sensor">Heart rate: sensor</string>
+    <string name="settings_heart_rate_source_samsung">Heart rate: Samsung platform</string>
     <string name="status_hrv_source_ppg">HRV: raw PPG</string>
     <string name="status_hrv_source_samsung">HRV: Samsung platform</string>
-    <string name="status_hrv_source_samsung_note">Needs Health Platform Developer Mode. Without it the platform asks Samsung about this app.</string>
+    <string name="status_hrv_source_samsung_note">Samsung platform: needs Health Platform Developer Mode. Without it the platform asks Samsung about this app.</string>
     <string name="status_ppg_logging">Raw PPG log on · long press to stop</string>
     <string name="tile_heart_rate_label">Heart rate</string>
     <string name="tile_heart_rate_description">Your latest heart rate and its curve today, as the watch app recorded them</string>

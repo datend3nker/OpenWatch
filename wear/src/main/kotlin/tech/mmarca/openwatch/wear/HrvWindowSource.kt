@@ -82,8 +82,14 @@ internal class PpgWindowSource(context: Context) : HrvWindowSource, SensorEventL
     override fun finish(endMillis: Long, onResult: (HrvWindowResult?) -> Unit) {
         val t = times.copyOf(count)
         val v = values.copyOf(count)
+        val window = startedAt
         cancel()
-        onResult(NightHrv.analyze(t, v))
+        val result = NightHrv.analyze(t, v)
+        DebugProtocol.event(
+            "NightHrv", "ppg_window",
+            "startedAt" to window, "samples" to t.size, "rmssd" to result?.rmssdMillis, "beats" to result?.beatCount,
+        )
+        onResult(result)
     }
 
     override fun cancel() {

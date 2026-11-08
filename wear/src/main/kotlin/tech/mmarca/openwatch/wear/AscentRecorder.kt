@@ -65,6 +65,7 @@ class AscentRecorder(
 
     override fun onSensorChanged(event: SensorEvent) {
         if (event.sensor.type != Sensor.TYPE_PRESSURE) return
+        DebugProtocol.arrival("baro")
         val counter = counter ?: return
         val hectopascals = event.values.firstOrNull() ?: return
         val at = SensorTime.epochMillisOf(event.timestamp)

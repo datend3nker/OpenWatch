@@ -36,7 +36,8 @@ import java.util.concurrent.Executor
 internal class SamsungHealthPlatform(
     private val context: Context,
     private val handler: Handler,
-    private val onPoint: (IbiPoint) -> Unit,
+    /** One delivery: the points of one platform callback, oldest first as sent. */
+    private val onPoints: (List<IbiPoint>) -> Unit,
     private val onFlushed: () -> Unit,
     private val onError: () -> Unit,
 ) {
@@ -53,7 +54,10 @@ internal class SamsungHealthPlatform(
             data.enforceInterface(LISTENER_TOKEN)
             try {
                 when (code) {
-                    CB_DATA -> readPoints(data).forEach { point -> handler.post { onPoint(point) } }
+                    CB_DATA -> {
+                        val points = readPoints(data)
+                        handler.post { onPoints(points) }
+                    }
                     CB_ERROR -> {
                         Log.w(TAG, "Platform error ${data.readInt()}")
                         handler.post(onError)
@@ -73,8 +77,8 @@ internal class SamsungHealthPlatform(
         override fun onServiceConnected(name: ComponentName, binder: IBinder) {
             service = binder
             try {
-                call(TX_CREATE) { writeString(appId()); writeString(HEART_RATE); writeInt(0); writeString(null) }
-                call(TX_SET_LISTENER) { writeString(appId()); writeString(HEART_RATE); writeStrongBinder(listener) }
+                call(TX_CREATE) { writeString(appId()); writeString(TRACKER_HEART_RATE); writeInt(0); writeString(null) }
+                call(TX_SET_LISTENER) { writeString(appId()); writeString(TRACKER_HEART_RATE); writeStrongBinder(listener) }
             } catch (e: RemoteException) {
                 Log.w(TAG, "Start refused", e)
                 onError()
@@ -103,7 +107,7 @@ internal class SamsungHealthPlatform(
 
     /** Asks for the points the platform still holds; [onFlushed] follows them. False when not connected. */
     fun flush(): Boolean = try {
-        service != null && run { call(TX_FLUSH) { writeString(appId()); writeString(HEART_RATE) }; true }
+        service != null && run { call(TX_FLUSH) { writeString(appId()); writeString(TRACKER_HEART_RATE) }; true }
     } catch (_: RemoteException) {
         false
     } catch (_: RuntimeException) {
@@ -112,7 +116,7 @@ internal class SamsungHealthPlatform(
 
     fun stop() {
         try {
-            if (service != null) call(TX_UNSET_LISTENER) { writeString(appId()); writeString(HEART_RATE) }
+            if (service != null) call(TX_UNSET_LISTENER) { writeString(appId()); writeString(TRACKER_HEART_RATE) }
         } catch (_: RemoteException) {
             // The platform is gone; there is nothing left to unset.
         } catch (_: RuntimeException) {
@@ -169,6 +173,8 @@ internal class SamsungHealthPlatform(
             epochMillis = timestamp,
             intervalsMillis = IntArray(pairs) { values[IBI_FIRST + 2 * it] },
             statuses = IntArray(pairs) { values[IBI_FIRST + 2 * it + 1] },
+            bpm = values.getOrElse(HEART_RATE) { 0 },
+            heartRateStatus = values.getOrElse(HEART_RATE_STATUS) { 0 },
         )
     }
 
@@ -178,7 +184,7 @@ internal class SamsungHealthPlatform(
         private const val BIND_ACTION = "com.samsung.android.service.health.wear.sts.ACTION_SERVICE"
         private const val SERVICE_TOKEN = "com.samsung.android.service.health.tracking.IClientEventListener"
         private const val LISTENER_TOKEN = "com.samsung.android.service.health.tracking.IServiceEventListener"
-        private const val HEART_RATE = "HEART_RATE"
+        private const val TRACKER_HEART_RATE = "HEART_RATE"
         private const val TX_CREATE = 1
         private const val TX_SET_LISTENER = 2
         private const val TX_UNSET_LISTENER = 3
@@ -187,6 +193,8 @@ internal class SamsungHealthPlatform(
         private const val CB_ERROR = 2
         private const val CB_FLUSH_DONE = 3
         private const val VAL_PARCELABLE = 4
+        private const val HEART_RATE = 0
+        private const val HEART_RATE_STATUS = 2
         private const val IBI_COUNT = 3
         private const val IBI_FIRST = 4
 

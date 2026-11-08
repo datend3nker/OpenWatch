@@ -155,6 +155,7 @@ class SleepMinuteRecorder(
         val at = SensorTime.epochMillisOf(event.timestamp)
         if (SensorTime.isStale(at)) return
         if (event.sensor.type != Sensor.TYPE_ACCELEROMETER || event.values.size < 3) return
+        DebugProtocol.arrival("accel")
         aggregator.onAcceleration(
             at,
             event.values[0] / GRAVITY,

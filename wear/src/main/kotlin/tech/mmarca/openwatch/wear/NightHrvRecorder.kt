@@ -5,6 +5,7 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.os.PowerManager
 import android.util.Log
+import tech.mmarca.openwatch.wear.samsung.SamsungHeartRateFeed
 import tech.mmarca.openwatch.wear.samsung.SamsungIbiSource
 import tech.mmarca.openwatch.wearlink.WearLinkProtocol
 
@@ -16,7 +17,7 @@ import tech.mmarca.openwatch.wearlink.WearLinkProtocol
  * The rule for when to measure is `NightHrvSchedule` (pure); the beats come
  * from an [HrvWindowSource]: Samsung's raw PPG by default ([PpgWindowSource]),
  * or the Samsung Health Platform's own intervals where the watch has the
- * platform and the wearer chose them ([HrvSourceSetting], [SamsungIbiSource]).
+ * platform and the wearer chose them ([WearSettings.hrvSource], [SamsungIbiSource]).
  * This class is the clock, the wake lock and the store around them. A window
  * starts only while the sleep recorder holds the processor awake
  * ([BedtimeHold.HOLDING]: bedtime mode, worn, off the charger) and the last
@@ -25,15 +26,16 @@ import tech.mmarca.openwatch.wearlink.WearLinkProtocol
  *
  * Everything runs on one handler thread, which also does the SQLite work.
  */
-class NightHrvRecorder(
+internal class NightHrvRecorder(
     private val context: Context,
     private val store: MetricStore,
     /** Whether bedtime mode holds the processor awake now; read on the recorder's thread. */
     private val isHolding: () -> Boolean,
+    samsungFeed: SamsungHeartRateFeed,
 ) {
 
     private val ppg = PpgWindowSource(context)
-    private val samsung = SamsungIbiSource(context)
+    private val samsung = SamsungIbiSource(samsungFeed)
     private val wakeLock = (context.getSystemService(Context.POWER_SERVICE) as PowerManager)
         .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, WAKE_LOCK_TAG)
         .apply { setReferenceCounted(false) }
@@ -70,7 +72,7 @@ class NightHrvRecorder(
 
     /** The source chosen now, or the raw PPG when the choice is not on this watch. */
     private fun chosenSource(): HrvWindowSource? = when {
-        HrvSourceSetting.get(context) == HrvSourceSetting.Source.SAMSUNG_PLATFORM && samsung.isAvailable -> samsung
+        WearSettings.hrvSource(context) == WearSettings.Source.SAMSUNG_PLATFORM && samsung.isAvailable -> samsung
         ppg.isAvailable -> ppg
         else -> null
     }
@@ -110,6 +112,7 @@ class NightHrvRecorder(
             when {
                 !isHolding() -> {
                     Log.i(TAG, "Window dropped: no longer in bedtime hold")
+                    DebugProtocol.event("NightHrv", "window_dropped", "why" to "hold_ended")
                     endWindow()
                 }
                 now - windowStartedAt >= NightHrv.WINDOW_MILLIS -> completeWindow(now)
@@ -134,6 +137,7 @@ class NightHrvRecorder(
         windowStartedAt = now
         wakeLock.acquire(NightHrv.WINDOW_MILLIS + WAKE_LOCK_SLACK_MILLIS)
         Log.i(TAG, if (chosen === samsung) "Window started, Samsung platform" else "Window started, raw PPG")
+        DebugProtocol.event("NightHrv", "window_started", "source" to if (chosen === samsung) "samsung" else "ppg")
     }
 
     /** Ends the window and queues its result until the movement rows can judge it. */
@@ -148,6 +152,7 @@ class NightHrvRecorder(
             if (wakeLock.isHeld) wakeLock.release()
             if (result == null) {
                 Log.i(TAG, "Window gave no value")
+                DebugProtocol.event("NightHrv", "window_dropped", "why" to "no_value", "startedAt" to started)
                 nextAllowedAt = NightHrvSchedule.nextStartAfter(started, spoiled = true)
                 return@finish
             }
@@ -176,6 +181,7 @@ class NightHrvRecorder(
             if (now - waiting.endMillis > PENDING_TIMEOUT_MILLIS) {
                 pending = null
                 Log.i(TAG, "Window dropped: no movement rows for it")
+                DebugProtocol.event("NightHrv", "window_dropped", "why" to "no_rows", "startedAt" to waiting.startMillis)
             }
             return
         }
@@ -183,12 +189,14 @@ class NightHrvRecorder(
         if (!NightHrvSchedule.wasStill(rows, waiting.startMillis, waiting.endMillis)) {
             nextAllowedAt = NightHrvSchedule.nextStartAfter(waiting.startMillis, spoiled = true)
             Log.i(TAG, "Window dropped: the arm moved")
+            DebugProtocol.event("NightHrv", "window_dropped", "why" to "movement", "startedAt" to waiting.startMillis)
             return
         }
         val rmssd10 = Math.round(waiting.result.rmssdMillis * 10).toInt()
         store.put(WearMetrics.HRV, WearLinkProtocol.HrvWindow(waiting.startMillis, rmssd10, waiting.result.beatCount))
         store.prune(WearMetrics.HRV, now)
         Log.i(TAG, "Window stored (${waiting.result.beatCount} beats)")
+        DebugProtocol.event("NightHrv", "window_stored", "startedAt" to waiting.startMillis, "rmssd" to waiting.result.rmssdMillis, "beats" to waiting.result.beatCount)
     }
 
     private companion object {

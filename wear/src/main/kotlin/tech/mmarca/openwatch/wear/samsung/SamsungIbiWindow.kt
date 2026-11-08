@@ -3,9 +3,10 @@ package tech.mmarca.openwatch.wear.samsung
 import kotlin.math.abs
 
 /**
- * One heart rate point from the Samsung Health Platform: its time and the
- * beat-to-beat intervals it carries, oldest first, each with the platform's
- * status (0 is a good interval, anything else is flagged).
+ * One heart rate point from the Samsung Health Platform: its time, the rate
+ * and its status (1 is a measured rate), and the beat-to-beat intervals it
+ * carries, oldest first, each with the platform's status (0 is a good
+ * interval, anything else is flagged).
  *
  * A point's intervals have no times of their own. They are the beats up to
  * the point, so the last one ends at [epochMillis] and each earlier one ends
@@ -14,9 +15,23 @@ import kotlin.math.abs
  * points arrive in batches long after their time; both are why a window is
  * cut by these reconstructed times, never by arrival.
  */
-internal class IbiPoint(val epochMillis: Long, val intervalsMillis: IntArray, val statuses: IntArray) {
+internal class IbiPoint(
+    val epochMillis: Long,
+    val intervalsMillis: IntArray,
+    val statuses: IntArray,
+    val bpm: Int = 0,
+    val heartRateStatus: Int = 0,
+) {
     init {
         require(intervalsMillis.size == statuses.size)
+    }
+
+    /** Whether the point carries a measured rate. */
+    val hasHeartRate: Boolean
+        get() = heartRateStatus == HEART_RATE_MEASURED && bpm > 0
+
+    private companion object {
+        const val HEART_RATE_MEASURED = 1
     }
 }
 

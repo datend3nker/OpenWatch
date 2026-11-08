@@ -108,11 +108,18 @@ platform. The app cannot read Developer Mode (the platform keeps it in its priva
 `home_feature_sharedpreferences`, key `common_developer_mode`), so the setting on the watch
 says that the source needs it and what happens without it.
 
-**In the watch app.** The night-time HRV windows take their beats from an `HrvWindowSource`:
+**In the watch app.** One connection serves everything: `SamsungHeartRateFeed` holds the
+platform's heart rate tracker while at least one reader subscribes, because a second tracker
+from the same package would replace the first one's listener. Two readers can use it, each
+chosen on the status screen of a watch that has the platform (`WearSettings`):
+`HeartRateRecorder`, for the heart rate itself (the platform then sets the pace and the
+batching; with the screen off a delivery can be minutes late, so the sleep minutes count such
+a heart rate as not dense and the step counter wakes the watch itself), and the night-time HRV
+windows. The night-time HRV windows take their beats from an `HrvWindowSource`:
 `PpgWindowSource` (Samsung's raw PPG, beats found by `PpgBeats`) by default, or
 `SamsungIbiSource` (the platform's own intervals, through `SamsungHealthPlatform`, the
 clean-room client in `wear/.../samsung/`) once chosen on the status screen. The choice
-(`HrvSourceSetting`) is shown only where `com.samsung.android.service.health` answers the bind
+(`WearSettings.hrvSource`) is shown only where `com.samsung.android.service.health` answers the bind
 intent, so a watch from another maker never sees it. The tracker runs only for the five-minute
 window. The intervals carry no times of their own: the first point after a start held 535 of
 them (about ten minutes of history), and with the screen off the points arrive in batches, so
