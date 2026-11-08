@@ -120,38 +120,19 @@ class WearOsWatchSyncService(
 
     private val syncMutex = Mutex()
 
-    private val hrv = WearOsWindowSync<WearOsHrvWindow>(
+    private val nightSeries = WearOsNightSeriesSync(
         importRepository = importRepository,
-        granted = { healthConnect.grantedPermissions() },
-        writePermission = WearOsHrvImport.writePermission,
-        cursor = cursors::hrvCursor,
-        setCursor = cursors::setHrvCursor,
-        startOf = { it.start },
-        record = { WearOsHrvImport.record(it, zone()) },
-        label = "hrv",
+        healthConnect = healthConnect,
+        cursors = cursors,
+        nodePort = nodePort,
+        clock = clock,
+        zone = zone,
+        writeRespiratoryRate = writeRespiratoryRate,
     )
 
-    private val respiratory = WearOsWindowSync<WearOsRespiratoryWindow>(
-        importRepository = importRepository,
-        granted = { healthConnect.grantedPermissions() },
-        writePermission = WearOsRespiratoryImport.writePermission,
-        cursor = cursors::respiratoryCursor,
-        setCursor = cursors::setRespiratoryCursor,
-        startOf = { it.start },
-        record = { WearOsRespiratoryImport.record(it, zone()) },
-        label = "breathing",
-    )
-
-    private val spo2 = WearOsWindowSync<WearOsSpo2Measurement>(
-        importRepository = importRepository,
-        granted = { healthConnect.grantedPermissions() },
-        writePermission = WearOsSpo2Import.writePermission,
-        cursor = cursors::spo2Cursor,
-        setCursor = cursors::setSpo2Cursor,
-        startOf = { it.time },
-        record = { WearOsSpo2Import.record(it, zone()) },
-        label = "spo2",
-    )
+    private val linkRetry = object : WearOsNightSeriesSync.Retry {
+        override suspend fun <T> run(pull: suspend () -> T): T = retryOnce(pull)
+    }
 
     init {
         WearOsLog.installLogcatSink()
@@ -181,9 +162,9 @@ class WearOsWatchSyncService(
                 return notPaired(device)
             }
             if (!pullSleep(device, progress)) return notPaired(device)
-            if (!pullHrv(device, progress)) return notPaired(device)
-            if (writeRespiratoryRate() && !pullRespiratory(device, progress)) return notPaired(device)
-            if (!pullSpo2(device, progress)) return notPaired(device)
+            val night = nightSeries.sync(device, linkRetry) ?: return notPaired(device)
+            progress.unwritten += night.unwritten
+            progress.withheldPermissions += night.withheld
         } catch (error: CancellationException) {
             throw error
         } catch (failure: WearOsLinkFailure) {
@@ -535,60 +516,6 @@ class WearOsWatchSyncService(
         healthConnect.deleteImportedRecordsByClientIds(SleepSessionRecord::class, stale)
     }
 
-
-    /**
-     * The night-time HRV windows, written as RMSSD records ([WearOsHrvSync]).
-     * Optional like the other estimates: a missing grant leaves them on the
-     * watch and the sync goes on. False when no bonded watch matches.
-     */
-    private suspend fun pullHrv(device: BleSensorDevice, progress: Progress): Boolean {
-        val outcome = hrv.sync(device.id) { since ->
-            retryOnce { nodePort.pullHrv(device.address, device.bluetoothName, since) }?.let { it.windows to it.hasMore }
-        } ?: return false
-        if (outcome.withheld) {
-            progress.unwritten += UnwrittenSeries.HEART_RATE_VARIABILITY
-            progress.withheldPermissions += WearOsHrvImport.writePermission
-            WearOsLog.log("hrv: not written, Health Connect permission missing")
-        }
-        WearOsLog.log("hrv: ${outcome.written} window(s) written")
-        return true
-    }
-
-    /**
-     * The night windows' breathing rates, written as `RespiratoryRateRecord`s,
-     * only when the user switched it on. A missing grant leaves them on the
-     * watch and the sync goes on. False when no bonded watch matches.
-     */
-    private suspend fun pullRespiratory(device: BleSensorDevice, progress: Progress): Boolean {
-        val outcome = respiratory.sync(device.id) { since ->
-            retryOnce { nodePort.pullRespiratory(device.address, device.bluetoothName, since) }?.let { it.windows to it.hasMore }
-        } ?: return false
-        if (outcome.withheld) {
-            progress.unwritten += UnwrittenSeries.RESPIRATORY_RATE
-            progress.withheldPermissions += WearOsRespiratoryImport.writePermission
-            WearOsLog.log("breathing: not written, Health Connect permission missing")
-        }
-        WearOsLog.log("breathing: ${outcome.written} window(s) written")
-        return true
-    }
-
-    /**
-     * The watch's SpO2 spot measurements, written as `OxygenSaturationRecord`s.
-     * A missing grant leaves them on the watch and the sync goes on. False
-     * when no bonded watch matches.
-     */
-    private suspend fun pullSpo2(device: BleSensorDevice, progress: Progress): Boolean {
-        val outcome = spo2.sync(device.id) { since ->
-            retryOnce { nodePort.pullSpo2(device.address, device.bluetoothName, since) }?.let { it.measurements to it.hasMore }
-        } ?: return false
-        if (outcome.withheld) {
-            progress.unwritten += UnwrittenSeries.OXYGEN_SATURATION
-            progress.withheldPermissions += WearOsSpo2Import.writePermission
-            WearOsLog.log("spo2: not written, Health Connect permission missing")
-        }
-        WearOsLog.log("spo2: ${outcome.written} measurement(s) written")
-        return true
-    }
 
     /**
      * A page pull again after one link failure. The first connection to a

@@ -79,6 +79,22 @@ class WearOsSyncCursorStore(private val prefs: SharedPreferences) {
         prefs.edit { putLong(spo2Key(deviceId), at.toEpochMilli()) }
     }
 
+    /** The skin temperature cursor: the end of the newest night run written. [Instant.EPOCH] for a watch never synced. */
+    fun skinCursor(deviceId: String): Instant =
+        Instant.ofEpochMilli(prefs.getLong(skinKey(deviceId), 0L))
+
+    fun setSkinCursor(deviceId: String, at: Instant) {
+        prefs.edit { putLong(skinKey(deviceId), at.toEpochMilli()) }
+    }
+
+    /** The medians of the nights written so far, oldest first: the skin temperature baseline's memory. */
+    fun skinNightMedians(deviceId: String): List<Double> =
+        prefs.getString(skinMediansKey(deviceId), null).orEmpty().split(',').mapNotNull { it.toDoubleOrNull() }
+
+    fun setSkinNightMedians(deviceId: String, medians: List<Double>) {
+        prefs.edit { putString(skinMediansKey(deviceId), medians.joinToString(",")) }
+    }
+
     fun clear(deviceId: String) {
         prefs.edit {
             remove(key(deviceId))
@@ -88,6 +104,8 @@ class WearOsSyncCursorStore(private val prefs: SharedPreferences) {
             remove(hrvKey(deviceId))
             remove(respiratoryKey(deviceId))
             remove(spo2Key(deviceId))
+            remove(skinKey(deviceId))
+            remove(skinMediansKey(deviceId))
         }
     }
 
@@ -104,6 +122,10 @@ class WearOsSyncCursorStore(private val prefs: SharedPreferences) {
     private fun respiratoryKey(deviceId: String) = "respiratory_cursor_$deviceId"
 
     private fun spo2Key(deviceId: String) = "spo2_cursor_$deviceId"
+
+    private fun skinKey(deviceId: String) = "skin_cursor_$deviceId"
+
+    private fun skinMediansKey(deviceId: String) = "skin_medians_$deviceId"
 
     private companion object {
         const val PREFS_FILE = "wearos_sync_cursors"

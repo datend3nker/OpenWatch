@@ -112,6 +112,14 @@ class HealthConnectGateway(
         return granted
     }
 
+    /** True when this Health Connect stores skin temperature (a feature of newer versions). */
+    fun isSkinTemperatureAvailable(): Boolean {
+        if (availability() != HealthConnectAvailability.AVAILABLE) return false
+        return runCatching {
+            clientProvider().features.getFeatureStatus(HealthConnectFeatures.FEATURE_SKIN_TEMPERATURE)
+        }.getOrNull() == HealthConnectFeatures.FEATURE_STATUS_AVAILABLE
+    }
+
     /** True when this Health Connect offers the background-read grant at all. */
     fun isBackgroundReadAvailable(): Boolean {
         if (availability() != HealthConnectAvailability.AVAILABLE) return false

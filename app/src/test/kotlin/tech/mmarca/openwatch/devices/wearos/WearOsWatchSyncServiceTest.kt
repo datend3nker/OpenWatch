@@ -136,6 +136,9 @@ class WearOsWatchSyncServiceTest {
         override suspend fun pullSpo2(targetAddress: String?, targetName: String?, since: Instant): WearOsSpo2Page? =
             spo2Pages.removeFirstOrNull() ?: WearOsSpo2Page(emptyList(), hasMore = false)
 
+        override suspend fun pullSkin(targetAddress: String?, targetName: String?, since: Instant): WearOsSkinPage? =
+            WearOsSkinPage(emptyList(), hasMore = false)
+
         override suspend fun notifyPhoneActive(targetAddress: String?, targetName: String?, at: Instant): Boolean = false
     }
 

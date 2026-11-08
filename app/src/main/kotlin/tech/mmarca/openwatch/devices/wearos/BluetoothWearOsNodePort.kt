@@ -176,6 +176,19 @@ class BluetoothWearOsNodePort @Inject constructor(
         }
     }
 
+    override suspend fun pullSkin(
+        targetAddress: String?,
+        targetName: String?,
+        since: Instant,
+    ): WearOsSkinPage? = withContext(Dispatchers.IO) {
+        val match = bondedWatchOrNull(targetAddress, targetName) ?: return@withContext null
+        withSession(match, targetAddress, PULL_TIMEOUT_MS) { session ->
+            if (WearLinkProtocol.CAP_SKIN_TEMPERATURE !in session.peer.capabilities) return@withSession WearOsSkinPage(emptyList(), false)
+            val page = unwrap(session.pullSkin(since.toEpochMilli(), WearLinkProtocol.MAX_SKIN_MINUTES_PER_REQUEST))
+            WearOsSkinPage(page.items.map { WearOsSkinMinute(Instant.ofEpochMilli(it.epochMillis), it.skinCelsius) }, page.more)
+        }
+    }
+
     override suspend fun notifyPhoneActive(
         targetAddress: String?,
         targetName: String?,

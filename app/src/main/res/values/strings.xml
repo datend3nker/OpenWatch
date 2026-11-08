@@ -139,6 +139,7 @@
     <string name="settings_watch_wearos_needs_hrv_write">Heart rate variability not written: allow OpenWatch to write it in Health Connect, then sync again.</string>
     <string name="settings_watch_wearos_needs_respiratory_write">Breathing rate not written: allow OpenWatch to write it in Health Connect, then sync again.</string>
     <string name="settings_watch_wearos_needs_spo2_write">Blood oxygen not written: allow OpenWatch to write it in Health Connect, then sync again.</string>
+    <string name="settings_watch_wearos_needs_skin_write">Skin temperature not written: allow OpenWatch to write it in Health Connect, then sync again.</string>
     <string name="settings_watch_wearos_needs_resting_heart_rate">Resting heart rate not written: allow OpenWatch to read and write resting heart rate in Health Connect to estimate it from the next sync on.</string>
     <plurals name="settings_watch_wearos_synced_samples">
         <item quantity="one">%1$d heart rate sample synced</item>
