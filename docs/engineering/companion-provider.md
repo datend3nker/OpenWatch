@@ -1,6 +1,6 @@
 # Talking to OpenVitals: a companion ContentProvider (proposal)
 
-> **Status:** proposal, nothing built. For the maintainers to decide the open points below.
+> **Status:** proposal, nothing built. Decided points are marked; the rest is for the maintainers.
 > **Scope:** OpenVitals and OpenWatch first; other apps later, under the same rules.
 
 ## Why
@@ -51,17 +51,18 @@ Three layers, all required:
    height, weight, sex and birth year, not the name), commands are a fixed list with checked
    arguments, and each command is rate-limited and kept in a log the user can read.
 
-For the protection level of the permissions there are two candidates (open point 1):
+**Protection level (decided, 2026-11-08): `dangerous` for every scope.** The calling app asks
+at run time, as with CoMaps, which works whatever key signed a build (Play, F-Droid, GitHub),
+and is the same path a third-party app takes later. `knownSigner` was the alternative: no
+prompt, but it refuses any build signed by a key not in the list, such as an F-Droid build.
 
-- `knownSigner` (Android 12+): granted without a prompt to apps signed with the listed
-  certificates. Smooth for OpenVitals and OpenWatch, but only if every build that users get
-  (Play, F-Droid, GitHub releases) is signed with a key in the list; an F-Droid build signed
-  by F-Droid's key would be refused. Before Android 12 it falls back to `signature`.
-- `dangerous`: a runtime prompt in the calling app, as CoMaps does. Works for any signer, and
-  is the same path a third-party app takes later.
+The serving app knows the certificates of the official OpenVitals and OpenWatch builds. When a
+caller presents the expected package name with a certificate it does not know, the consent
+screen says so before the user approves: "This app calls itself OpenVitals, but it was not
+signed by the OpenVitals project. Approve only if you built or installed it yourself and trust
+where it came from." A caller that is neither gets the plain consent text for other apps.
 
-Either way layer 2 stays: the protection level decides who may ask, the consent list decides
-who gets an answer.
+The runtime permission decides who may ask; the consent list decides who gets an answer.
 
 ## Later: other apps
 
@@ -71,19 +72,43 @@ elsewhere: the Bridge app, which owns every internet connection by design, would
 client. OpenVitals and OpenWatch stay offline; a provider is local IPC and needs no network
 permission.
 
+## Who owns the profile and the units (decided, 2026-11-08)
+
+OpenVitals owns them; OpenWatch reads them and keeps its own only as the fallback when
+OpenVitals is not installed or not granted. When both hold a value and they differ (the first
+connection, or a change made in OpenWatch while disconnected), OpenWatch does not choose: it
+shows both values field by field and asks which to keep, OpenVitals' or its own. Keeping
+OpenWatch's value needs a write scope on OpenVitals (`/profile` with `insert`/`update`,
+`…WRITE_PROFILE`), granted separately from the read.
+
 ## Where the contract lives (open point 3)
 
 The two apps share no code at run time. The contract (authorities, paths, columns, permission
-names, versions) is small; options are a tiny published library both depend on, or the same
-file kept in both repositories with a test on each side that checks it against a written
-specification. `:wearlink` is the precedent for one source of truth.
+names, versions) is small. What others do:
+
+- **A small published library:** OpenKeychain's `openpgp-api` (used by K-9/Thunderbird),
+  Muzei's `muzei-api`, Health Connect's own client. A third party adds one dependency and gets
+  the names, the versions and helpers.
+- **A written contract only:** CoMaps' navigation provider, which OpenVitals mirrors by hand;
+  Gadgetbridge's intent API. Quick for a few partners; every side keeps a copy.
+
+Proposed: the library, because the provider is meant to become public. A repository of its own,
+pure Kotlin/JVM with no dependencies (constants, columns, versions, permission names, the
+consent texts' keys), published to Maven Central, which F-Droid builds can fetch. Until the
+first release both apps include it as a Git submodule, as `:wearlink` is one source for the
+watch link.
+
+## What OpenWatch computes
+
+OpenWatch writes the watch's data to Health Connect and computes only what a Health Connect
+record needs from the watch's raw values (a sleep session from the minute rows, an RMSSD from
+the beats). The provider adds no computation: it carries settings, state and commands.
 
 ## Open points
 
-1. Protection level: `knownSigner` with the release keys, or `dangerous` for everyone.
-2. Which app owns the body profile and the units. Proposed: OpenVitals; OpenWatch reads them
-   and keeps its own only when OpenVitals is not installed or not granted.
-3. The contract's home: a published library or a mirrored file with tests.
+1. ~~Protection level~~: `dangerous`, with a trust warning for an unknown signer (decided).
+2. ~~Profile and units~~: OpenVitals owns them; the user settles differences (decided).
+3. The contract's home: proposed a published library, included as a submodule until released.
 4. Commands: which ones, and whether the watch confirms them on its screen.
 
 ## First slice, once decided
