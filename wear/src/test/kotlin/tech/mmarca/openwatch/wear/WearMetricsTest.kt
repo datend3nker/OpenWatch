@@ -58,7 +58,9 @@ class WearMetricsTest {
         val keys = WearMetrics.ALL.map { it.key }
         assertEquals(keys.size, keys.toSet().size)
         assertEquals(
-            listOf(WearLinkProtocol.CAP_HEART_RATE, WearLinkProtocol.CAP_SLEEP_MINUTES, WearLinkProtocol.CAP_STEPS, WearLinkProtocol.CAP_ASCENT, WearLinkProtocol.CAP_HRV),
+            listOf(WearLinkProtocol.CAP_HEART_RATE, WearLinkProtocol.CAP_SLEEP_MINUTES, WearLinkProtocol.CAP_STEPS, WearLinkProtocol.CAP_ASCENT, WearLinkProtocol.CAP_HRV,
+                WearLinkProtocol.CAP_RESPIRATORY_RATE, WearLinkProtocol.CAP_SKIN_TEMPERATURE,
+            ),
             keys,
         )
     }

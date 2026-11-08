@@ -52,7 +52,7 @@ internal class NightHrvRecorder(
     private var finishing = false
     private var pending: Pending? = null
 
-    private class Pending(val startMillis: Long, val endMillis: Long, val result: HrvWindowResult)
+    private class Pending(val startMillis: Long, val endMillis: Long, val result: NightWindowResult)
 
     /** Whether the Samsung Health Platform can be chosen as the source on this watch. */
     val hasSamsungPlatform: Boolean
@@ -150,7 +150,7 @@ internal class NightHrvRecorder(
         finished.finish(now) { result ->
             finishing = false
             if (wakeLock.isHeld) wakeLock.release()
-            if (result == null) {
+            if (result.isEmpty) {
                 Log.i(TAG, "Window gave no value")
                 DebugProtocol.event("NightHrv", "window_dropped", "why" to "no_value", "startedAt" to started)
                 nextAllowedAt = NightHrvSchedule.nextStartAfter(started, spoiled = true)
@@ -192,11 +192,25 @@ internal class NightHrvRecorder(
             DebugProtocol.event("NightHrv", "window_dropped", "why" to "movement", "startedAt" to waiting.startMillis)
             return
         }
-        val rmssd10 = Math.round(waiting.result.rmssdMillis * 10).toInt()
-        store.put(WearMetrics.HRV, WearLinkProtocol.HrvWindow(waiting.startMillis, rmssd10, waiting.result.beatCount))
-        store.prune(WearMetrics.HRV, now)
-        Log.i(TAG, "Window stored (${waiting.result.beatCount} beats)")
-        DebugProtocol.event("NightHrv", "window_stored", "startedAt" to waiting.startMillis, "rmssd" to waiting.result.rmssdMillis, "beats" to waiting.result.beatCount)
+        val hrv = waiting.result.hrv
+        if (hrv != null) {
+            val rmssd10 = Math.round(hrv.rmssdMillis * 10).toInt()
+            store.put(WearMetrics.HRV, WearLinkProtocol.HrvWindow(waiting.startMillis, rmssd10, hrv.beatCount))
+            store.prune(WearMetrics.HRV, now)
+        }
+        val breaths = waiting.result.breathsPerMinute
+        if (breaths != null) {
+            val breaths10 = Math.round(breaths * 10).toInt()
+                .coerceIn(WearLinkProtocol.MIN_BREATHS10, WearLinkProtocol.MAX_BREATHS10)
+            store.put(WearMetrics.RESPIRATORY_RATE, WearLinkProtocol.RespiratoryWindow(waiting.startMillis, breaths10, waiting.result.breathingRoutes))
+            store.prune(WearMetrics.RESPIRATORY_RATE, now)
+        }
+        Log.i(TAG, "Window stored (${hrv?.beatCount ?: 0} beats)")
+        DebugProtocol.event(
+            "NightHrv", "window_stored",
+            "startedAt" to waiting.startMillis, "rmssd" to hrv?.rmssdMillis, "beats" to hrv?.beatCount,
+            "rr" to breaths, "rrRoutes" to waiting.result.breathingRoutes,
+        )
     }
 
     private companion object {

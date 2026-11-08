@@ -137,6 +137,7 @@
     <string name="settings_watch_wearos_needs_steps_write">Steps not written: allow OpenWatch to write steps in Health Connect, then sync again.</string>
     <string name="settings_watch_wearos_needs_calories_write">Walking calories not written: allow OpenWatch to write active calories and read workouts in Health Connect to estimate them from the next sync on.</string>
     <string name="settings_watch_wearos_needs_hrv_write">Heart rate variability not written: allow OpenWatch to write it in Health Connect, then sync again.</string>
+    <string name="settings_watch_wearos_needs_respiratory_write">Breathing rate not written: allow OpenWatch to write it in Health Connect, then sync again.</string>
     <string name="settings_watch_wearos_needs_resting_heart_rate">Resting heart rate not written: allow OpenWatch to read and write resting heart rate in Health Connect to estimate it from the next sync on.</string>
     <plurals name="settings_watch_wearos_synced_samples">
         <item quantity="one">%1$d heart rate sample synced</item>
@@ -150,4 +151,6 @@
         <item quantity="one">%1$d night of sleep estimated</item>
         <item quantity="other">%1$d nights of sleep estimated</item>
     </plurals>
+    <string name="settings_respiratory_rate_title">Breathing rate from the watch (experimental)</string>
+    <string name="settings_respiratory_rate_body">Writes the breathing rate of the watch\'s night-time HRV windows to Health Connect. Not yet checked against a reference device.</string>
 </resources>

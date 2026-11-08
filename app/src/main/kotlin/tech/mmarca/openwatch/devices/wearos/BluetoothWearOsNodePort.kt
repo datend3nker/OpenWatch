@@ -147,6 +147,22 @@ class BluetoothWearOsNodePort @Inject constructor(
         }
     }
 
+    override suspend fun pullRespiratory(
+        targetAddress: String?,
+        targetName: String?,
+        since: Instant,
+    ): WearOsRespiratoryPage? = withContext(Dispatchers.IO) {
+        val match = bondedWatchOrNull(targetAddress, targetName) ?: return@withContext null
+        withSession(match, targetAddress, PULL_TIMEOUT_MS) { session ->
+            if (WearLinkProtocol.CAP_RESPIRATORY_RATE !in session.peer.capabilities) return@withSession WearOsRespiratoryPage(emptyList(), false)
+            val page = unwrap(session.pullRespiratory(since.toEpochMilli(), WearLinkProtocol.MAX_WINDOWS_PER_REQUEST))
+            WearOsRespiratoryPage(
+                windows = page.items.map { WearOsRespiratoryWindow(Instant.ofEpochMilli(it.epochMillis), it.breathsPerMinute, it.routes) },
+                hasMore = page.more,
+            )
+        }
+    }
+
     override suspend fun notifyPhoneActive(
         targetAddress: String?,
         targetName: String?,

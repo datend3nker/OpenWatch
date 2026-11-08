@@ -198,6 +198,21 @@ class WearLinkProtocolTest {
     }
 
     @Test
+    fun `breathing and skin lines round-trip and refuse what no wrist gives`() {
+        val rr = WearLinkProtocol.RespiratoryWindow(1_700_000_100_000L, 142, 2)
+        assertEquals("RR 1700000100000 142 2", WearLinkProtocol.formatRespiratoryWindow(rr))
+        assertEquals(rr, WearLinkProtocol.parseRespiratoryWindow(WearLinkProtocol.formatRespiratoryWindow(rr)))
+        assertNull(WearLinkProtocol.parseRespiratoryWindow("RR 1700000100000 40 2"))
+        assertNull(WearLinkProtocol.parseRespiratoryWindow("RR 1700000100000 142 3"))
+        val sk = WearLinkProtocol.SkinMinute(1_700_000_040_000L, 3412, 2250)
+        assertEquals(sk, WearLinkProtocol.parseSkinMinute(WearLinkProtocol.formatSkinMinute(sk)))
+        assertNull(WearLinkProtocol.parseSkinMinute("SK 1700000040000 1500 2250"))
+        assertNull(WearLinkProtocol.parseSkinMinute("SK 1700000040001 3412 2250"))
+        assertEquals(WearLinkProtocol.Request.RespiratorySince(10, 500), WearLinkProtocol.parseRequest("RR_SINCE 10 99999"))
+        assertEquals(WearLinkProtocol.Request.SkinSince(10, 2000), WearLinkProtocol.parseRequest("SK_SINCE 10 99999"))
+    }
+
+    @Test
     fun `phone active round-trips and refuses a bad time`() {
         assertEquals("PHONE_ACTIVE 1700000000000", WearLinkProtocol.formatRequest(WearLinkProtocol.Request.PhoneActive(1_700_000_000_000L)))
         assertEquals(WearLinkProtocol.Request.PhoneActive(1_700_000_000_000L), WearLinkProtocol.parseRequest("PHONE_ACTIVE 1700000000000"))

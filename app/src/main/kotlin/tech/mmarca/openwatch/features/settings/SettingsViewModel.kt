@@ -12,6 +12,7 @@ import tech.mmarca.openwatch.data.repository.OpenWatchPreferences
 
 data class SettingsUiState(
     val syncEnabled: Boolean = true,
+    val writeRespiratoryRate: Boolean = false,
     val versionName: String = BuildConfig.VERSION_NAME,
 )
 
@@ -20,17 +21,24 @@ class SettingsViewModel @Inject constructor(
     private val preferences: OpenWatchPreferences,
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(SettingsUiState(syncEnabled = preferences.healthConnectSyncEnabled))
+    private val _uiState = MutableStateFlow(
+        SettingsUiState(syncEnabled = preferences.healthConnectSyncEnabled, writeRespiratoryRate = preferences.writeRespiratoryRate),
+    )
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
     fun refresh() {
         _uiState.update {
-            it.copy(syncEnabled = preferences.healthConnectSyncEnabled)
+            it.copy(syncEnabled = preferences.healthConnectSyncEnabled, writeRespiratoryRate = preferences.writeRespiratoryRate)
         }
     }
 
     fun setSyncEnabled(enabled: Boolean) {
         preferences.healthConnectSyncEnabled = enabled
         _uiState.update { it.copy(syncEnabled = enabled) }
+    }
+
+    fun setWriteRespiratoryRate(enabled: Boolean) {
+        preferences.writeRespiratoryRate = enabled
+        _uiState.update { it.copy(writeRespiratoryRate = enabled) }
     }
 }

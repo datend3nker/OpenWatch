@@ -63,6 +63,12 @@ interface WearLinkRequestHandler {
     /** The wearer used the phone at [epochMillis]. Only called when the watch advertised [WearLinkProtocol.CAP_PHONE_ACTIVE]. */
     fun phoneActive(epochMillis: Long)
 
+    /** The night windows' breathing rates newer than [sinceEpochMillis]. Only called when the watch advertised [WearLinkProtocol.CAP_RESPIRATORY_RATE]. */
+    fun respiratorySince(sinceEpochMillis: Long, limit: Int): Page<WearLinkProtocol.RespiratoryWindow>
+
+    /** The skin temperature minutes newer than [sinceEpochMillis]. Only called when the watch advertised [WearLinkProtocol.CAP_SKIN_TEMPERATURE]. */
+    fun skinSince(sinceEpochMillis: Long, limit: Int): Page<WearLinkProtocol.SkinMinute>
+
     /**
      * Blocks for up to [seconds], handing each heart rate reading to [emit]
      * on the caller's thread as it arrives; returns how many. Returns 0 at

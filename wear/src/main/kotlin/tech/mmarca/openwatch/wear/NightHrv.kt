@@ -15,4 +15,8 @@ object NightHrv {
         val beats = PpgBeats.detect(timesMillis, values) ?: return null
         return HrvRmssd.of(beats)
     }
+
+    /** The breathing rate of the same window by both routes; see [RespiratoryRate]. */
+    fun respiration(timesMillis: DoubleArray, values: DoubleArray): RespiratoryRate.Window =
+        RespiratoryRate.of(PpgBeats.detect(timesMillis, values), timesMillis, values)
 }

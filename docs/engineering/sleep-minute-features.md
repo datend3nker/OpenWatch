@@ -124,3 +124,10 @@ A nap is a run of minutes that are all of: worn, scored as sleep by `SleepWakeSc
 | Onset | moved back up to 15 minutes over still, worn minutes with the pulse at least 3 bpm under the waking level |
 
 The thresholds are judgement, not fitted: no nap was recorded against a reference yet. Sitting still on a sofa or in a cinema lowers the pulse by a few beats, so by day the drop is the stricter rule. A nap has one `LIGHT` stage for its sleep, `AWAKE` for wake minutes; it is too short for deep and REM. A nap has no resting heart rate. Its identity is its onset minute, so re-estimating as the day fills in gives the same nap; if the onset moves, the phone replaces the old record.
+
+## Breathing rate and skin temperature
+
+Each night HRV window also gives a breathing rate (`RespiratoryRate`, from OpenVitals): from the raw PPG by two routes, the beat intervals (respiratory sinus arrhythmia) and the signal's baseline, kept only when they agree within three breaths a minute; from the Samsung platform by the intervals alone. It is stored as an `RR` row with the number of routes. The phone writes it as a `RespiratoryRateRecord` only when the user switched "Breathing rate from the watch (experimental)" on: it is not yet checked against a reference, and Samsung Health's own sleep breathing rate is the first comparison. Every window's two estimates and their peak shares go to the debug protocol.
+
+When the Samsung platform is the heart rate or HRV source, the watch also runs the platform's continuous skin temperature tracker while sleep is held (`SkinTemperatureRecorder`) and keeps one `SK` row per minute, skin and ambient. In the bench test the tracker delivered nothing; the debug protocol counts what arrives. The phone does not pull these rows yet: Health Connect's `SkinTemperatureRecord` holds deltas from a baseline, and the baseline is to be chosen once real nights show what the tracker sends.
+

@@ -72,6 +72,24 @@ class WearLinkSession internal constructor(
             Reply.Unexpected
         }
 
+    fun pullRespiratory(sinceEpochMillis: Long, limit: Int): WearLinkOutcome<Page<WearLinkProtocol.RespiratoryWindow>> {
+        val items = ArrayList<WearLinkProtocol.RespiratoryWindow>()
+        return exchange(WearLinkProtocol.Request.RespiratorySince(sinceEpochMillis, limit)) { line ->
+            WearLinkProtocol.parseRespiratoryWindow(line)?.let { items += it; return@exchange Reply.More }
+            WearLinkProtocol.parseEnd(line)?.let { return@exchange Reply.Done(Page(items, it.more)) }
+            Reply.Unexpected
+        }
+    }
+
+    fun pullSkin(sinceEpochMillis: Long, limit: Int): WearLinkOutcome<Page<WearLinkProtocol.SkinMinute>> {
+        val items = ArrayList<WearLinkProtocol.SkinMinute>()
+        return exchange(WearLinkProtocol.Request.SkinSince(sinceEpochMillis, limit)) { line ->
+            WearLinkProtocol.parseSkinMinute(line)?.let { items += it; return@exchange Reply.More }
+            WearLinkProtocol.parseEnd(line)?.let { return@exchange Reply.Done(Page(items, it.more)) }
+            Reply.Unexpected
+        }
+    }
+
     /** Tells the watch the wearer used the phone at [epochMillis]. */
     fun notifyPhoneActive(epochMillis: Long): WearLinkOutcome<Unit> =
         exchange(WearLinkProtocol.Request.PhoneActive(epochMillis)) { line ->

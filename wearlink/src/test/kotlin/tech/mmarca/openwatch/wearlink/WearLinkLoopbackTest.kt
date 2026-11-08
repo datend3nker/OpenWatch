@@ -109,6 +109,10 @@ class WearLinkLoopbackTest {
         val hrv = (session.pullHrv(0, 2000) as WearLinkOutcome.Ok).value
         assertEquals(loopback.handler.hrv, hrv.items)
         assertEquals(WearLinkOutcome.Ok(Unit), session.notifyPhoneActive(1_700_000_200_000L))
+        loopback.handler.respiratory = listOf(WearLinkProtocol.RespiratoryWindow(1_700_000_100_000L, 142, 2))
+        loopback.handler.skin = listOf(WearLinkProtocol.SkinMinute(1_700_000_040_000L, 3412, 2250))
+        assertEquals(loopback.handler.respiratory, (session.pullRespiratory(0, 500) as WearLinkOutcome.Ok).value.items)
+        assertEquals(loopback.handler.skin, (session.pullSkin(0, 2000) as WearLinkOutcome.Ok).value.items)
         assertEquals(listOf(1_700_000_200_000L), loopback.handler.phoneActive)
         assertFalse(link.serverReturned())
         session.close()

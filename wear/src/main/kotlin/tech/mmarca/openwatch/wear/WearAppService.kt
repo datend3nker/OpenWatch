@@ -46,6 +46,7 @@ class WearAppService : Service() {
     private lateinit var ascentRecorder: AscentRecorder
     private lateinit var minuteRecorder: SleepMinuteRecorder
     private lateinit var nightHrv: NightHrvRecorder
+    private lateinit var skinRecorder: SkinTemperatureRecorder
     private lateinit var wornMonitor: WornMonitor
     private lateinit var bedtimeMonitor: BedtimeMonitor
     private lateinit var samsungFeed: SamsungHeartRateFeed
@@ -118,6 +119,7 @@ class WearAppService : Service() {
             isHolding = { WearLinkState.state.value.sleepHoldActive },
             samsungFeed = samsungFeed,
         )
+        skinRecorder = SkinTemperatureRecorder(store, samsungFeed)
         bedtimeMonitor = BedtimeMonitor(this, mainHandler) { reconcileRecorders() }
         debugSnapshots = DebugSnapshots(this, mainHandler, ::debugPlan)
         stepRecorder = StepRecorder(this, store, wakeSync)
@@ -129,6 +131,7 @@ class WearAppService : Service() {
             store = store,
             live = LiveHeartRate(this, isRecording = { recorder.isRunning }),
             hrvAvailable = { nightHrv.hasSensor },
+            skinAvailable = { skinRecorder.isAvailable },
             onPhoneActive = { at -> minuteRecorder.notePhoneActive(at) },
             localName = ::localName,
         )
@@ -270,6 +273,10 @@ class WearAppService : Service() {
         recorder.setPlan(wanted, WearSettings.heartRateSource(this))
         // Without the heart rate's wake-ups the step counter must wake the watch itself.
         stepRecorder.setHeartRateRunning(isHeartRateDense())
+        // Skin temperature comes with the Samsung platform, at night, when the wearer chose that platform.
+        val samsungChosen = WearSettings.heartRateSource(this) == WearSettings.Source.SAMSUNG_PLATFORM ||
+            WearSettings.hrvSource(this) == WearSettings.Source.SAMSUNG_PLATFORM
+        skinRecorder.setEnabled(granted && heartRateWanted && samsungChosen && minuteRecorder.isSleepHolding)
         if (before != (recorder.interval to recorder.source)) debugSnapshots.write("plan")
     }
 
@@ -292,6 +299,7 @@ class WearAppService : Service() {
         "hold" to WearLinkState.state.value.bedtimeHold.name,
         "sleepHold" to minuteRecorder.isSleepHolding,
         "syncedHold" to WearSettings.syncedSleepHold(this),
+        "skin" to skinRecorder.isRunning,
         "worn" to heartRateWanted,
         "steps" to stepRecorder.isRunning,
     )
@@ -328,6 +336,7 @@ class WearAppService : Service() {
             ascentRecorder.stop()
             minuteRecorder.stop()
             nightHrv.stop()
+            skinRecorder.stop()
             ppgLogger.stop()
             WearLinkState.update { it.copy(ppgLogging = false) }
         }

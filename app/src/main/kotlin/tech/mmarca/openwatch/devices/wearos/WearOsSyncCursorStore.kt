@@ -63,6 +63,14 @@ class WearOsSyncCursorStore(private val prefs: SharedPreferences) {
         prefs.edit { putLong(hrvKey(deviceId), at.toEpochMilli()) }
     }
 
+    /** The breathing rate cursor: the start of the newest window written. [Instant.EPOCH] for a watch never synced. */
+    fun respiratoryCursor(deviceId: String): Instant =
+        Instant.ofEpochMilli(prefs.getLong(respiratoryKey(deviceId), 0L))
+
+    fun setRespiratoryCursor(deviceId: String, at: Instant) {
+        prefs.edit { putLong(respiratoryKey(deviceId), at.toEpochMilli()) }
+    }
+
     fun clear(deviceId: String) {
         prefs.edit {
             remove(key(deviceId))
@@ -70,6 +78,7 @@ class WearOsSyncCursorStore(private val prefs: SharedPreferences) {
             remove(stepsKey(deviceId))
             remove(ascentKey(deviceId))
             remove(hrvKey(deviceId))
+            remove(respiratoryKey(deviceId))
         }
     }
 
@@ -82,6 +91,8 @@ class WearOsSyncCursorStore(private val prefs: SharedPreferences) {
     private fun ascentKey(deviceId: String) = "ascent_cursor_$deviceId"
 
     private fun hrvKey(deviceId: String) = "hrv_cursor_$deviceId"
+
+    private fun respiratoryKey(deviceId: String) = "respiratory_cursor_$deviceId"
 
     private companion object {
         const val PREFS_FILE = "wearos_sync_cursors"

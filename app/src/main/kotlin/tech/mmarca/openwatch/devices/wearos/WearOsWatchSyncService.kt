@@ -28,6 +28,7 @@ import tech.mmarca.openwatch.core.presentation.isPermissionFailure
 import tech.mmarca.openwatch.data.repository.ImportedRecordRepository
 import tech.mmarca.openwatch.data.repository.BleDeviceRepository
 import tech.mmarca.openwatch.data.repository.BodyProfileProvider
+import tech.mmarca.openwatch.data.repository.OpenWatchPreferences
 import tech.mmarca.openwatch.devices.core.sync.DeviceSyncPhase
 import tech.mmarca.openwatch.devices.core.sync.DeviceSyncPort
 import tech.mmarca.openwatch.devices.core.sync.DeviceSyncProgress
@@ -95,6 +96,8 @@ class WearOsWatchSyncService(
     private val weightKg: suspend () -> Double?,
     private val clock: () -> Instant,
     private val zone: () -> ZoneId,
+    /** Whether the user chose to write the watch's breathing rate; off by default, not yet checked against a reference. */
+    private val writeRespiratoryRate: () -> Boolean = { false },
 ) : DeviceSyncPort {
 
     @Inject
@@ -106,20 +109,37 @@ class WearOsWatchSyncService(
         healthConnect: HealthConnectGateway,
         linkStore: WearOsLinkStore,
         bodyProfile: BodyProfileProvider,
+        preferences: OpenWatchPreferences,
     ) : this(
         nodePort, cursors, importRepository, bleDeviceRepository, healthConnect, linkStore,
         // Strict by construction: a failed Health Connect read throws, it never passes for "no weight".
         { bodyProfile.resolve().weightKg },
         Instant::now, ZoneId::systemDefault,
+        { preferences.writeRespiratoryRate },
     )
 
     private val syncMutex = Mutex()
 
-    private val hrv = WearOsHrvSync(
+    private val hrv = WearOsWindowSync<WearOsHrvWindow>(
         importRepository = importRepository,
-        cursors = cursors,
         granted = { healthConnect.grantedPermissions() },
-        zone = zone,
+        writePermission = WearOsHrvImport.writePermission,
+        cursor = cursors::hrvCursor,
+        setCursor = cursors::setHrvCursor,
+        startOf = { it.start },
+        record = { WearOsHrvImport.record(it, zone()) },
+        label = "hrv",
+    )
+
+    private val respiratory = WearOsWindowSync<WearOsRespiratoryWindow>(
+        importRepository = importRepository,
+        granted = { healthConnect.grantedPermissions() },
+        writePermission = WearOsRespiratoryImport.writePermission,
+        cursor = cursors::respiratoryCursor,
+        setCursor = cursors::setRespiratoryCursor,
+        startOf = { it.start },
+        record = { WearOsRespiratoryImport.record(it, zone()) },
+        label = "breathing",
     )
 
     init {
@@ -151,6 +171,7 @@ class WearOsWatchSyncService(
             }
             if (!pullSleep(device, progress)) return notPaired(device)
             if (!pullHrv(device, progress)) return notPaired(device)
+            if (writeRespiratoryRate() && !pullRespiratory(device, progress)) return notPaired(device)
         } catch (error: CancellationException) {
             throw error
         } catch (failure: WearOsLinkFailure) {
@@ -510,7 +531,7 @@ class WearOsWatchSyncService(
      */
     private suspend fun pullHrv(device: BleSensorDevice, progress: Progress): Boolean {
         val outcome = hrv.sync(device.id) { since ->
-            retryOnce { nodePort.pullHrv(device.address, device.bluetoothName, since) }
+            retryOnce { nodePort.pullHrv(device.address, device.bluetoothName, since) }?.let { it.windows to it.hasMore }
         } ?: return false
         if (outcome.withheld) {
             progress.unwritten += UnwrittenSeries.HEART_RATE_VARIABILITY
@@ -518,6 +539,24 @@ class WearOsWatchSyncService(
             WearOsLog.log("hrv: not written, Health Connect permission missing")
         }
         WearOsLog.log("hrv: ${outcome.written} window(s) written")
+        return true
+    }
+
+    /**
+     * The night windows' breathing rates, written as `RespiratoryRateRecord`s,
+     * only when the user switched it on. A missing grant leaves them on the
+     * watch and the sync goes on. False when no bonded watch matches.
+     */
+    private suspend fun pullRespiratory(device: BleSensorDevice, progress: Progress): Boolean {
+        val outcome = respiratory.sync(device.id) { since ->
+            retryOnce { nodePort.pullRespiratory(device.address, device.bluetoothName, since) }?.let { it.windows to it.hasMore }
+        } ?: return false
+        if (outcome.withheld) {
+            progress.unwritten += UnwrittenSeries.RESPIRATORY_RATE
+            progress.withheldPermissions += WearOsRespiratoryImport.writePermission
+            WearOsLog.log("breathing: not written, Health Connect permission missing")
+        }
+        WearOsLog.log("breathing: ${outcome.written} window(s) written")
         return true
     }
 

@@ -104,5 +104,30 @@ object WearMetrics {
         onSameTime = WearMetric.OnSameTime.KEEP,
     )
 
-    val ALL: List<WearMetric<*>> = listOf(HEART_RATE, SLEEP_MINUTES, STEPS, ASCENT, HRV)
+    /**
+     * The breathing rate of a night-time window, keyed on its start; see
+     * `NightHrvRecorder`. A window is final once measured.
+     */
+    val RESPIRATORY_RATE = WearMetric(
+        key = WearLinkProtocol.CAP_RESPIRATORY_RATE,
+        encode = WearLinkProtocol::formatRespiratoryWindow,
+        decode = WearLinkProtocol::parseRespiratoryWindow,
+        timeOf = { it.epochMillis },
+        onSameTime = WearMetric.OnSameTime.KEEP,
+    )
+
+    /**
+     * Skin temperature per clock minute from the Samsung platform; see
+     * `SkinTemperatureRecorder`. A minute is written again while late points
+     * for it arrive, so the newest row wins.
+     */
+    val SKIN_TEMPERATURE = WearMetric(
+        key = WearLinkProtocol.CAP_SKIN_TEMPERATURE,
+        encode = WearLinkProtocol::formatSkinMinute,
+        decode = WearLinkProtocol::parseSkinMinute,
+        timeOf = { it.epochMillis },
+        onSameTime = WearMetric.OnSameTime.REPLACE,
+    )
+
+    val ALL: List<WearMetric<*>> = listOf(HEART_RATE, SLEEP_MINUTES, STEPS, ASCENT, HRV, RESPIRATORY_RATE, SKIN_TEMPERATURE)
 }

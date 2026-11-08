@@ -69,6 +69,25 @@ internal object SamsungIbiWindow {
         return out.toDoubleArray()
     }
 
+    /**
+     * The good intervals that ended inside the window with the time of their
+     * middle, for the breathing rate, which reads the intervals as a time
+     * series and needs no unbroken run.
+     */
+    fun timedIntervals(points: List<IbiPoint>, startMillis: Long, endMillis: Long): Pair<DoubleArray, DoubleArray> {
+        val times = ArrayList<Double>()
+        val values = ArrayList<Double>()
+        for (point in points.sortedBy { it.epochMillis }) {
+            val ends = endTimes(point)
+            for (i in point.intervalsMillis.indices) {
+                if (ends[i] < startMillis || ends[i] > endMillis || point.statuses[i] != STATUS_GOOD) continue
+                times += ends[i] - point.intervalsMillis[i] / 2.0
+                values += point.intervalsMillis[i].toDouble()
+            }
+        }
+        return times.toDoubleArray() to values.toDoubleArray()
+    }
+
     private fun endTimes(point: IbiPoint): LongArray {
         val ends = LongArray(point.intervalsMillis.size)
         var end = point.epochMillis

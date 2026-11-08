@@ -4,8 +4,9 @@ import android.os.Handler
 import android.os.SystemClock
 import tech.mmarca.openwatch.wear.DebugProtocol
 import tech.mmarca.openwatch.wear.HrvRmssd
-import tech.mmarca.openwatch.wear.HrvWindowResult
 import tech.mmarca.openwatch.wear.HrvWindowSource
+import tech.mmarca.openwatch.wear.NightWindowResult
+import tech.mmarca.openwatch.wear.RespiratoryRate
 
 /**
  * The beat-to-beat intervals the Samsung Health Platform computes itself,
@@ -48,9 +49,9 @@ internal class SamsungIbiSource(private val feed: SamsungHeartRateFeed) : HrvWin
         failed = true
     }
 
-    override fun finish(endMillis: Long, onResult: (HrvWindowResult?) -> Unit) {
+    override fun finish(endMillis: Long, onResult: (NightWindowResult) -> Unit) {
         val workerHandler = handler
-        if (!subscribed || workerHandler == null) return onResult(null)
+        if (!subscribed || workerHandler == null) return onResult(NightWindowResult(null))
         val askedAt = SystemClock.elapsedRealtime()
         var done = false
         val deliver = deliver@{
@@ -60,6 +61,8 @@ internal class SamsungIbiSource(private val feed: SamsungHeartRateFeed) : HrvWin
             val intervals = SamsungIbiWindow.intervals(points, startedAt, endMillis)
             val hadError = failed
             val result = if (hadError) null else HrvRmssd.ofIntervals(intervals)
+            val (times, values) = SamsungIbiWindow.timedIntervals(points, startedAt, endMillis)
+            val breathing = if (hadError) null else RespiratoryRate.fromIntervalSeries(times, values)
             DebugProtocol.event(
                 "NightHrv", "samsung_window",
                 "startedAt" to startedAt,
@@ -70,9 +73,11 @@ internal class SamsungIbiSource(private val feed: SamsungHeartRateFeed) : HrvWin
                 "error" to hadError,
                 "rmssd" to result?.rmssdMillis,
                 "beats" to result?.beatCount,
+                "rr" to breathing?.breathsPerMinute,
+                "rrShare" to breathing?.peakShare,
             )
             cancel()
-            onResult(result)
+            onResult(NightWindowResult(result, breathing?.breathsPerMinute, if (breathing != null) 1 else 0))
         }
         waiting = deliver
         if (!feed.flush()) return deliver()

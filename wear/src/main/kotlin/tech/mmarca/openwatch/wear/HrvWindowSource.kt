@@ -9,6 +9,20 @@ import android.os.Handler
 import android.util.Log
 
 /**
+ * What one night window gave: its RMSSD and its breathing rate, either may
+ * be missing. [breathingRoutes] counts the routes that agreed on the rate:
+ * two for the raw PPG (beat intervals and signal baseline), one for a source
+ * that reports only intervals.
+ */
+internal class NightWindowResult(
+    val hrv: HrvWindowResult?,
+    val breathsPerMinute: Double? = null,
+    val breathingRoutes: Int = 0,
+) {
+    val isEmpty: Boolean get() = hrv == null && breathsPerMinute == null
+}
+
+/**
  * Where the beats of one night-time HRV window come from. [NightHrvRecorder]
  * owns the schedule, the wake lock and the store; a source only listens
  * between [begin] and [finish]. Every call is on the recorder's thread, and
@@ -22,7 +36,7 @@ internal interface HrvWindowSource {
     fun begin(handler: Handler, startMillis: Long): Boolean
 
     /** Stops listening and hands over the window's result, null for none, possibly after a short wait. */
-    fun finish(endMillis: Long, onResult: (HrvWindowResult?) -> Unit)
+    fun finish(endMillis: Long, onResult: (NightWindowResult) -> Unit)
 
     /** Stops listening and drops the window. */
     fun cancel()
@@ -79,17 +93,21 @@ internal class PpgWindowSource(context: Context) : HrvWindowSource, SensorEventL
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
 
-    override fun finish(endMillis: Long, onResult: (HrvWindowResult?) -> Unit) {
+    override fun finish(endMillis: Long, onResult: (NightWindowResult) -> Unit) {
         val t = times.copyOf(count)
         val v = values.copyOf(count)
         val window = startedAt
         cancel()
         val result = NightHrv.analyze(t, v)
+        val breathing = NightHrv.respiration(t, v)
         DebugProtocol.event(
             "NightHrv", "ppg_window",
             "startedAt" to window, "samples" to t.size, "rmssd" to result?.rmssdMillis, "beats" to result?.beatCount,
+            "rrIntervals" to breathing.fromIntervals?.breathsPerMinute, "rrIntervalsShare" to breathing.fromIntervals?.peakShare,
+            "rrSignal" to breathing.fromSignal?.breathsPerMinute, "rrSignalShare" to breathing.fromSignal?.peakShare,
+            "rr" to breathing.value,
         )
-        onResult(result)
+        onResult(NightWindowResult(result, breathing.value, if (breathing.value != null) 2 else 0))
     }
 
     override fun cancel() {

@@ -29,6 +29,7 @@ import tech.mmarca.openwatch.domain.model.DeviceIntegration
 import tech.mmarca.openwatch.healthconnect.HealthConnectGateway
 import tech.mmarca.openwatch.domain.model.WearSleepMinute
 import androidx.health.connect.client.records.HeartRateVariabilityRmssdRecord
+import androidx.health.connect.client.records.RespiratoryRateRecord
 import androidx.health.connect.client.records.RestingHeartRateRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.SleepSessionRecord
@@ -77,6 +78,10 @@ class WearOsWatchSyncServiceTest {
     /** HRV pages the same way; with none queued the watch answers an empty page. */
     private val hrvPages = ArrayDeque<WearOsHrvPage?>()
     private val hrvPullsSince = mutableListOf<Instant>()
+
+    /** Breathing rate pages; with none queued the watch answers an empty page. */
+    private val respiratoryPages = ArrayDeque<WearOsRespiratoryPage>()
+    private var respiratoryPulls = 0
     private val nodePort = object : WearOsNodePort {
         override suspend fun checkStatus(targetAddress: String?, targetName: String?) = WearOsCompanionStatus()
         override suspend fun pullHeartRate(targetAddress: String?, targetName: String?, since: Instant): WearOsHeartRatePage? {
@@ -119,6 +124,11 @@ class WearOsWatchSyncServiceTest {
             onSample: (WearOsHeartRateSample) -> Unit,
         ): Boolean = false
 
+        override suspend fun pullRespiratory(targetAddress: String?, targetName: String?, since: Instant): WearOsRespiratoryPage? {
+            respiratoryPulls++
+            return respiratoryPages.removeFirstOrNull() ?: WearOsRespiratoryPage(emptyList(), hasMore = false)
+        }
+
         override suspend fun notifyPhoneActive(targetAddress: String?, targetName: String?, at: Instant): Boolean = false
     }
 
@@ -156,6 +166,9 @@ class WearOsWatchSyncServiceTest {
 
     private inline fun <reified T> insertedOf(): List<T> = insertCalls.flatten().filterIsInstance<T>()
 
+    /** The user's breathing rate switch; off as in a fresh install. */
+    private var writeBreathing = false
+
     private fun service() = WearOsWatchSyncService(
         nodePort = nodePort,
         cursors = cursors,
@@ -166,6 +179,7 @@ class WearOsWatchSyncServiceTest {
         weightKg = { weight },
         clock = { t0 },
         zone = { ZoneId.of("+02:00") },
+        writeRespiratoryRate = { writeBreathing },
     )
 
     private fun raw(time: Instant, movement: Float, heartRate: Float) =
@@ -1027,7 +1041,34 @@ class WearOsWatchSyncServiceTest {
         assertEquals(t0, cursors.hrvCursor(WATCH.id))
     }
 
+    @Test
+    fun `with the breathing switch off the watch is not even asked`() = runTest {
+        pages += WearOsHeartRatePage(emptyList(), hasMore = false)
+        respiratoryPages += WearOsRespiratoryPage(listOf(WearOsRespiratoryWindow(t0, 14.2, 2)), hasMore = false)
+
+        service().sync(WATCH, Duration.ZERO, null)
+
+        assertEquals(0, respiratoryPulls)
+        assertTrue(insertedOf<RespiratoryRateRecord>().isEmpty())
+    }
+
+    @Test
+    fun `with the switch on each window is one breathing rate record and the cursor moves`() = runTest {
+        writeBreathing = true
+        pages += WearOsHeartRatePage(emptyList(), hasMore = false)
+        coEvery { healthConnect.grantedPermissions() } returns setOf(RESPIRATORY_WRITE)
+        respiratoryPages += WearOsRespiratoryPage(listOf(WearOsRespiratoryWindow(t0, 14.2, 2)), hasMore = false)
+
+        service().sync(WATCH, Duration.ZERO, null)
+
+        val record = insertedOf<RespiratoryRateRecord>().single()
+        assertEquals(14.2, record.rate, 1e-9)
+        assertEquals("wearos_rr_${t0.toEpochMilli()}", record.metadata.clientRecordId)
+        assertEquals(t0, cursors.respiratoryCursor(WATCH.id))
+    }
+
     private companion object {
+        val RESPIRATORY_WRITE = HealthPermission.getWritePermission(RespiratoryRateRecord::class)
         val HRV_WRITE = HealthPermission.getWritePermission(HeartRateVariabilityRmssdRecord::class)
         const val STEP_PAGE = 2
 

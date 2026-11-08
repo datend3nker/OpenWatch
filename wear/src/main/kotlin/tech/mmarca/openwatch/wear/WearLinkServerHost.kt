@@ -26,12 +26,14 @@ class WearLinkServerHost(
     live: LiveHeartRate,
     /** Whether the watch has the raw PPG sensor a night-time HRV window needs. */
     hrvAvailable: () -> Boolean,
+    /** Whether the watch has the Samsung platform, the only source of skin temperature. */
+    skinAvailable: () -> Boolean,
     /** The phone reported the wearer active at the given time. Called on the link's thread. */
     onPhoneActive: (Long) -> Unit,
     private val localName: () -> String,
     private val state: WearLinkState = WearLinkState,
 ) {
-    private val server = WearLinkServer(trust, Handler(store, live, hrvAvailable, onPhoneActive, localName))
+    private val server = WearLinkServer(trust, Handler(store, live, hrvAvailable, skinAvailable, onPhoneActive, localName))
 
     @Volatile
     private var serverSocket: BluetoothServerSocket? = null
@@ -114,6 +116,7 @@ class WearLinkServerHost(
         private val store: MetricStore,
         private val live: LiveHeartRate,
         private val hrvAvailable: () -> Boolean,
+        private val skinAvailable: () -> Boolean,
         private val onPhoneActive: (Long) -> Unit,
         private val localName: () -> String,
     ) : WearLinkRequestHandler {
@@ -121,7 +124,11 @@ class WearLinkServerHost(
 
         override fun capabilities(): Set<String> = WearMetrics.ALL.mapTo(LinkedHashSet()) { it.key }.apply {
             if (live.hasSensor) add(WearLinkProtocol.CAP_LIVE_HEART_RATE)
-            if (!hrvAvailable()) remove(WearLinkProtocol.CAP_HRV)
+            if (!hrvAvailable()) {
+                remove(WearLinkProtocol.CAP_HRV)
+                remove(WearLinkProtocol.CAP_RESPIRATORY_RATE)
+            }
+            if (!skinAvailable()) remove(WearLinkProtocol.CAP_SKIN_TEMPERATURE)
             add(WearLinkProtocol.CAP_PHONE_ACTIVE)
         }
 
@@ -138,6 +145,12 @@ class WearLinkServerHost(
             page(WearMetrics.ASCENT, sinceEpochMillis, limit)
 
         override fun phoneActive(epochMillis: Long) = onPhoneActive(epochMillis)
+
+        override fun respiratorySince(sinceEpochMillis: Long, limit: Int): Page<WearLinkProtocol.RespiratoryWindow> =
+            page(WearMetrics.RESPIRATORY_RATE, sinceEpochMillis, limit)
+
+        override fun skinSince(sinceEpochMillis: Long, limit: Int): Page<WearLinkProtocol.SkinMinute> =
+            page(WearMetrics.SKIN_TEMPERATURE, sinceEpochMillis, limit)
 
         override fun hrvSince(sinceEpochMillis: Long, limit: Int): Page<WearLinkProtocol.HrvWindow> =
             page(WearMetrics.HRV, sinceEpochMillis, limit)
