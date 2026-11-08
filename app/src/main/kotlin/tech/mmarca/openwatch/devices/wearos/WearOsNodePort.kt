@@ -251,6 +251,16 @@ interface WearOsNodePort {
     ): WearOsSkinPage?
 
     /**
+     * The watch's own settings (`WearLinkProtocol.Preferences`). Null when
+     * no bonded watch matches or the watch app is too old to serve them. Any
+     * other failure throws [WearOsLinkFailure].
+     */
+    suspend fun pullWatchSettings(targetAddress: String?, targetName: String?): Map<String, String>?
+
+    /** Changes one setting on the watch. False when no bonded watch matches or the watch refused it. */
+    suspend fun setWatchSetting(targetAddress: String?, targetName: String?, key: String, value: String): Boolean
+
+    /**
      * Tells the watch the wearer used the phone at [at], so it ends a sleep
      * hold it started by itself. False when no bonded watch matches or the
      * watch app does not take it. Any other failure throws [WearOsLinkFailure].

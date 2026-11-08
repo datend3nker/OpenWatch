@@ -120,6 +120,15 @@ fun WatchDeviceScreen(
         SectionHeader(stringResource(R.string.settings_watch_wearos_sync_section))
         WearOsSyncCard(device, state.sync, onSync = viewModel::syncNow, onAllowGrants = syncGrantLauncher.launch)
 
+        SectionHeader(stringResource(R.string.watch_settings_section))
+        WearOsWatchSettingsCard(
+            settings = state.watchSettings,
+            busy = state.isWatchSettingsBusy,
+            error = state.watchSettingsError,
+            onLoad = viewModel::loadWatchSettings,
+            onSet = viewModel::setWatchSetting,
+        )
+
         SectionHeader(stringResource(R.string.settings_watch_section_device))
         // First: the schedule decides whether this screen is ever visited again.
         AutoSyncCard(

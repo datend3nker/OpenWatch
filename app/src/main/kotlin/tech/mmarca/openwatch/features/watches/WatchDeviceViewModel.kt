@@ -56,6 +56,12 @@ data class WatchDeviceUiState(
     val isCheckingWearOsStatus: Boolean = false,
     /** Why the last Wear OS check failed. [ScreenError.PermissionDenied] gets a grant affordance. */
     val wearOsError: ScreenError? = null,
+    /** The watch's own settings as it last reported them; null until read or when it cannot serve them. */
+    val watchSettings: Map<String, String>? = null,
+    /** True while the watch's settings are read or one is being changed. */
+    val isWatchSettingsBusy: Boolean = false,
+    /** Why the last read or change of the watch's settings failed. */
+    val watchSettingsError: ScreenError? = null,
 )
 
 /** One watch, and everything about it. */
@@ -107,9 +113,14 @@ class WatchDeviceViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(LIVE_STOP_TIMEOUT_MS), null)
 
     init {
-        // The first check runs once the device has loaded; later ones are by hand.
+        // The first check runs once the device has loaded; later ones are by hand. The watch's
+        // settings are read after it: the watch serves one connection at a time.
         viewModelScope.launch {
-            if (uiState.first { it.device != null }.device?.isWearosWatch == true) checkWearOsStatus()
+            if (uiState.first { it.device != null }.device?.isWearosWatch == true) {
+                checkWearOsStatus()
+                uiState.first { !it.isCheckingWearOsStatus }
+                loadWatchSettings()
+            }
         }
         // A sync that ends in a typed failure updates the status row without another ping.
         viewModelScope.launch {
@@ -150,6 +161,41 @@ class WatchDeviceViewModel @Inject constructor(
                 localState.update { it.copy(wearOsError = error) }
             } finally {
                 localState.update { it.copy(isCheckingWearOsStatus = false) }
+            }
+        }
+    }
+
+    /** Reads the watch's own settings over the link. */
+    fun loadWatchSettings() {
+        val device = uiState.value.device ?: return
+        if (!device.isWearosWatch || localState.value.isWatchSettingsBusy) return
+        localState.update { it.copy(isWatchSettingsBusy = true) }
+        viewModelScope.launch {
+            try {
+                val held = wearOsCompanionManager.watchSettings(device.address, device.bluetoothName)
+                localState.update { it.copy(watchSettings = held, watchSettingsError = null) }
+            } catch (e: Exception) {
+                localState.update { it.copy(watchSettingsError = e.toScreenError(logTag = TAG, logMessage = "Watch settings read failed")) }
+            } finally {
+                localState.update { it.copy(isWatchSettingsBusy = false) }
+            }
+        }
+    }
+
+    /** Changes one of the watch's settings, then reads them all back: the watch is the truth. */
+    fun setWatchSetting(key: String, value: String) {
+        val device = uiState.value.device ?: return
+        if (localState.value.isWatchSettingsBusy) return
+        localState.update { state -> state.copy(isWatchSettingsBusy = true, watchSettings = state.watchSettings?.plus(key to value)) }
+        viewModelScope.launch {
+            try {
+                wearOsCompanionManager.setWatchSetting(device.address, device.bluetoothName, key, value)
+                val held = wearOsCompanionManager.watchSettings(device.address, device.bluetoothName)
+                localState.update { it.copy(watchSettings = held, watchSettingsError = null) }
+            } catch (e: Exception) {
+                localState.update { it.copy(watchSettingsError = e.toScreenError(logTag = TAG, logMessage = "Watch setting change failed")) }
+            } finally {
+                localState.update { it.copy(isWatchSettingsBusy = false) }
             }
         }
     }
