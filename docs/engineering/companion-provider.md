@@ -117,3 +117,127 @@ OpenVitals serves `/meta` and `/profile`; OpenWatch reads the profile when the g
 falls back to its own, and shows the grant on a "Connected apps" screen. Tests on both sides:
 the caller check (wrong package, wrong certificate, revoked scope), the columns, and the
 change notification.
+
+## Implementing it in OpenVitals (handoff)
+
+What a first slice in OpenVitals needs, from the Android `ContentProvider` model
+(<https://developer.android.com/reference/android/content/ContentProvider>) and the CoMaps
+integration OpenVitals already reads. Written so a new session can start from this section.
+
+### The provider
+
+- One class, `CompanionProvider : ContentProvider`, authority
+  `tech.mmarca.openvitals.provider.companion` (the debug build: `${applicationId}` in the
+  manifest, so `.debug` gets its own). `onCreate()` does nothing heavy: the provider is created
+  on the main thread at process start, before `Application.onCreate` finishes.
+- Reads go through `query()` and return a `MatrixCursor` with fixed columns. Ignore
+  `selection`, `selectionArgs` and `sortOrder` (or refuse them): there is no database behind it,
+  and a caller must not be able to shape a query.
+- Writes and commands go through `call(method, arg, extras)`, not `insert`/`update`: one entry
+  point, a method name per action, a `Bundle` in and out, easy to version. `insert`, `update`,
+  `delete` throw `UnsupportedOperationException`.
+- `getType()` returns a `vnd.android.cursor.item/vnd.tech.mmarca.openvitals.<scope>` type per path.
+- After a change OpenVitals calls `context.contentResolver.notifyChange(uri, null)` for the
+  scope's URI; a reader observes with `registerContentObserver`. Querying starts OpenVitals'
+  process if it is not running, so a reader queries only when it needs the value.
+
+### Manifest
+
+```xml
+<permission
+    android:name="tech.mmarca.openvitals.permission.READ_PROFILE"
+    android:label="@string/companion_permission_read_profile"
+    android:description="@string/companion_permission_read_profile_body"
+    android:protectionLevel="dangerous" />
+<!-- …READ_UNITS, WRITE_PROFILE the same way -->
+
+<provider
+    android:name=".companion.CompanionProvider"
+    android:authorities="${applicationId}.provider.companion"
+    android:exported="true"
+    android:grantUriPermissions="false">
+    <path-permission android:pathPrefix="/profile"
+        android:readPermission="tech.mmarca.openvitals.permission.READ_PROFILE"
+        android:writePermission="tech.mmarca.openvitals.permission.WRITE_PROFILE" />
+    <path-permission android:pathPrefix="/units"
+        android:readPermission="tech.mmarca.openvitals.permission.READ_UNITS" />
+</provider>
+```
+
+`/meta` carries no permission. `grantUriPermissions="false"`: no one can hand a URI grant on.
+`call()` is not covered by `<path-permission>`; it checks the permission itself (below).
+
+### The caller check, in every entry point
+
+1. `val caller = callingPackage ?: throw SecurityException()` (`ContentProvider.getCallingPackage()`,
+   which the system checks against the calling uid).
+2. `context.checkCallingPermission(permission) == PERMISSION_GRANTED` for the scope, also in
+   `query()` (defence in depth beside the manifest) and always in `call()`.
+3. The consent list: `ConsentStore.isApproved(caller, certificateDigest, scope)`. The digest is
+   the SHA-256 of the caller's signing certificate:
+   `packageManager.getPackageInfo(caller, GET_SIGNING_CERTIFICATES).signingInfo`, take
+   `apkContentsSigners` (or the signing history), hash each. A caller whose certificate is not
+   the one approved gets nothing, so a reinstall with another key asks again.
+4. Not approved: return an empty cursor with one column `status` = `consent_required`, and post
+   nothing else. OpenVitals never shows a dialog on its own from the provider; the user approves
+   in OpenVitals' "Connected apps" screen, which a caller can open with an explicit intent
+   (`ACTION_MANAGE_CONNECTED_APP`, extra: the caller's package and the scopes it asks for).
+5. Keep a small log per caller (scope, time, granted or refused) for that screen; log no values.
+
+`Binder.clearCallingIdentity()` only around OpenVitals' own reads inside the provider, restored
+in `finally`.
+
+### The trust warning
+
+OpenVitals knows the certificate digests of the official OpenWatch builds (Play, F-Droid,
+GitHub release) as constants. On the consent screen:
+
+- package `tech.mmarca.openwatch` (or `.debug`) with a known digest: the normal text;
+- that package name with an unknown digest: the warning ("calls itself OpenWatch, but was not
+  signed by the OpenWatch project; approve only if you built or installed it yourself and
+  trust where it came from");
+- any other package: the plain text for other apps, which says that the app may send what it
+  reads elsewhere.
+
+### Things Android does that matter here
+
+- **Package visibility (Android 11+):** the caller must declare the provider, or OpenVitals is
+  invisible to it: `<queries><provider android:authorities="tech.mmarca.openvitals.provider.companion" /></queries>`
+  (one per build flavour, as OpenVitals does for CoMaps).
+- **Install order of custom permissions:** a `dangerous` permission defined by OpenVitals can be
+  requested only once OpenVitals is installed. A caller installed first must request it again
+  later, so OpenWatch asks at the moment it wants the profile, not at its own install.
+- **No duplicate definitions:** Android refuses to install a second app that defines the same
+  permission name with another signer, so a squatter installed first would block OpenVitals'
+  install rather than take the permission. The consent list (step 3) is what protects the data
+  either way.
+- **Runtime dialog text:** custom permissions are no longer grouped (Android 10+); the dialog
+  shows the permission's own `label`, so write it as a plain sentence.
+
+### Columns of the first scopes
+
+`/meta`: `contract_version` (int), `scopes` (comma list), `app_version`.
+`/profile`: `height_cm` (real), `weight_kg` (real), `sex` (`female`/`male`/`unspecified`),
+`birth_year` (int), `updated_at` (epoch millis). No name, no exact birth date.
+`/units`: `unit_system` (`metric`/`imperial`), `updated_at`.
+`call("set_profile_fields", null, bundle)`: the fields to overwrite, needs `WRITE_PROFILE`;
+answers `ok` or `refused` in the result bundle.
+
+### Tests to write first
+
+- The caller check: no permission, permission but no consent, consent for another certificate,
+  revoked consent, approved: one test each, with a fake `PackageManager` and consent store.
+- The columns and their types for each scope, and that `selection` is refused.
+- The change notification after the profile is edited.
+- A provider test through `ProviderTestRule` (or Robolectric's `ContentResolver`) for the whole
+  path once the pure parts pass.
+
+### Order of work
+
+1. The contract (authority, paths, columns, permission names, `contract_version = 1`) as one
+   Kotlin file, to become the shared library later.
+2. `ConsentStore` and the caller check, pure and tested.
+3. `CompanionProvider` with `/meta` and `/profile`, and the manifest entries.
+4. The "Connected apps" screen with the trust warning.
+5. OpenWatch: the `<queries>` entry, the permission request, reading the profile, the
+   field-by-field choice when values differ, and its fallback to its own profile.
