@@ -87,7 +87,7 @@ The runtime permission decides who may ask; the consent list decides who gets an
 
 A public client goes through the same three layers, with `dangerous` permissions and the
 consent screen. The consent text says plainly that the other app may send what it reads
-elsewhere: the Bridge app, which owns every internet connection by design, would be one such
+elsewhere: OpenBridge, which owns every internet connection by design, would be one such
 client. OpenVitals and OpenWatch stay offline; a provider is local IPC and needs no network
 permission.
 
@@ -137,16 +137,66 @@ later command served by OpenVitals, under the same rules.
 | Method | Extras | Answer |
 | --- | --- | --- |
 | `start_workout` | `session_id` (string, OpenVitals' recording id), `exercise_type` (int, Health Connect's `ExerciseSessionRecord` type), `started_at` (epoch millis) | `status`: `ok` means accepted, not yet running |
-| `stop_workout` | `session_id` | `status` |
+| `pause_workout` | `session_id`, `at` (epoch millis) | `status` |
+| `resume_workout` | `session_id`, `at` (epoch millis) | `status` |
+| `stop_workout` | `session_id`, `at` (epoch millis) | `status` |
+
+`status` is `refused` with a `reason` (`busy`, `not_owner`, `rate_limit`, `bad_argument`) when
+OpenWatch will not carry a command out.
+
+### One workout at a time
+
+- OpenWatch runs **at most one workout**, linked or started on the watch itself. A
+  `start_workout` with a new `session_id` while another workout runs answers `refused`,
+  `reason = busy`. Nothing is queued and nothing is taken over, as OpenVitals' own foreground
+  services refuse rather than queue. OpenVitals then says that the watch already records a
+  workout; the user stops it on the watch.
+- **The caller that started a workout owns it.** `pause_workout`, `resume_workout` and
+  `stop_workout` from another app, or with another `session_id`, answer `refused`,
+  `reason = not_owner`, and change nothing. `stop_workout` with an id that is not running at all
+  answers `ok` and changes nothing; it never stops the running workout.
+- OpenVitals itself records one activity at a time (its one-foreground-service rule), so it never
+  sends a second `session_id` while the first runs.
+
+### Pause and resume
+
+- OpenVitals' recording knows `RECORDING`, `RESTING` (rest between sets) and `PAUSED`. Only
+  `PAUSED` sends `pause_workout`. `RESTING` sends nothing: the watch keeps measuring during a
+  rest, and OpenVitals' own bookkeeping handles the rest.
+- In a pause the watch stops the workout clock, the distance and the energy, and shows "Paused".
+  It keeps measuring heart rate, because a heart rate sample in Health Connect stands on its own
+  and the recovery in a pause is useful.
+- OpenVitals writes the pauses into its `ExerciseSessionRecord` as segments of type
+  `EXERCISE_SEGMENT_TYPE_PAUSE`, so Health Connect knows them once, from the session.
+- `pause_workout` while paused and `resume_workout` while running answer `ok` and change
+  nothing.
+- **Pause on the watch.** A pause or stop the user makes on the watch acts on the watch only and
+  shows on `/devices` (`workout_state = paused`). OpenVitals shows it, but does not follow it:
+  passing it back is the other direction (a command served by OpenVitals), which comes later.
+
+### Desired state instead of a command queue
+
+OpenWatch does not forward each command to the watch as it comes. It stores the **desired
+state** of the linked workout (`running`, `paused`, `stopped`, with the `at` of the last
+command) and brings the watch to it whenever the link is up:
+
+- a command older (`at`) than the last one applied for that session is ignored, so commands that
+  arrive out of order cannot undo a newer one;
+- when the watch is out of reach, `call()` still answers `ok`; the watch follows when the link
+  comes back, and `/devices` shows `workout_state` with `link = lost` until then;
+- a repeated command changes nothing, so OpenVitals may repeat any command after a failure.
+
+`/devices` gains `workout_state` values `paused` and `stopping`, and a column `link`
+(`connected`/`lost`).
 
 **Rules:**
 
 - **Idempotent by `session_id`.** A second `start_workout` with the same id starts nothing new
-  and answers `ok`; `stop_workout` with an unknown id answers `ok`. OpenVitals may therefore
-  repeat a command after a failure without starting two workouts.
+  and answers `ok`. OpenVitals may therefore repeat a command after a failure without starting
+  two workouts.
 - **`call()` answers at once.** The watch link can take seconds, and a binder call must not wait
   for it. The real state goes to `/devices` (`workout_session_id`, `workout_state`:
-  `idle`/`starting`/`running`/`failed`), announced with `notifyChange`. OpenVitals shows
+  `idle`/`starting`/`running`/`paused`/`stopping`/`failed`), announced with `notifyChange`. OpenVitals shows
   "recording on the watch" only once that says `running`.
 - **One workout in Health Connect.** OpenVitals writes the `ExerciseSessionRecord` (it started the
   recording and holds the route). For a workout linked by `session_id`, OpenWatch writes only the
