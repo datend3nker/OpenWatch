@@ -14,6 +14,8 @@ apps cannot see each other.
 Health Connect also tells data apart only by the writing app, so it cannot say which steps came
 from the watch and which from another source. The provider does not fix that, and must not
 try by copying health values: a value that bypasses Health Connect bypasses its permissions.
+A value that came from Health Connect never goes out through the provider, even when the same
+field exists in both (the weight in the body profile).
 
 ## The shape
 
@@ -131,8 +133,27 @@ integration OpenVitals already reads. Written so a new session can start from th
 
 - One class, `CompanionProvider : ContentProvider`, authority
   `tech.mmarca.openvitals.provider.companion` (the debug build: `${applicationId}` in the
-  manifest, so `.debug` gets its own). `onCreate()` does nothing heavy: the provider is created
-  on the main thread at process start, before `Application.onCreate` finishes.
+  manifest, so `.debug` gets its own).
+- **Process start.** Android creates the provider on the main thread *before*
+  `Application.onCreate()` runs, and publishes it to other apps at once. A `query()` or `call()`
+  from another app can therefore arrive on a binder thread while `OpenVitalsApp.onCreate()` is
+  still running: before Hilt's component exists, and while the Flutter migration
+  (`data/migration/`) may still be writing the preferences the profile lives in. So:
+  - `onCreate()` returns `true` and does nothing else.
+  - `OpenVitalsApp` opens a process-wide startup gate as the last step of `onCreate()`. No such
+    signal exists yet; add one (a `CountDownLatch(1)` in an `object`, counted down once).
+  - `query()` and `call()` wait on the gate with a timeout of 5 seconds. On timeout they answer
+    `status = unavailable`. Only after the gate do they fetch their dependencies, with
+    `EntryPointAccessors.fromApplication(context.applicationContext, CompanionEntryPoint::class.java)`;
+    Hilt cannot inject a `ContentProvider` with `@AndroidEntryPoint`.
+  - A query from another app starts OpenVitals' whole process, migration and start-up work
+    included. That is one more reason a reader queries only when it needs the value.
+- **Source of the profile.** `/profile` reads only the profile the user entered
+  (`PreferencesRepository`, the `body_profile_*` keys). It never falls back to Health Connect's
+  latest height or weight, as `BmrEstimateService` does for its own estimate. A user who keeps
+  their weight only in Health Connect gets no weight through the provider; that is intended. The
+  provider package imports nothing from `healthconnect/`, and `HealthConnectLayeringTest` gets a
+  rule for it.
 - Reads go through `query()` and return a `MatrixCursor` with fixed columns. Ignore
   `selection`, `selectionArgs` and `sortOrder` (or refuse them): there is no database behind it,
   and a caller must not be able to shape a query.
@@ -141,8 +162,11 @@ integration OpenVitals already reads. Written so a new session can start from th
   `delete` throw `UnsupportedOperationException`.
 - `getType()` returns a `vnd.android.cursor.item/vnd.tech.mmarca.openvitals.<scope>` type per path.
 - After a change OpenVitals calls `context.contentResolver.notifyChange(uri, null)` for the
-  scope's URI; a reader observes with `registerContentObserver`. Querying starts OpenVitals'
-  process if it is not running, so a reader queries only when it needs the value.
+  scope's URI; a reader observes with `registerContentObserver`. `ConsentStore.approve()` and
+  `ConsentStore.revoke()` do the same for every scope they change, so a reader that lost its
+  consent learns it at once and does not keep showing old values.
+- `/meta` lists the scopes this build serves, not the scopes this caller was granted: it has no
+  permission, so it must not tell one caller about another's consent.
 
 ### Manifest
 
@@ -202,6 +226,20 @@ the build it found, not a fixed string.
 `Binder.clearCallingIdentity()` only around OpenVitals' own reads inside the provider, restored
 in `finally`.
 
+### The consent screen
+
+The "Connected apps" activity is exported: any app can open it, and the package in the intent
+extra comes from that app. So:
+
+- The extra only preselects the app on the screen. If no package of that name is installed, the
+  screen says so and offers no approval.
+- The certificate digest is read from `PackageManager` when the user taps "Allow", not when the
+  screen opens, and that is the digest stored. The screen shows its first 8 hex characters, so a
+  user who builds their own copy can compare.
+- The "Allow" button sets `filterTouchesWhenObscured="true"`; from API 31 the activity calls
+  `window.setHideOverlayWindows(true)`, which needs the `HIDE_OVERLAY_WINDOWS` permission (normal,
+  no dialog). Another app cannot then draw over the screen and steer the tap.
+
 ### The trust warning
 
 OpenVitals knows the certificate digests of the official OpenWatch builds (Play, F-Droid,
@@ -229,6 +267,27 @@ GitHub release) as constants. On the consent screen:
 - **Runtime dialog text:** custom permissions are no longer grouped (Android 10+); the dialog
   shows the permission's own `label`, so write it as a plain sentence.
 
+### Reading it in OpenWatch
+
+The reader treats OpenVitals as untrusted input, as OpenVitals treats CoMaps:
+
+- **Owner check.** Before the first query, `resolveContentProvider(authority)` must name the
+  expected OpenVitals package, and that package must carry one of the certificate digests of the
+  official OpenVitals builds. A known package name with an unknown digest gets the same warning as
+  above, the other way round: "This app calls itself OpenVitals, but was not signed by the
+  OpenVitals project."
+- **Short cursors.** Every cursor is read inside `use {}` and closed at once. An open cursor holds
+  a stable connection to OpenVitals' process, and if that process dies, Android kills the reader
+  with it.
+- **Failures become "not connected".** `SecurityException` (permission revoked),
+  `IllegalArgumentException` (unknown path, older contract), `DeadObjectException` and a missing
+  column all end in the same state: OpenWatch uses its own profile and shows the connection as
+  off. No retry loop.
+- **Observer only while needed.** The `ContentObserver` is registered while a screen or service
+  needs the value, and unregistered after.
+- Values are checked like any input: ranges for height and weight, known values for `sex` and
+  `unit_system`, anything else is dropped.
+
 ### Columns of the first scopes
 
 `/meta`: `contract_version` (int), `scopes` (comma list), `app_version`.
@@ -246,6 +305,11 @@ answers `ok` or `refused` in the result bundle.
 - The change notification after the profile is edited.
 - A provider test through `ProviderTestRule` (or Robolectric's `ContentResolver`) for the whole
   path once the pure parts pass.
+- A query before the startup gate opens waits, and one after the timeout answers `unavailable`.
+- Revoking a consent notifies the scope's URI.
+- `/profile` returns no weight when only Health Connect has one.
+- OpenWatch: wrong owner, unknown digest, revoked permission, provider gone; each ends in the
+  fallback.
 
 ### Order of work
 
@@ -253,6 +317,16 @@ answers `ok` or `refused` in the result bundle.
    Kotlin file, to become the shared library later.
 2. `ConsentStore` and the caller check, pure and tested.
 3. `CompanionProvider` with `/meta` and `/profile`, and the manifest entries.
-4. The "Connected apps" screen with the trust warning.
+4. The "Connected apps" screen with the trust warning and the overlay protection.
 5. OpenWatch: the `<queries>` entry, the permission request, reading the profile, the
    field-by-field choice when values differ, and its fallback to its own profile.
+
+The repository gates in OpenVitals apply to every step:
+
+- The permission labels and descriptions and the consent texts are strings: they go to
+  `values/strings.xml` and to every `values-*/strings.xml`, and `python3 scripts/verify-translations.py`
+  passes.
+- The new package (`companion/`) goes into `docs/engineering/architecture.md`, or
+  `ArchitectureDocTest` fails.
+- Each new file stays under 800 lines (`FileSizeRatchetTest`), each function under 150
+  (`FunctionLengthRatchetTest`).
