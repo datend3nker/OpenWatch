@@ -217,11 +217,32 @@ the build it found, not a fixed string.
    with API 28, so on API 26 and 27 the provider reads `getPackageInfo(caller, GET_SIGNATURES)`,
    hashes every signature, and requires the set to equal the approved set. One function holds
    both branches, and the tests cover both.
-4. Not approved: return an empty cursor with one column `status` = `consent_required`, and post
-   nothing else. OpenVitals never shows a dialog on its own from the provider; the user approves
+4. Not approved: return a cursor with the scope's normal columns and no rows, and put
+   `status = consent_required` in its extras (below). Post nothing else. OpenVitals never shows a dialog on its own from the provider; the user approves
    in OpenVitals' "Connected apps" screen, which a caller can open with an explicit intent
    (`ACTION_MANAGE_CONNECTED_APP`, extra: the caller's package and the scopes it asks for).
 5. Keep a small log per caller (scope, time, granted or refused) for that screen; log no values.
+
+**The status of an answer** travels in `Cursor.setExtras(Bundle)` under the key `status`, as in
+OpenBridge's contract with OpenVitals' data provider, never as a column. `call()` puts the same
+key in its result bundle.
+
+| `status` | Meaning | Rows |
+| --- | --- | --- |
+| `ok` | the answer is complete | the data |
+| `consent_required` | permission granted, but the user has not approved this caller for this scope | none |
+| `unavailable` | the startup gate timed out, or this build does not serve the scope | none |
+
+- The columns never change with the status, so a reader knows the shape in advance and a test
+  checks one shape per scope.
+- A status that is not `ok` comes with no rows. A reader that ignores the status sees an empty
+  answer, never wrong values.
+- The contract ships `CompanionStatus.of(cursor)`. A missing extra or an unknown value reads as
+  `unavailable`, never as `ok`. A later status (for example `partial`) is a new value, not a new
+  column.
+- `adb shell content query` does not show extras. For debugging, the provider writes one log
+  line per answer with the scope and the status, without values. `/meta` does not carry the last
+  status, because anyone can read `/meta`.
 
 `Binder.clearCallingIdentity()` only around OpenVitals' own reads inside the provider, restored
 in `finally`.
