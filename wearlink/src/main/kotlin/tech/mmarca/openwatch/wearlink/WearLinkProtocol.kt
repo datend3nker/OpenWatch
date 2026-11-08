@@ -41,6 +41,10 @@ import java.util.UUID
  *   announcing `sk` serves it.
  * - `O2_SINCE <epochMillis> <limit>` → `O2` lines, as `HV_SINCE`; only a watch
  *   announcing `o2` serves it.
+ * - `GET_PREF` → one `PREF <key> <value>` line per setting the watch holds,
+ *   then `END <count> 0`. Only a watch announcing `pref` serves it.
+ * - `SET_PREF <key> <value>` → `PREF_OK`, or `ERROR bad_request` for a key or
+ *   value the watch does not take ([Preferences]).
  * - `PHONE_ACTIVE <epochMillis>` → `END 0 0`. The wearer unlocked the phone at
  *   that time: they are awake, so the watch ends a sleep hold it started by
  *   itself. Only a watch announcing `pa` serves it.
@@ -118,6 +122,10 @@ object WearLinkProtocol {
     const val SKIN_MINUTE: String = "SK"
     const val HEART_RATE_LIVE: String = "HR_LIVE"
     const val PHONE_ACTIVE: String = "PHONE_ACTIVE"
+    const val SET_PREFERENCE: String = "SET_PREF"
+    const val PREFERENCE_OK: String = "PREF_OK"
+    const val GET_PREFERENCES: String = "GET_PREF"
+    const val PREFERENCE: String = "PREF"
     const val END: String = "END"
 
     /** Longer than this a line is a protocol violation; the reader closes rather than buffers. */
@@ -146,6 +154,51 @@ object WearLinkProtocol {
 
     /** The watch takes `PHONE_ACTIVE`: the phone says when the wearer used it. */
     const val CAP_PHONE_ACTIVE: String = "pa"
+
+    /** The watch takes `GET_PREF` and `SET_PREF`: the phone can show and change its settings. */
+    const val CAP_PREFERENCES: String = "pref"
+
+    /**
+     * The settings the phone may read with `GET_PREF` and change with
+     * `SET_PREF`: the watch's own ([WearSettings] on the watch). Opaque
+     * tokens on the wire; the watch refuses an unknown key or value. The
+     * read-only keys say what the watch can offer.
+     */
+    object Preferences {
+        /** The heart rate outside bedtime mode. Values are `HeartRateInterval.wire` (`10`, `600`). */
+        const val HEART_RATE_DAY: String = "hr_day"
+
+        /** Where the heart rate comes from. [SENSOR] / [SAMSUNG]. */
+        const val HEART_RATE_SOURCE: String = "hr_source"
+
+        /** Where the night HRV windows' beats come from. [SENSOR] / [SAMSUNG]. */
+        const val HRV_SOURCE: String = "hrv_source"
+
+        /** How a sleep hold keeps the minutes whole. [LOCK] / [SYNCED]. */
+        const val SLEEP_HOLD: String = "sleep_hold"
+
+        /** Skin temperature at night from the Samsung platform. [OFF] / [ON]. */
+        const val SKIN_TEMPERATURE: String = "skin"
+
+        /** SpO2 spot measurements at night from the Samsung platform. [OFF] / [ON]. */
+        const val SPO2: String = "spo2"
+
+        /** Read only: whether the watch has the Samsung Health Platform. [OFF] / [ON]. */
+        const val SAMSUNG_AVAILABLE: String = "samsung"
+
+        /** Read only: whether the watch holds the permission its skin temperature needs. [OFF] / [ON]. */
+        const val SKIN_GRANTED: String = "skin_granted"
+
+        /** Read only: whether the watch holds the permission its SpO2 needs. [OFF] / [ON]. */
+        const val SPO2_GRANTED: String = "spo2_granted"
+
+        const val SENSOR: String = "sensor"
+        const val SAMSUNG: String = "samsung"
+        const val LOCK: String = "lock"
+        const val SYNCED: String = "synced"
+        const val OFF: String = "0"
+        const val ON: String = "1"
+    }
     const val NO_CAPABILITIES: String = "-"
 
     /** The phone's opening line. */
@@ -191,6 +244,8 @@ object WearLinkProtocol {
         data class AscentSince(val sinceEpochMillis: Long, val limit: Int) : Request()
         data class HrvSince(val sinceEpochMillis: Long, val limit: Int) : Request()
         data class PhoneActive(val epochMillis: Long) : Request()
+        data class SetPreference(val key: String, val value: String) : Request()
+        data object GetPreferences : Request()
         data class RespiratorySince(val sinceEpochMillis: Long, val limit: Int) : Request()
         data class SkinSince(val sinceEpochMillis: Long, val limit: Int) : Request()
         data class Spo2Since(val sinceEpochMillis: Long, val limit: Int) : Request()
@@ -253,6 +308,8 @@ object WearLinkProtocol {
         is Request.AscentSince -> formatAscentRequest(request.sinceEpochMillis, request.limit)
         is Request.HrvSince -> formatHrvRequest(request.sinceEpochMillis, request.limit)
         is Request.PhoneActive -> "$PHONE_ACTIVE ${request.epochMillis}"
+        is Request.SetPreference -> "$SET_PREFERENCE ${request.key} ${request.value}"
+        Request.GetPreferences -> GET_PREFERENCES
         is Request.RespiratorySince -> "$RESPIRATORY_SINCE ${request.sinceEpochMillis} ${request.limit.coerceIn(1, MAX_WINDOWS_PER_REQUEST)}"
         is Request.Spo2Since -> "$SPO2_SINCE ${request.sinceEpochMillis} ${request.limit.coerceIn(1, MAX_WINDOWS_PER_REQUEST)}"
         is Request.SkinSince -> "$SKIN_SINCE ${request.sinceEpochMillis} ${request.limit.coerceIn(1, MAX_SKIN_MINUTES_PER_REQUEST)}"
@@ -274,6 +331,8 @@ object WearLinkProtocol {
             return Request.HrvSince(since, limit)
         }
         parsePhoneActive(line)?.let { return it }
+        if (fields(line) == listOf(GET_PREFERENCES)) return Request.GetPreferences
+        parsePreferenceRequest(line)?.let { return it }
         parseSinceRequest(line, RESPIRATORY_SINCE, MAX_WINDOWS_PER_REQUEST)?.let { (since, limit) -> return Request.RespiratorySince(since, limit) }
         parseSinceRequest(line, SPO2_SINCE, MAX_WINDOWS_PER_REQUEST)?.let { (since, limit) -> return Request.Spo2Since(since, limit) }
         parseSinceRequest(line, SKIN_SINCE, MAX_SKIN_MINUTES_PER_REQUEST)?.let { (since, limit) -> return Request.SkinSince(since, limit) }
@@ -461,6 +520,28 @@ object WearLinkProtocol {
         if (at <= 0 || at % MINUTE_MILLIS != 0L || steps !in 1..MAX_STEPS_PER_MINUTE) return null
         return StepMinute(at, steps)
     }
+
+    /** One setting the watch holds, as the reply to [GET_PREFERENCES] carries it. */
+    fun formatPreference(key: String, value: String): String = "$PREFERENCE $key $value"
+
+    /** Null unless [line] is a well-formed `PREF` line; the key and the value are the tokens `SET_PREF` takes. */
+    fun parsePreference(line: String): Pair<String, String>? {
+        val fields = fields(line)
+        if (fields.size != 3 || fields[0] != PREFERENCE) return null
+        if (!isPreferenceToken(fields[1]) || !isPreferenceToken(fields[2])) return null
+        return fields[1] to fields[2]
+    }
+
+    private fun parsePreferenceRequest(line: String): Request.SetPreference? {
+        val fields = fields(line)
+        if (fields.size != 3 || fields[0] != SET_PREFERENCE) return null
+        if (!isPreferenceToken(fields[1]) || !isPreferenceToken(fields[2])) return null
+        return Request.SetPreference(fields[1], fields[2])
+    }
+
+    /** A preference key or value: the capability charset, so one line parses the same way. */
+    private fun isPreferenceToken(token: String): Boolean =
+        token.isNotEmpty() && token.all { it.isLetterOrDigit() || it == '_' }
 
     private fun parsePhoneActive(line: String): Request.PhoneActive? {
         val fields = fields(line)

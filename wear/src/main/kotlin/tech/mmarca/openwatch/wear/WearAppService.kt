@@ -136,6 +136,8 @@ class WearAppService : Service() {
             hrvAvailable = { nightHrv.hasSensor },
             skinAvailable = { skinRecorder.isAvailable },
             onPhoneActive = { at -> minuteRecorder.notePhoneActive(at) },
+            heldPreferences = { WearPreferenceCodec.encode(WearSettings.read(this), abilities()) },
+            setPreference = ::applyPhonePreference,
             localName = ::localName,
         )
         isForeground = startInForeground()
@@ -283,6 +285,25 @@ class WearAppService : Service() {
         skinRecorder.setEnabled(night && WearSettings.skinTemperature(this) && WearPermissions.hasSkinTemperature(this))
         spo2Recorder.setEnabled(granted && WearSettings.spo2AtNight(this) && WearPermissions.hasOxygenSaturation(this))
         if (before != (recorder.interval to recorder.source)) debugSnapshots.write("plan")
+    }
+
+    private fun abilities() = WatchAbilities(
+        samsung = samsungFeed.isAvailable,
+        skinGranted = WearPermissions.hasSkinTemperature(this),
+        spo2Granted = WearPermissions.hasOxygenSaturation(this),
+    )
+
+    /** A setting the phone changed: stored, and the recorders follow as for one changed on the watch. Link thread. */
+    private fun applyPhonePreference(key: String, value: String): Boolean {
+        val next = WearPreferenceCodec.apply(WearSettings.read(this), abilities(), key, value) ?: return false
+        WearSettings.write(this, next)
+        mainHandler.post {
+            recorder.resetFallBack()
+            nightHrv.resetFallBack()
+            reconcileRecorders()
+            debugSnapshots.write("settings")
+        }
+        return true
     }
 
     /** The steps stored for the minute that starts at [minuteStartMillis]. Any thread. */

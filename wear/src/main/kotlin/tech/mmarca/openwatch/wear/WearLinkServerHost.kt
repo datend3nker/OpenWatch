@@ -30,10 +30,14 @@ class WearLinkServerHost(
     skinAvailable: () -> Boolean,
     /** The phone reported the wearer active at the given time. Called on the link's thread. */
     onPhoneActive: (Long) -> Unit,
+    /** The watch's settings as the phone reads them. Called on the link's thread. */
+    heldPreferences: () -> Map<String, String>,
+    /** Applies a setting from the phone; false when refused. Called on the link's thread. */
+    setPreference: (key: String, value: String) -> Boolean,
     private val localName: () -> String,
     private val state: WearLinkState = WearLinkState,
 ) {
-    private val server = WearLinkServer(trust, Handler(store, live, hrvAvailable, skinAvailable, onPhoneActive, localName))
+    private val server = WearLinkServer(trust, Handler(store, live, hrvAvailable, skinAvailable, onPhoneActive, heldPreferences, setPreference, localName))
 
     @Volatile
     private var serverSocket: BluetoothServerSocket? = null
@@ -118,6 +122,8 @@ class WearLinkServerHost(
         private val hrvAvailable: () -> Boolean,
         private val skinAvailable: () -> Boolean,
         private val onPhoneActive: (Long) -> Unit,
+        private val heldPreferences: () -> Map<String, String>,
+        private val setPreference: (String, String) -> Boolean,
         private val localName: () -> String,
     ) : WearLinkRequestHandler {
         override fun localName(): String = localName.invoke()
@@ -133,6 +139,7 @@ class WearLinkServerHost(
                 remove(WearLinkProtocol.CAP_SPO2)
             }
             add(WearLinkProtocol.CAP_PHONE_ACTIVE)
+            add(WearLinkProtocol.CAP_PREFERENCES)
         }
 
         override fun heartRateSince(sinceEpochMillis: Long, limit: Int): Page<WearLinkProtocol.HeartRateSample> =
@@ -148,6 +155,10 @@ class WearLinkServerHost(
             page(WearMetrics.ASCENT, sinceEpochMillis, limit)
 
         override fun phoneActive(epochMillis: Long) = onPhoneActive(epochMillis)
+
+        override fun heldPreferences(): Map<String, String> = heldPreferences.invoke()
+
+        override fun setPreference(key: String, value: String): Boolean = setPreference.invoke(key, value)
 
         override fun respiratorySince(sinceEpochMillis: Long, limit: Int): Page<WearLinkProtocol.RespiratoryWindow> =
             page(WearMetrics.RESPIRATORY_RATE, sinceEpochMillis, limit)

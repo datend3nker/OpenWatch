@@ -224,6 +224,16 @@ class WearLinkProtocolTest {
     }
 
     @Test
+    fun `preference lines round-trip and refuse what is not a token`() {
+        assertEquals(WearLinkProtocol.Request.GetPreferences, WearLinkProtocol.parseRequest("GET_PREF"))
+        assertEquals(WearLinkProtocol.Request.SetPreference("hr_source", "samsung"), WearLinkProtocol.parseRequest("SET_PREF hr_source samsung"))
+        assertNull(WearLinkProtocol.parseRequest("SET_PREF hr_source"))
+        assertNull(WearLinkProtocol.parseRequest("SET_PREF hr-source samsung"))
+        assertEquals("skin" to "1", WearLinkProtocol.parsePreference(WearLinkProtocol.formatPreference("skin", "1")))
+        assertNull(WearLinkProtocol.parsePreference("PREF skin"))
+    }
+
+    @Test
     fun `phone active round-trips and refuses a bad time`() {
         assertEquals("PHONE_ACTIVE 1700000000000", WearLinkProtocol.formatRequest(WearLinkProtocol.Request.PhoneActive(1_700_000_000_000L)))
         assertEquals(WearLinkProtocol.Request.PhoneActive(1_700_000_000_000L), WearLinkProtocol.parseRequest("PHONE_ACTIVE 1700000000000"))

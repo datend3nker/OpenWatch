@@ -21,6 +21,14 @@ class WearOsCompanionManager @Inject constructor(
         targetName: String? = null,
     ): WearOsCompanionStatus = nodePort.checkStatus(targetAddress, targetName)
 
+    /** The watch's own settings, or null when it cannot serve them. Throws [WearOsLinkFailure]. */
+    suspend fun watchSettings(targetAddress: String?, targetName: String?): Map<String, String>? =
+        nodePort.pullWatchSettings(targetAddress, targetName)
+
+    /** Changes one of the watch's settings. False when the watch refused it or is not found. */
+    suspend fun setWatchSetting(targetAddress: String?, targetName: String?, key: String, value: String): Boolean =
+        nodePort.setWatchSetting(targetAddress, targetName, key, value)
+
     /**
      * The watch's heart rate as it happens, for as long as it is collected:
      * each reading's bpm, and null whenever the stream pauses (the watch is

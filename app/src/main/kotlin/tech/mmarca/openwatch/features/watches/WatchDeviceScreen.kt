@@ -269,6 +269,7 @@ fun WatchDeviceScreen(
             )
         }
 
+        WearOsWatchSettingsSection(state, viewModel::loadWatchSettings, viewModel::setWatchSetting)
         SectionHeader(stringResource(R.string.settings_watch_section_device))
         // First: the schedule decides whether this screen is ever visited again.
         if (isGarmin || device.isWearosWatch) {
@@ -1041,7 +1042,7 @@ internal fun LiveSensorSection(
 }
 
 @Composable
-private fun SectionHeader(title: String) {
+internal fun SectionHeader(title: String) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier

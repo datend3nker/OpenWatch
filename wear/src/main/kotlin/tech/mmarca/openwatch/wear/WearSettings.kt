@@ -71,6 +71,26 @@ internal object WearSettings {
         prefs(context).edit().putBoolean(KEY_SPO2, on).apply()
     }
 
+    /** Every setting in one value, for the phone's `GET_PREF`. */
+    fun read(context: Context): WatchPreferences = WatchPreferences(
+        heartRateDay = heartRateDay(context),
+        heartRateSource = heartRateSource(context),
+        hrvSource = hrvSource(context),
+        syncedSleepHold = syncedSleepHold(context),
+        skinTemperature = skinTemperature(context),
+        spo2AtNight = spo2AtNight(context),
+    )
+
+    /** Stores every setting of [preferences], for the phone's `SET_PREF`. */
+    fun write(context: Context, preferences: WatchPreferences) {
+        setHeartRateDay(context, preferences.heartRateDay)
+        setHeartRateSource(context, preferences.heartRateSource)
+        setHrvSource(context, preferences.hrvSource)
+        setSyncedSleepHold(context, preferences.syncedSleepHold)
+        setSkinTemperature(context, preferences.skinTemperature)
+        setSpo2AtNight(context, preferences.spo2AtNight)
+    }
+
     private fun source(context: Context, key: String): Source {
         val stored = prefs(context).getString(key, null)
         return Source.entries.firstOrNull { it.name == stored } ?: Source.RAW_SENSOR

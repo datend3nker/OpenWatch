@@ -189,6 +189,24 @@ class BluetoothWearOsNodePort @Inject constructor(
         }
     }
 
+    override suspend fun pullWatchSettings(targetAddress: String?, targetName: String?): Map<String, String>? =
+        withContext(Dispatchers.IO) {
+            val match = bondedWatchOrNull(targetAddress, targetName) ?: return@withContext null
+            withSession(match, targetAddress, PING_TIMEOUT_MS) { session ->
+                if (WearLinkProtocol.CAP_PREFERENCES !in session.peer.capabilities) return@withSession null
+                unwrap(session.pullPreferences())
+            }
+        }
+
+    override suspend fun setWatchSetting(targetAddress: String?, targetName: String?, key: String, value: String): Boolean =
+        withContext(Dispatchers.IO) {
+            val match = bondedWatchOrNull(targetAddress, targetName) ?: return@withContext false
+            withSession(match, targetAddress, PING_TIMEOUT_MS) { session ->
+                if (WearLinkProtocol.CAP_PREFERENCES !in session.peer.capabilities) return@withSession false
+                session.setPreference(key, value) is WearLinkOutcome.Ok
+            }
+        }
+
     override suspend fun notifyPhoneActive(
         targetAddress: String?,
         targetName: String?,

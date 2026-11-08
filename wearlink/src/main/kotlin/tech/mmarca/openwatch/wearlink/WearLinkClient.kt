@@ -99,6 +99,22 @@ class WearLinkSession internal constructor(
         }
     }
 
+    /** Every setting the watch holds. Only call when the peer advertised [WearLinkProtocol.CAP_PREFERENCES]. */
+    fun pullPreferences(): WearLinkOutcome<Map<String, String>> {
+        val held = LinkedHashMap<String, String>()
+        return exchange(WearLinkProtocol.Request.GetPreferences) { line ->
+            WearLinkProtocol.parsePreference(line)?.let { held[it.first] = it.second; return@exchange Reply.More }
+            WearLinkProtocol.parseEnd(line)?.let { return@exchange Reply.Done(held.toMap()) }
+            Reply.Unexpected
+        }
+    }
+
+    /** Changes one setting on the watch. An unknown key or value comes back as a refusal. */
+    fun setPreference(key: String, value: String): WearLinkOutcome<Unit> =
+        exchange(WearLinkProtocol.Request.SetPreference(key, value)) { line ->
+            if (line.trim() == WearLinkProtocol.PREFERENCE_OK) Reply.Done(Unit) else Reply.Unexpected
+        }
+
     /** Tells the watch the wearer used the phone at [epochMillis]. */
     fun notifyPhoneActive(epochMillis: Long): WearLinkOutcome<Unit> =
         exchange(WearLinkProtocol.Request.PhoneActive(epochMillis)) { line ->
