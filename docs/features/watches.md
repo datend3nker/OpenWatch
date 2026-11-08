@@ -89,6 +89,12 @@ While sleep is held, the watch can measure more than the minutes:
 
 None of these is checked against a reference device yet. Each needs its Health Connect grant on the phone; without it the values wait on the watch for a week and the sync card asks.
 
+### Workouts
+
+The watch app's screen has a **Workout** button: pick a sport (walking, running, hiking, cycling and twelve indoor ones), then the watch shows the time, heart rate, distance, steps and climb, with pause, resume and stop. Sports with a route ask for location once and use the watch's GPS directly (no Google Play services); refused, they record without a route. The heart rate runs every second-or-so during the workout, and the watch keeps a workout for a month. A workout shorter than half a minute is dropped; one the watch app lost to a crash is saved at the next start.
+
+The phone writes each workout as an exercise session with its route and pauses, and a distance for one with GPS. Steps, climbed height and heart rate are not written again: the watch's all-day series already carry them minute by minute. This needs the Health Connect grants for exercise, exercise routes and distance; without them the workouts wait on the watch. Not yet tried on a watch; the ambient screen and the watch face indicator OpenVitals has are not ported.
+
 ### Settings on the watch and from the phone
 
 The watch app's screen and the phone's *Watch settings* card (on the watch's device screen) show the same settings, kept on the watch:
@@ -142,5 +148,5 @@ See [Permissions](../app/permissions.md) for the full boundary, including why th
 ## Known Limitations
 
 - The Connected and Not connected labels reflect whether the watch is switched on in OpenWatch, not whether a Bluetooth link is open right now.
-- Wear OS watches sync heart rate, steps, floors, an estimated sleep session per night and per nap, the night's resting heart rate, and, from the night measurements, HRV, the breathing rate (opt-in), SpO2 and skin temperature, by hand or on the automatic schedule. Workouts are not recorded on the watch yet.
+- Wear OS watches sync heart rate, steps, floors, an estimated sleep session per night and per nap, the night's resting heart rate, and, from the night measurements, HRV, the breathing rate (opt-in), SpO2 and skin temperature, by hand or on the automatic schedule. Workouts recorded on the watch are written as sessions with their route.
 - Garmin watches are not supported.

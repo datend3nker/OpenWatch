@@ -130,4 +130,5 @@
     <string name="watch_settings_skin">Температура кожи ночью</string>
     <string name="watch_settings_spo2">SpO2 каждый час ночью</string>
     <string name="watch_settings_allow_on_watch">Разрешите это на часах: откройте там OpenWatch и включите один раз.</string>
+    <string name="settings_watch_wearos_needs_workout_write">Тренировки не записаны: разрешите OpenWatch записывать тренировки, маршруты и расстояние в Health Connect и синхронизируйте снова.</string>
 </resources>

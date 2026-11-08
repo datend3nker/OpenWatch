@@ -124,4 +124,5 @@
     <string name="watch_settings_skin">Ihon lämpötila yöllä</string>
     <string name="watch_settings_spo2">SpO2 tunnin välein yöllä</string>
     <string name="watch_settings_allow_on_watch">Salli se kellossa: avaa siellä OpenWatch ja kytke se päälle kerran.</string>
+    <string name="settings_watch_wearos_needs_workout_write">Harjoituksia ei kirjoitettu: salli OpenWatchin kirjoittaa harjoitukset, reitit ja matka Health Connectiin ja synkronoi uudelleen.</string>
 </resources>

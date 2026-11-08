@@ -143,6 +143,9 @@ class WearOsWatchSyncServiceTest {
 
         override suspend fun setWatchSetting(targetAddress: String?, targetName: String?, key: String, value: String): Boolean = false
 
+        override suspend fun pullWorkouts(targetAddress: String?, targetName: String?, since: Instant): WearOsWorkoutPage? =
+            WearOsWorkoutPage(emptyList(), hasMore = false)
+
         override suspend fun notifyPhoneActive(targetAddress: String?, targetName: String?, at: Instant): Boolean = false
     }
 

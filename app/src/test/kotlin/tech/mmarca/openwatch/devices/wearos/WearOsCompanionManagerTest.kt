@@ -38,6 +38,8 @@ private class FakeWearOsNodePort : WearOsNodePort {
 
     override suspend fun setWatchSetting(targetAddress: String?, targetName: String?, key: String, value: String): Boolean = false
 
+    override suspend fun pullWorkouts(targetAddress: String?, targetName: String?, since: Instant): WearOsWorkoutPage? = null
+
     override suspend fun notifyPhoneActive(targetAddress: String?, targetName: String?, at: Instant): Boolean = false
 
     /** One entry per live session: the readings it hands out, then whether the watch could stream; a failure throws. */

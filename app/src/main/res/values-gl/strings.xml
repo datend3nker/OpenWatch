@@ -124,4 +124,5 @@
     <string name="watch_settings_skin">Temperatura da pel pola noite</string>
     <string name="watch_settings_spo2">SpO2 cada hora pola noite</string>
     <string name="watch_settings_allow_on_watch">Permíteo no reloxo: abre alí OpenWatch e actívao unha vez.</string>
+    <string name="settings_watch_wearos_needs_workout_write">Adestramentos sen escribir: permite que OpenWatch escriba adestramentos, rutas e distancia en Health Connect e sincroniza de novo.</string>
 </resources>

@@ -124,4 +124,5 @@
     <string name="watch_settings_skin">夜间皮肤温度</string>
     <string name="watch_settings_spo2">夜间每小时 SpO2</string>
     <string name="watch_settings_allow_on_watch">请在手表上允许：在手表上打开 OpenWatch 并开启一次。</string>
+    <string name="settings_watch_wearos_needs_workout_write">锻炼未写入：请允许 OpenWatch 在 Health Connect 中写入锻炼、路线和距离，然后再次同步。</string>
 </resources>

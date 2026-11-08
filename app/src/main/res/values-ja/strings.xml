@@ -124,4 +124,5 @@
     <string name="watch_settings_skin">夜間の皮膚温度</string>
     <string name="watch_settings_spo2">夜間の SpO2（1 時間ごと）</string>
     <string name="watch_settings_allow_on_watch">ウォッチで許可してください：ウォッチで OpenWatch を開き、一度オンにします。</string>
+    <string name="settings_watch_wearos_needs_workout_write">ワークアウトは書き込まれていません。ワークアウト、ルート、距離の Health Connect への書き込みを OpenWatch に許可してから、もう一度同期してください。</string>
 </resources>
