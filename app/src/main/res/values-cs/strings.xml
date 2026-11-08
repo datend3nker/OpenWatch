@@ -472,4 +472,5 @@
     <string name="watch_settings_skin">Teplota kůže v noci</string>
     <string name="watch_settings_spo2">SpO2 každou hodinu v noci</string>
     <string name="watch_settings_allow_on_watch">Povolte to na hodinkách: otevřete tam OpenWatch a jednou to zapněte.</string>
+    <string name="settings_watch_wearos_needs_workout_write">Tréninky nebyly zapsány: povolte OpenWatch zapisovat tréninky, trasy a vzdálenost do Health Connect a znovu synchronizujte.</string>
 </resources>

@@ -462,4 +462,5 @@
     <string name="watch_settings_skin">Temperatura da pele à noite</string>
     <string name="watch_settings_spo2">SpO2 de hora em hora à noite</string>
     <string name="watch_settings_allow_on_watch">Permita no relógio: abra o OpenWatch nele e ative uma vez.</string>
+    <string name="settings_watch_wearos_needs_workout_write">Treinos não gravados: permita que o OpenWatch grave treinos, rotas e distância no Health Connect e sincronize novamente.</string>
 </resources>

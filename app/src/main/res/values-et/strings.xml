@@ -462,4 +462,5 @@
     <string name="watch_settings_skin">Naha temperatuur öösel</string>
     <string name="watch_settings_spo2">SpO2 iga tund öösel</string>
     <string name="watch_settings_allow_on_watch">Luba see kellas: ava seal OpenWatch ja lülita see üks kord sisse.</string>
+    <string name="settings_watch_wearos_needs_workout_write">Treeninguid ei kirjutatud: luba OpenWatchil kirjutada treeningud, marsruudid ja vahemaa Health Connecti ning sünkrooni uuesti.</string>
 </resources>

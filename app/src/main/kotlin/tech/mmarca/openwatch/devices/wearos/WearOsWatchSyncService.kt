@@ -130,6 +130,13 @@ class WearOsWatchSyncService(
         writeRespiratoryRate = writeRespiratoryRate,
     )
 
+    private val workouts = WearOsWorkoutSync(
+        importRepository = importRepository,
+        cursors = cursors,
+        granted = { healthConnect.grantedPermissions() },
+        zone = zone,
+    )
+
     private val linkRetry = object : WearOsNightSeriesSync.Retry {
         override suspend fun <T> run(pull: suspend () -> T): T = retryOnce(pull)
     }
@@ -165,6 +172,7 @@ class WearOsWatchSyncService(
             val night = nightSeries.sync(device, linkRetry) ?: return notPaired(device)
             progress.unwritten += night.unwritten
             progress.withheldPermissions += night.withheld
+            if (!pullWorkouts(device, progress)) return notPaired(device)
         } catch (error: CancellationException) {
             throw error
         } catch (failure: WearOsLinkFailure) {
@@ -516,6 +524,24 @@ class WearOsWatchSyncService(
         healthConnect.deleteImportedRecordsByClientIds(SleepSessionRecord::class, stale)
     }
 
+
+    /**
+     * The workouts the wearer recorded on the watch, written as sessions with
+     * their route ([WearOsWorkoutSync]). A missing grant leaves them on the
+     * watch and the sync goes on. False when no bonded watch matches.
+     */
+    private suspend fun pullWorkouts(device: BleSensorDevice, progress: Progress): Boolean {
+        val outcome = workouts.sync(device.id) { since ->
+            retryOnce { nodePort.pullWorkouts(device.address, device.bluetoothName, since) }
+        } ?: return false
+        if (outcome.withheld.isNotEmpty()) {
+            progress.unwritten += UnwrittenSeries.WORKOUTS
+            progress.withheldPermissions += outcome.withheld
+            WearOsLog.log("workouts: not written, Health Connect permission missing")
+        }
+        WearOsLog.log("workouts: ${outcome.written} written")
+        return true
+    }
 
     /**
      * A page pull again after one link failure. The first connection to a

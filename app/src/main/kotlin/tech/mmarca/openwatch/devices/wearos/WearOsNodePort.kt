@@ -96,6 +96,36 @@ data class WearOsAscentPage(
 /** One night-time HRV window the watch measured: its start, the RMSSD and the clean beats it rests on. */
 data class WearOsHrvWindow(val start: Instant, val rmssdMillis: Double, val beats: Int)
 
+/** One GPS fix of a watch workout. Altitude and accuracy in metres, null when the fix had none. */
+data class WearOsWorkoutPoint(
+    val time: Instant,
+    val latitude: Double,
+    val longitude: Double,
+    val altitudeMetres: Double?,
+    val accuracyMetres: Double?,
+)
+
+/**
+ * One finished workout the watch recorded. [exerciseType] is the Health Connect type; the totals are
+ * null where the watch measured none.
+ */
+data class WearOsWorkout(
+    val start: Instant,
+    val end: Instant,
+    val exerciseType: Int,
+    val steps: Int?,
+    val distanceMetres: Int?,
+    val ascentMetres: Double?,
+    val pauses: List<ClosedRange<Instant>>,
+    val route: List<WearOsWorkoutPoint>,
+)
+
+/** One page of a workout pull. [hasMore] means the watch cut the reply at its limit. */
+data class WearOsWorkoutPage(
+    val workouts: List<WearOsWorkout>,
+    val hasMore: Boolean,
+)
+
 /** One minute of skin temperature the watch recorded with the Samsung platform. */
 data class WearOsSkinMinute(val time: Instant, val celsius: Double)
 
@@ -259,6 +289,17 @@ interface WearOsNodePort {
 
     /** Changes one setting on the watch. False when no bonded watch matches or the watch refused it. */
     suspend fun setWatchSetting(targetAddress: String?, targetName: String?, key: String, value: String): Boolean
+
+    /**
+     * Workouts that started after [since], oldest first, at most a few per page. Empty page: the watch
+     * app is too old to record workouts. Null: no bonded watch matches. Any other failure throws
+     * [WearOsLinkFailure].
+     */
+    suspend fun pullWorkouts(
+        targetAddress: String?,
+        targetName: String?,
+        since: Instant,
+    ): WearOsWorkoutPage?
 
     /**
      * Tells the watch the wearer used the phone at [at], so it ends a sleep

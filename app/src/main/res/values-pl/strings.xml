@@ -472,4 +472,5 @@
     <string name="watch_settings_skin">Temperatura skóry w nocy</string>
     <string name="watch_settings_spo2">SpO2 co godzinę w nocy</string>
     <string name="watch_settings_allow_on_watch">Zezwól na zegarku: otwórz tam OpenWatch i włącz to raz.</string>
+    <string name="settings_watch_wearos_needs_workout_write">Treningi nie zostały zapisane: zezwól OpenWatch na zapis treningów, tras i dystansu w Health Connect i zsynchronizuj ponownie.</string>
 </resources>

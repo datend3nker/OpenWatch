@@ -22,6 +22,7 @@ import tech.mmarca.openwatch.wearlink.WearLinkClient
 import tech.mmarca.openwatch.wearlink.WearLinkConnection
 import tech.mmarca.openwatch.wearlink.WearLinkOutcome
 import tech.mmarca.openwatch.wearlink.WearLinkProtocol
+import tech.mmarca.openwatch.wearlink.WearLinkWorkout
 import tech.mmarca.openwatch.wearlink.WearLinkSession
 
 /**
@@ -207,6 +208,19 @@ class BluetoothWearOsNodePort @Inject constructor(
             }
         }
 
+    override suspend fun pullWorkouts(
+        targetAddress: String?,
+        targetName: String?,
+        since: Instant,
+    ): WearOsWorkoutPage? = withContext(Dispatchers.IO) {
+        val match = bondedWatchOrNull(targetAddress, targetName) ?: return@withContext null
+        withSession(match, targetAddress, PULL_TIMEOUT_MS) { session ->
+            if (WearLinkProtocol.CAP_WORKOUTS !in session.peer.capabilities) return@withSession WearOsWorkoutPage(emptyList(), false)
+            val page = unwrap(session.pullWorkouts(since.toEpochMilli(), WearLinkProtocol.MAX_WORKOUTS_PER_REQUEST))
+            WearOsWorkoutPage(page.items.map { it.toPortWorkout() }, page.more)
+        }
+    }
+
     override suspend fun notifyPhoneActive(
         targetAddress: String?,
         targetName: String?,
@@ -364,3 +378,22 @@ class BluetoothWearOsNodePort @Inject constructor(
         private const val LIVE_SESSION_MS = 8L * 60 * 1000
     }
 }
+
+private fun WearLinkWorkout.toPortWorkout() = WearOsWorkout(
+    start = Instant.ofEpochMilli(startMillis),
+    end = Instant.ofEpochMilli(endMillis),
+    exerciseType = exerciseType,
+    steps = steps,
+    distanceMetres = distanceMetres,
+    ascentMetres = ascentDecimetres?.let { it / 10.0 },
+    pauses = pauses.map { Instant.ofEpochMilli(it.startMillis)..Instant.ofEpochMilli(it.endMillis) },
+    route = route.map {
+        WearOsWorkoutPoint(
+            time = Instant.ofEpochMilli(it.epochMillis),
+            latitude = it.latitudeE7 / 1e7,
+            longitude = it.longitudeE7 / 1e7,
+            altitudeMetres = it.altitudeDecimetres?.let { d -> d / 10.0 },
+            accuracyMetres = it.accuracyDecimetres?.let { d -> d / 10.0 },
+        )
+    },
+)

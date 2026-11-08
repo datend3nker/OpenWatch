@@ -467,4 +467,5 @@
     <string name="watch_settings_skin">Température cutanée la nuit</string>
     <string name="watch_settings_spo2">SpO2 toutes les heures la nuit</string>
     <string name="watch_settings_allow_on_watch">Autorisez-le sur la montre : ouvrez OpenWatch dessus et activez-le une fois.</string>
+    <string name="settings_watch_wearos_needs_workout_write">Entraînements non enregistrés : autorisez OpenWatch à écrire les entraînements, itinéraires et distances dans Health Connect, puis synchronisez à nouveau.</string>
 </resources>

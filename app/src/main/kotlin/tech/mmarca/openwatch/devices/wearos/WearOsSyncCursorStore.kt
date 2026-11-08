@@ -95,6 +95,14 @@ class WearOsSyncCursorStore(private val prefs: SharedPreferences) {
         prefs.edit { putString(skinMediansKey(deviceId), medians.joinToString(",")) }
     }
 
+    /** The workout cursor: the start of the newest workout written. [Instant.EPOCH] for a watch never synced. */
+    fun workoutCursor(deviceId: String): Instant =
+        Instant.ofEpochMilli(prefs.getLong(workoutKey(deviceId), 0L))
+
+    fun setWorkoutCursor(deviceId: String, at: Instant) {
+        prefs.edit { putLong(workoutKey(deviceId), at.toEpochMilli()) }
+    }
+
     fun clear(deviceId: String) {
         prefs.edit {
             remove(key(deviceId))
@@ -105,6 +113,7 @@ class WearOsSyncCursorStore(private val prefs: SharedPreferences) {
             remove(respiratoryKey(deviceId))
             remove(spo2Key(deviceId))
             remove(skinKey(deviceId))
+            remove(workoutKey(deviceId))
             remove(skinMediansKey(deviceId))
         }
     }
@@ -124,6 +133,8 @@ class WearOsSyncCursorStore(private val prefs: SharedPreferences) {
     private fun spo2Key(deviceId: String) = "spo2_cursor_$deviceId"
 
     private fun skinKey(deviceId: String) = "skin_cursor_$deviceId"
+
+    private fun workoutKey(deviceId: String) = "workout_cursor_$deviceId"
 
     private fun skinMediansKey(deviceId: String) = "skin_medians_$deviceId"
 
