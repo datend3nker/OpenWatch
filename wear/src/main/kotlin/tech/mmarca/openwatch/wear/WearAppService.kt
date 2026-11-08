@@ -19,6 +19,10 @@ import android.os.IBinder
 import android.os.Looper
 import android.util.Log
 import tech.mmarca.openwatch.wear.samsung.SamsungHeartRateFeed
+import tech.mmarca.openwatch.wear.workout.MetricStoreWorkoutRows
+import tech.mmarca.openwatch.wear.workout.WorkoutRecorder
+import tech.mmarca.openwatch.wear.workout.WorkoutStore
+import tech.mmarca.openwatch.wearlink.WorkoutSport
 import tech.mmarca.openwatch.wearlink.HeartRateInterval
 
 /**
@@ -53,6 +57,7 @@ class WearAppService : Service() {
     private lateinit var samsungFeed: SamsungHeartRateFeed
     private lateinit var debugSnapshots: DebugSnapshots
     private lateinit var wakeSync: SensorWakeSync
+    private lateinit var workout: WorkoutRecorder
     private lateinit var ppgLogger: PpgRawLogger
     private lateinit var trust: WearTrustStore
     private lateinit var link: WearLinkServerHost
@@ -88,6 +93,12 @@ class WearAppService : Service() {
         store = MetricStore(this)
         samsungFeed = SamsungHeartRateFeed(this)
         wakeSync = SensorWakeSync(this)
+        workout = WorkoutRecorder(this, store) {
+            // The location type is held only while a workout reads the GPS; the heart rate runs at the full rate.
+            if (isForeground) startInForeground()
+            reconcileRecorders()
+        }
+        Thread({ workout.recoverInterrupted() }, "WorkoutRecover").start()
         // Off the main thread: a week of heart rate is tens of thousands of rows.
         Thread({ LegacyStoreImport.run(this, store) }, "LegacyStoreImport").start()
         ppgLogger = PpgRawLogger(this)
@@ -107,7 +118,10 @@ class WearAppService : Service() {
             samsungFeed,
             wakeSync,
             onSourceChanged = { mainHandler.post { reconcileRecorders() } },
-            onSample = minuteRecorder::noteHeartRate,
+            onSample = { at, bpm ->
+                minuteRecorder.noteHeartRate(at, bpm)
+                if (workout.isActive) workout.noteHeartRate(at, bpm)
+            },
             onContact = minuteRecorder::noteHeartRateContact,
         )
         wornMonitor = WornMonitor(
@@ -138,6 +152,7 @@ class WearAppService : Service() {
             onPhoneActive = { at -> minuteRecorder.notePhoneActive(at) },
             heldPreferences = { WearPreferenceCodec.encode(WearSettings.read(this), abilities()) },
             setPreference = ::applyPhonePreference,
+            workouts = WorkoutStore(MetricStoreWorkoutRows(store))::workoutsSince,
             localName = ::localName,
         )
         isForeground = startInForeground()
@@ -180,6 +195,15 @@ class WearAppService : Service() {
                 recorder.onAlarmFired()
                 return START_STICKY
             }
+            ACTION_WORKOUT_START -> {
+                val sport = WorkoutSport.fromId(intent.getStringExtra(EXTRA_SPORT)) ?: return START_STICKY
+                val gps = intent.getBooleanExtra(EXTRA_GPS, false) && WearPermissions.hasLocation(this)
+                workout.start(sport, gps)
+                return START_STICKY
+            }
+            ACTION_WORKOUT_PAUSE -> { workout.pause(); return START_STICKY }
+            ACTION_WORKOUT_RESUME -> { workout.resume(); return START_STICKY }
+            ACTION_WORKOUT_STOP -> { workout.stop(); return START_STICKY }
             ACTION_SETTINGS_CHANGED -> {
                 recorder.resetFallBack()
                 nightHrv.resetFallBack()
@@ -218,6 +242,9 @@ class WearAppService : Service() {
         val sensing = WearPermissions.hasHeartRate(this) || WearPermissions.hasActivityRecognition(this)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && sensing) {
             types = types or ServiceInfo.FOREGROUND_SERVICE_TYPE_HEALTH
+        }
+        if (::workout.isInitialized && workout.usesGps && WearPermissions.hasLocation(this)) {
+            types = types or ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
         }
         return try {
             startForeground(NOTIFICATION_ID, notification, types)
@@ -265,13 +292,15 @@ class WearAppService : Service() {
             !heartRateWanted -> Log.i(TAG, "Heart rate resting: not worn")
         }
         val day = WearSettings.heartRateDay(this)
-        val wanted = if (granted && heartRateWanted) {
+        val active = ::workout.isInitialized && workout.isActive
+        val wanted = if (granted && (heartRateWanted || active)) {
             HeartRateSchedule.interval(
                 heartRate = true,
                 sleepRecording = true,
                 bedtime = bedtimeMonitor.isBedtime || minuteRecorder.isSleepHolding,
                 day = day,
                 night = day,
+                workout = active,
             )
         } else {
             HeartRateInterval.OFF
@@ -328,6 +357,7 @@ class WearAppService : Service() {
         "lock" to minuteRecorder.holdsLastingLock,
         "skin" to skinRecorder.isRunning,
         "spo2" to spo2Recorder.isRunning,
+        "workout" to workout.isActive,
         "worn" to heartRateWanted,
         "steps" to stepRecorder.isRunning,
     )
@@ -366,6 +396,7 @@ class WearAppService : Service() {
             nightHrv.stop()
             skinRecorder.stop()
             spo2Recorder.stop()
+            workout.release()
             ppgLogger.stop()
             WearLinkState.update { it.copy(ppgLogging = false) }
         }
@@ -381,6 +412,27 @@ class WearAppService : Service() {
         private const val ACTION_TOGGLE_PPG_LOG = "tech.mmarca.openwatch.wear.TOGGLE_PPG_LOG"
         const val ACTION_HEART_RATE_ALARM = "tech.mmarca.openwatch.wear.HEART_RATE_ALARM"
         private const val ACTION_SETTINGS_CHANGED = "tech.mmarca.openwatch.wear.SETTINGS_CHANGED"
+        private const val ACTION_WORKOUT_START = "tech.mmarca.openwatch.wear.WORKOUT_START"
+        private const val ACTION_WORKOUT_PAUSE = "tech.mmarca.openwatch.wear.WORKOUT_PAUSE"
+        private const val ACTION_WORKOUT_RESUME = "tech.mmarca.openwatch.wear.WORKOUT_RESUME"
+        private const val ACTION_WORKOUT_STOP = "tech.mmarca.openwatch.wear.WORKOUT_STOP"
+        private const val EXTRA_SPORT = "sport"
+        private const val EXTRA_GPS = "gps"
+
+        /** Starts a workout; [gps] only takes effect with the location grant. Called from the foreground app. */
+        fun startWorkout(context: Context, sport: WorkoutSport, gps: Boolean) =
+            sendWorkout(context, Intent(context, WearAppService::class.java).setAction(ACTION_WORKOUT_START).putExtra(EXTRA_SPORT, sport.id).putExtra(EXTRA_GPS, gps))
+
+        fun pauseWorkout(context: Context) = sendWorkout(context, Intent(context, WearAppService::class.java).setAction(ACTION_WORKOUT_PAUSE))
+
+        fun resumeWorkout(context: Context) = sendWorkout(context, Intent(context, WearAppService::class.java).setAction(ACTION_WORKOUT_RESUME))
+
+        fun stopWorkout(context: Context) = sendWorkout(context, Intent(context, WearAppService::class.java).setAction(ACTION_WORKOUT_STOP))
+
+        private fun sendWorkout(context: Context, intent: Intent) {
+            runCatching { context.startForegroundService(intent) }
+                .onFailure { Log.w(TAG, "Cannot reach the service for a workout", it) }
+        }
 
         /** A setting on the status screen changed: the running service applies it. */
         fun settingsChanged(context: Context) {

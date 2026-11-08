@@ -225,4 +225,25 @@ class WearLinkLoopbackTest {
 
         assertTrue(out.toString(Charsets.UTF_8).startsWith("HELLO 4 hr,sm $token Pixel 6 Pro"))
     }
+
+    @Test
+    fun `workouts arrive whole with their pauses and route, and a page says when more remain`() {
+        val loopback = trusted()
+        val t = 1_700_000_000_000L
+        val route = List(300) { WearLinkWorkout.RoutePoint(t + it * 5_000L, 475_000_000 + it * 100, 112_000_000 - it * 50, 5_340 + it, if (it % 2 == 0) 80 else null) }
+        val run = WearLinkWorkout(t, t + 1_500_000L, 56, 4000, 3_210, 420, listOf(WearLinkWorkout.Pause(t + 600_000L, t + 660_000L)), route)
+        val bike = WearLinkWorkout(t + 10_000_000L, t + 12_000_000L, 8, null, 15_000, null)
+        val gym = WearLinkWorkout(t + 20_000_000L, t + 21_000_000L, 70, null, null, null)
+        loopback.handler.workouts = listOf(gym, run, bike)
+        val link = loopback.connect()
+        val session = (WearLinkClient.hello(link.clientConnection, hello()) as WearLinkOutcome.Ok).value
+
+        val first = (session.pullWorkouts(0, 2) as WearLinkOutcome.Ok).value
+        assertEquals(listOf(run, bike), first.items)
+        assertTrue(first.more)
+        val rest = (session.pullWorkouts(first.items.last().startMillis, 2) as WearLinkOutcome.Ok).value
+        assertEquals(listOf(gym), rest.items)
+        assertFalse(rest.more)
+        session.close()
+    }
 }

@@ -60,6 +60,7 @@ class WearMetricsTest {
         assertEquals(
             listOf(WearLinkProtocol.CAP_HEART_RATE, WearLinkProtocol.CAP_SLEEP_MINUTES, WearLinkProtocol.CAP_STEPS, WearLinkProtocol.CAP_ASCENT, WearLinkProtocol.CAP_HRV,
                 WearLinkProtocol.CAP_RESPIRATORY_RATE, WearLinkProtocol.CAP_SKIN_TEMPERATURE, WearLinkProtocol.CAP_SPO2,
+                WearLinkProtocol.CAP_WORKOUTS, "wp", "wr",
             ),
             keys,
         )

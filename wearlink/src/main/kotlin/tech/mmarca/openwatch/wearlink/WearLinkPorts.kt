@@ -63,6 +63,12 @@ interface WearLinkRequestHandler {
     /** The wearer used the phone at [epochMillis]. Only called when the watch advertised [WearLinkProtocol.CAP_PHONE_ACTIVE]. */
     fun phoneActive(epochMillis: Long)
 
+    /**
+     * The finished workouts that started after [sinceEpochMillis], oldest first, at most [limit], each with
+     * its pauses and route. Only called when the watch advertised [WearLinkProtocol.CAP_WORKOUTS].
+     */
+    fun workoutsSince(sinceEpochMillis: Long, limit: Int): Page<WearLinkWorkout>
+
     /** Every setting the watch holds, by key ([WearLinkProtocol.Preferences]). Only called when the watch advertised [WearLinkProtocol.CAP_PREFERENCES]. */
     fun heldPreferences(): Map<String, String>
 

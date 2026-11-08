@@ -1,6 +1,7 @@
 package tech.mmarca.openwatch.wear
 
 import tech.mmarca.openwatch.wearlink.WearLinkProtocol
+import tech.mmarca.openwatch.wearlink.WearLinkWorkoutLines
 
 /**
  * One series the watch records for the phone, and everything [MetricStore]
@@ -138,5 +139,41 @@ object WearMetrics {
         onSameTime = WearMetric.OnSameTime.KEEP,
     )
 
-    val ALL: List<WearMetric<*>> = listOf(HEART_RATE, SLEEP_MINUTES, STEPS, ASCENT, HRV, RESPIRATORY_RATE, SKIN_TEMPERATURE, SPO2)
+    /** A month: a workout is worth keeping longer than a week of minutes. */
+    private const val WORKOUT_RETENTION_MILLIS: Long = 30L * 24 * 60 * 60 * 1000
+
+    /** One header per finished workout, keyed on its start; see `WorkoutRecorder`. */
+    val WORKOUTS = WearMetric(
+        key = WearLinkProtocol.CAP_WORKOUTS,
+        encode = WearLinkWorkoutLines::formatHeader,
+        decode = WearLinkWorkoutLines::parseHeader,
+        timeOf = { it.startMillis },
+        onSameTime = WearMetric.OnSameTime.KEEP,
+        retentionMillis = WORKOUT_RETENTION_MILLIS,
+    )
+
+    /** The pauses of the workouts, keyed on a pause's start. */
+    val WORKOUT_PAUSES = WearMetric(
+        key = "wp",
+        encode = WearLinkWorkoutLines::formatPause,
+        decode = WearLinkWorkoutLines::parsePause,
+        timeOf = { it.startMillis },
+        onSameTime = WearMetric.OnSameTime.KEEP,
+        retentionMillis = WORKOUT_RETENTION_MILLIS,
+    )
+
+    /** The GPS fixes of the workouts, keyed on a fix's time. Stored as they arrive, so a killed app keeps its route. */
+    val WORKOUT_POINTS = WearMetric(
+        key = "wr",
+        encode = WearLinkWorkoutLines::formatPoint,
+        decode = WearLinkWorkoutLines::parsePoint,
+        timeOf = { it.epochMillis },
+        onSameTime = WearMetric.OnSameTime.KEEP,
+        retentionMillis = WORKOUT_RETENTION_MILLIS,
+    )
+
+    val ALL: List<WearMetric<*>> = listOf(
+        HEART_RATE, SLEEP_MINUTES, STEPS, ASCENT, HRV, RESPIRATORY_RATE, SKIN_TEMPERATURE, SPO2,
+        WORKOUTS, WORKOUT_PAUSES, WORKOUT_POINTS,
+    )
 }

@@ -185,6 +185,11 @@ class WearLinkServer(
                 val applied = handler.setPreference(request.key, request.value)
                 writer.line(if (applied) WearLinkProtocol.PREFERENCE_OK else WearLinkProtocol.formatError(WearLinkProtocol.ErrorCode.BAD_REQUEST))
             }
+            is WearLinkProtocol.Request.WorkoutsSince -> {
+                val page = handler.workoutsSince(request.sinceEpochMillis, request.limit)
+                for (workout in page.items) for (line in WearLinkWorkoutLines.lines(workout)) writer.line(line)
+                writer.line(WearLinkProtocol.formatEnd(page.items.size, page.more))
+            }
             is WearLinkProtocol.Request.PhoneActive -> {
                 handler.phoneActive(request.epochMillis)
                 writer.line(WearLinkProtocol.formatEnd(0, false))
