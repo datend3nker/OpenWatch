@@ -1,5 +1,6 @@
 package tech.mmarca.openwatch.wear
 
+import tech.mmarca.openwatch.wear.samsung.SamsungHealthPlatform
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
@@ -52,6 +53,9 @@ class MainActivity : ComponentActivity() {
                     readStepMinuteCount = { store.count(WearMetrics.STEPS) },
                     ppgLogAvailable = PpgRawLogger(this).isAvailable,
                     readSamsungDiagnostics = { SamsungDiagnostics.consentOn(contentResolver) },
+                    hrvSourceChoice = SamsungHealthPlatform.isInstalled(this),
+                    readHrvSource = { HrvSourceSetting.get(this) },
+                    onSetHrvSource = { HrvSourceSetting.set(this, it) },
                     onTogglePpgLog = { WearAppService.togglePpgLog(this) },
                     onGrant = ::requestMissingPermissions,
                     onAllow = { pending ->

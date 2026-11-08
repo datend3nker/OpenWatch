@@ -81,7 +81,18 @@ object HrvRmssd {
      */
     fun of(beatMillis: DoubleArray, minCleanBeats: Int = MIN_CLEAN_BEATS): HrvWindowResult? {
         if (beatMillis.size < 3) return null
-        val intervals = DoubleArray(beatMillis.size - 1) { beatMillis[it + 1] - beatMillis[it] }
+        return ofIntervals(DoubleArray(beatMillis.size - 1) { beatMillis[it + 1] - beatMillis[it] }, minCleanBeats)
+    }
+
+    /**
+     * The same from beat-to-beat intervals in milliseconds, in order, for a
+     * source that reports intervals rather than beat times. An interval the
+     * source flagged, or a break between two runs that are not successive, is
+     * `NaN`: it is never clean, so no difference is taken across it, and it
+     * still counts toward the share of clean intervals.
+     */
+    fun ofIntervals(intervals: DoubleArray, minCleanBeats: Int = MIN_CLEAN_BEATS): HrvWindowResult? {
+        if (intervals.size < 2) return null
         val good = cleanIntervals(intervals)
         var sumSquares = 0.0
         var pairs = 0

@@ -31,6 +31,9 @@
     <string name="link_requests_channel_name">Phone requests</string>
     <string name="status_samsung_diagnostics_off">Samsung diagnostics: off</string>
     <string name="status_samsung_diagnostics_on">Samsung diagnostics: on · turn off in Settings</string>
+    <string name="status_hrv_source_ppg">HRV: raw PPG</string>
+    <string name="status_hrv_source_samsung">HRV: Samsung platform</string>
+    <string name="status_hrv_source_samsung_note">Needs Health Platform Developer Mode. Without it the platform asks Samsung about this app.</string>
     <string name="status_ppg_logging">Raw PPG log on · long press to stop</string>
     <string name="tile_heart_rate_label">Heart rate</string>
     <string name="tile_heart_rate_description">Your latest heart rate and its curve today, as the watch app recorded them</string>

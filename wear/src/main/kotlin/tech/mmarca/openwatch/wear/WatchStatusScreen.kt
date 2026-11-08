@@ -45,6 +45,10 @@ internal fun WatchStatusScreen(
     readStepMinuteCount: () -> Long,
     ppgLogAvailable: Boolean,
     readSamsungDiagnostics: () -> Boolean?,
+    /** Whether the watch offers the Samsung Health Platform as the HRV source; the choice is shown only then. */
+    hrvSourceChoice: Boolean,
+    readHrvSource: () -> HrvSourceSetting.Source,
+    onSetHrvSource: (HrvSourceSetting.Source) -> Unit,
     onTogglePpgLog: () -> Unit,
     onGrant: () -> Unit,
     onAllow: (PendingPhone) -> Unit,
@@ -60,6 +64,7 @@ internal fun WatchStatusScreen(
     val bluetoothGranted = remember(permissionsVersion) { hasBluetooth() }
     val stepsGranted = remember(permissionsVersion) { hasSteps() }
     var samsungDiagnostics by remember { mutableStateOf<Boolean?>(null) }
+    var hrvSource by remember { mutableStateOf(readHrvSource()) }
 
     // The stores are written by the service; the screen reads them every few seconds.
     LaunchedEffect(Unit) {
@@ -135,6 +140,20 @@ internal fun WatchStatusScreen(
         }
         samsungDiagnostics?.let { on ->
             Line(stringResource(if (on) R.string.status_samsung_diagnostics_on else R.string.status_samsung_diagnostics_off))
+        }
+        if (hrvSourceChoice) {
+            val samsungChosen = hrvSource == HrvSourceSetting.Source.SAMSUNG_PLATFORM
+            Button(
+                onClick = {
+                    val next = if (samsungChosen) HrvSourceSetting.Source.RAW_PPG else HrvSourceSetting.Source.SAMSUNG_PLATFORM
+                    onSetHrvSource(next)
+                    hrvSource = next
+                },
+                modifier = Modifier.padding(top = 8.dp),
+            ) {
+                Text(stringResource(if (samsungChosen) R.string.status_hrv_source_samsung else R.string.status_hrv_source_ppg))
+            }
+            if (samsungChosen) Line(stringResource(R.string.status_hrv_source_samsung_note))
         }
         PhoneCards(link, onAllow, onBlock, onOpenBluetoothSettings)
         if (link.ppgLogging) Line(stringResource(R.string.status_ppg_logging))

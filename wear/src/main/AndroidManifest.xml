@@ -52,6 +52,11 @@
          accelerometer's 48-second buffer is read before it overflows. -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
+    <!-- The Samsung Health Platform, an optional HRV source; see HrvSourceSetting. -->
+    <queries>
+        <package android:name="com.samsung.android.service.health" />
+    </queries>
+
     <application
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"

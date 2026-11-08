@@ -102,9 +102,26 @@ status at 2. The platform keys clients by package name: the SDK and the own clie
 app silenced each other, so the two cannot be compared side by side in one process. The
 access rules above apply to the own client unchanged.
 
-**Decision (proposed, not yet in `AGENTS.md`):** raw sensors and Health Services are the
-defaults. The SDK path is optional, off by default, and offered only on a watch in Developer
-Mode, as a separate source for SpO2, skin temperature and inter-beat intervals.
+**Decision (2026-11-08):** the raw sensors are the default. The SDK itself is never used; the
+own client is an optional source, off by default and offered only on a watch that has the
+platform. The app cannot read Developer Mode (the platform keeps it in its private preferences,
+`home_feature_sharedpreferences`, key `common_developer_mode`), so the setting on the watch
+says that the source needs it and what happens without it.
+
+**In the watch app.** The night-time HRV windows take their beats from an `HrvWindowSource`:
+`PpgWindowSource` (Samsung's raw PPG, beats found by `PpgBeats`) by default, or
+`SamsungIbiSource` (the platform's own intervals, through `SamsungHealthPlatform`, the
+clean-room client in `wear/.../samsung/`) once chosen on the status screen. The choice
+(`HrvSourceSetting`) is shown only where `com.samsung.android.service.health` answers the bind
+intent, so a watch from another maker never sees it. The tracker runs only for the five-minute
+window. The intervals carry no times of their own: the first point after a start held 535 of
+them (about ten minutes of history), and with the screen off the points arrive in batches, so
+`SamsungIbiWindow` times each interval back from its point and keeps the ones that ended inside
+the window; a flagged interval or a gap between points breaks the run, and no difference is
+taken across it. At the window's end a flush asks for the points still held, with a 15-second
+limit. Not yet measured on the watch: whether the flush answers with the screen off, how long
+the tracker takes to deliver its first point outside a reboot, and how the two sources' RMSSD
+compare over a night.
 
 ## What leaves the watch
 
