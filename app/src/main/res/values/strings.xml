@@ -41,7 +41,7 @@
     <string name="settings_about_body">Open source under the AGPL-3.0-or-later. The watch, scale and sync code comes from OpenVitals.</string>
     <string name="body_profile_title">Body profile</string>
     <string name="body_profile_settings_body">Birth year, sex, height and weight for the estimates</string>
-    <string name="body_profile_intro">The scale\'s body composition needs your sex and height; the walking-energy estimate needs your weight. A weight or height Health Connect holds is used instead of the one typed here.</string>
+    <string name="body_profile_intro">The walking-energy estimate needs your weight. A weight or height Health Connect holds is used instead of the one typed here.</string>
     <string name="body_profile_birth_year">Birth year</string>
     <string name="body_profile_sex">Sex</string>
     <string name="body_profile_sex_female">Female</string>

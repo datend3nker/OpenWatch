@@ -448,4 +448,23 @@
     <string name="link_streaming_waiting">Esperando a tu reloj, para %1$s</string>
     <string name="link_streaming_from">De %1$s</string>
     <string name="link_streaming_waiting_for">Esperando una lectura de %1$s</string>
+    <string name="settings_watch_wearos_needs_respiratory_write">Frecuencia respiratoria no escrita: permite que OpenWatch la escriba en Health Connect y vuelve a sincronizar.</string>
+    <string name="settings_watch_wearos_needs_spo2_write">Oxígeno en sangre no escrito: permite que OpenWatch lo escriba en Health Connect y vuelve a sincronizar.</string>
+    <string name="settings_watch_wearos_needs_skin_write">Temperatura de la piel no escrita: permite que OpenWatch la escriba en Health Connect y vuelve a sincronizar.</string>
+    <string name="settings_respiratory_rate_title">Frecuencia respiratoria del reloj (experimental)</string>
+    <string name="settings_respiratory_rate_body">Escribe en Health Connect la frecuencia respiratoria de las ventanas nocturnas de VFC del reloj. Aún no comprobada con un dispositivo de referencia.</string>
+    <string name="watch_settings_section">Ajustes del reloj</string>
+    <string name="watch_settings_not_read">El reloj guarda estos ajustes. Léelos para cambiarlos aquí.</string>
+    <string name="watch_settings_unreachable">El reloj no respondió. ¿Está cerca y con su app OpenWatch en marcha?</string>
+    <string name="watch_settings_read">Leer del reloj</string>
+    <string name="watch_settings_power_save">Frecuencia cardíaca en ahorro</string>
+    <string name="watch_settings_power_save_body">Aproximadamente cada 10 minutos fuera del modo hora de dormir. El modo hora de dormir mide siempre cada 10 segundos.</string>
+    <string name="watch_settings_synced">Despertares agrupados durante el sueño</string>
+    <string name="watch_settings_synced_body">Conserva cada minuto de sueño con los despertares del sensor de frecuencia cardíaca en lugar de un bloqueo de activación permanente. Solo funciona con la frecuencia cardíaca del sensor.</string>
+    <string name="watch_settings_samsung_note">Plataforma Samsung: necesita el modo desarrollador de Health Platform en el reloj. Sin él, la plataforma consulta a Samsung sobre esta app. Una fuente Samsung que falla vuelve al sensor.</string>
+    <string name="watch_settings_hr_samsung">Frecuencia cardíaca de la plataforma Samsung</string>
+    <string name="watch_settings_hrv_samsung">VFC de la plataforma Samsung</string>
+    <string name="watch_settings_skin">Temperatura de la piel por la noche</string>
+    <string name="watch_settings_spo2">SpO2 cada hora por la noche</string>
+    <string name="watch_settings_allow_on_watch">Permítelo en el reloj: abre OpenWatch allí y actívalo una vez.</string>
 </resources>

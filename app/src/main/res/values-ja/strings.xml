@@ -447,4 +447,23 @@
     <string name="link_streaming_waiting">%1$s のためにウォッチを待機中</string>
     <string name="link_streaming_from">%1$s から</string>
     <string name="link_streaming_waiting_for">%1$s からの測定値を待機中</string>
+    <string name="settings_watch_wearos_needs_respiratory_write">呼吸数は書き込まれていません。Health Connect への書き込みを OpenWatch に許可してから、もう一度同期してください。</string>
+    <string name="settings_watch_wearos_needs_spo2_write">血中酸素は書き込まれていません。Health Connect への書き込みを OpenWatch に許可してから、もう一度同期してください。</string>
+    <string name="settings_watch_wearos_needs_skin_write">皮膚温度は書き込まれていません。Health Connect への書き込みを OpenWatch に許可してから、もう一度同期してください。</string>
+    <string name="settings_respiratory_rate_title">ウォッチの呼吸数（試験的）</string>
+    <string name="settings_respiratory_rate_body">ウォッチの夜間 HRV ウィンドウの呼吸数を Health Connect に書き込みます。基準となる機器での検証はまだです。</string>
+    <string name="watch_settings_section">ウォッチの設定</string>
+    <string name="watch_settings_not_read">これらの設定はウォッチ自体が保持します。ここで変更するには読み込んでください。</string>
+    <string name="watch_settings_unreachable">ウォッチが応答しませんでした。近くにあり、OpenWatch アプリが動作していますか？</string>
+    <string name="watch_settings_read">ウォッチから読み込む</string>
+    <string name="watch_settings_power_save">省電力の心拍</string>
+    <string name="watch_settings_power_save_body">おやすみモード以外では約 10 分ごと。おやすみモードでは常に 10 秒ごとに測定します。</string>
+    <string name="watch_settings_synced">睡眠中のまとめた起動</string>
+    <string name="watch_settings_synced_body">常時のウェイクロックの代わりに心拍センサーの起動で睡眠の各分を保ちます。センサーの心拍でのみ動作します。</string>
+    <string name="watch_settings_samsung_note">Samsung プラットフォーム：ウォッチで Health Platform の開発者モードが必要です。オフの場合、プラットフォームはこのアプリについて Samsung に問い合わせます。失敗した Samsung のソースはセンサーに切り替わります。</string>
+    <string name="watch_settings_hr_samsung">Samsung プラットフォームの心拍</string>
+    <string name="watch_settings_hrv_samsung">Samsung プラットフォームの HRV</string>
+    <string name="watch_settings_skin">夜間の皮膚温度</string>
+    <string name="watch_settings_spo2">夜間の SpO2（1 時間ごと）</string>
+    <string name="watch_settings_allow_on_watch">ウォッチで許可してください：ウォッチで OpenWatch を開き、一度オンにします。</string>
 </resources>

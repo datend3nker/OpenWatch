@@ -443,4 +443,23 @@
     <string name="link_streaming_waiting">Odotetaan kelloa sovellukselle %1$s</string>
     <string name="link_streaming_from">Laitteesta %1$s</string>
     <string name="link_streaming_waiting_for">Odotetaan lukemaa laitteesta %1$s</string>
+    <string name="settings_watch_wearos_needs_respiratory_write">Hengitystiheyttä ei kirjoitettu: salli OpenWatchin kirjoittaa se Health Connectiin ja synkronoi uudelleen.</string>
+    <string name="settings_watch_wearos_needs_spo2_write">Veren happea ei kirjoitettu: salli OpenWatchin kirjoittaa se Health Connectiin ja synkronoi uudelleen.</string>
+    <string name="settings_watch_wearos_needs_skin_write">Ihon lämpötilaa ei kirjoitettu: salli OpenWatchin kirjoittaa se Health Connectiin ja synkronoi uudelleen.</string>
+    <string name="settings_respiratory_rate_title">Hengitystiheys kellosta (kokeellinen)</string>
+    <string name="settings_respiratory_rate_body">Kirjoittaa kellon yöllisten HRV-ikkunoiden hengitystiheyden Health Connectiin. Ei vielä tarkistettu vertailulaitteella.</string>
+    <string name="watch_settings_section">Kellon asetukset</string>
+    <string name="watch_settings_not_read">Kello säilyttää nämä asetukset itse. Lue ne muuttaaksesi niitä täällä.</string>
+    <string name="watch_settings_unreachable">Kello ei vastannut. Onko se lähellä ja onko sen OpenWatch-sovellus käynnissä?</string>
+    <string name="watch_settings_read">Lue kellosta</string>
+    <string name="watch_settings_power_save">Säästävä syke</string>
+    <string name="watch_settings_power_save_body">Noin 10 minuutin välein nukkumaanmenotilan ulkopuolella. Nukkumaanmenotila mittaa aina 10 sekunnin välein.</string>
+    <string name="watch_settings_synced">Yhdistetyt herätykset unen aikana</string>
+    <string name="watch_settings_synced_body">Pitää jokaisen uniminuutin sykeanturin herätysten avulla pysyvän herätyslukon sijaan. Toimii vain anturin sykkeellä.</string>
+    <string name="watch_settings_samsung_note">Samsung-alusta: vaatii kelloon Health Platformin kehittäjätilan. Ilman sitä alusta kysyy Samsungilta tästä sovelluksesta. Epäonnistuva Samsung-lähde vaihtuu anturiin.</string>
+    <string name="watch_settings_hr_samsung">Syke Samsung-alustalta</string>
+    <string name="watch_settings_hrv_samsung">HRV Samsung-alustalta</string>
+    <string name="watch_settings_skin">Ihon lämpötila yöllä</string>
+    <string name="watch_settings_spo2">SpO2 tunnin välein yöllä</string>
+    <string name="watch_settings_allow_on_watch">Salli se kellossa: avaa siellä OpenWatch ja kytke se päälle kerran.</string>
 </resources>

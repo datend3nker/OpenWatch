@@ -448,4 +448,23 @@
     <string name="link_streaming_waiting">En attente de votre montre, pour %1$s</string>
     <string name="link_streaming_from">Depuis %1$s</string>
     <string name="link_streaming_waiting_for">En attente d\'une mesure de %1$s</string>
+    <string name="settings_watch_wearos_needs_respiratory_write">Fréquence respiratoire non enregistrée : autorisez OpenWatch à l\'écrire dans Health Connect, puis synchronisez à nouveau.</string>
+    <string name="settings_watch_wearos_needs_spo2_write">Oxygène sanguin non enregistré : autorisez OpenWatch à l\'écrire dans Health Connect, puis synchronisez à nouveau.</string>
+    <string name="settings_watch_wearos_needs_skin_write">Température cutanée non enregistrée : autorisez OpenWatch à l\'écrire dans Health Connect, puis synchronisez à nouveau.</string>
+    <string name="settings_respiratory_rate_title">Fréquence respiratoire de la montre (expérimental)</string>
+    <string name="settings_respiratory_rate_body">Écrit dans Health Connect la fréquence respiratoire des fenêtres VFC nocturnes de la montre. Pas encore vérifiée avec un appareil de référence.</string>
+    <string name="watch_settings_section">Réglages de la montre</string>
+    <string name="watch_settings_not_read">La montre conserve ces réglages elle-même. Lisez-les pour les modifier ici.</string>
+    <string name="watch_settings_unreachable">La montre n\'a pas répondu. Est-elle à proximité et son application OpenWatch est-elle lancée ?</string>
+    <string name="watch_settings_read">Lire depuis la montre</string>
+    <string name="watch_settings_power_save">Fréquence cardiaque en mode économie</string>
+    <string name="watch_settings_power_save_body">Environ toutes les 10 minutes hors du mode coucher. Le mode coucher mesure toujours toutes les 10 secondes.</string>
+    <string name="watch_settings_synced">Réveils groupés pendant le sommeil</string>
+    <string name="watch_settings_synced_body">Conserve chaque minute de sommeil grâce aux réveils du capteur cardiaque au lieu d\'un verrou de réveil permanent. Fonctionne seulement avec la fréquence cardiaque du capteur.</string>
+    <string name="watch_settings_samsung_note">Plateforme Samsung : nécessite le mode développeur de Health Platform sur la montre. Sans lui, la plateforme interroge Samsung au sujet de cette application. Une source Samsung qui échoue repasse au capteur.</string>
+    <string name="watch_settings_hr_samsung">Fréquence cardiaque de la plateforme Samsung</string>
+    <string name="watch_settings_hrv_samsung">VFC de la plateforme Samsung</string>
+    <string name="watch_settings_skin">Température cutanée la nuit</string>
+    <string name="watch_settings_spo2">SpO2 toutes les heures la nuit</string>
+    <string name="watch_settings_allow_on_watch">Autorisez-le sur la montre : ouvrez OpenWatch dessus et activez-le une fois.</string>
 </resources>

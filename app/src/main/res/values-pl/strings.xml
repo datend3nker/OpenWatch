@@ -453,4 +453,23 @@
     <string name="link_streaming_waiting">Oczekiwanie na zegarek, dla %1$s</string>
     <string name="link_streaming_from">Z %1$s</string>
     <string name="link_streaming_waiting_for">Oczekiwanie na odczyt z %1$s</string>
+    <string name="settings_watch_wearos_needs_respiratory_write">Częstość oddechu nie została zapisana: zezwól OpenWatch na zapis w Health Connect i zsynchronizuj ponownie.</string>
+    <string name="settings_watch_wearos_needs_spo2_write">Tlen we krwi nie został zapisany: zezwól OpenWatch na zapis w Health Connect i zsynchronizuj ponownie.</string>
+    <string name="settings_watch_wearos_needs_skin_write">Temperatura skóry nie została zapisana: zezwól OpenWatch na zapis w Health Connect i zsynchronizuj ponownie.</string>
+    <string name="settings_respiratory_rate_title">Częstość oddechu z zegarka (eksperymentalne)</string>
+    <string name="settings_respiratory_rate_body">Zapisuje w Health Connect częstość oddechu z nocnych okien HRV zegarka. Jeszcze nie sprawdzone urządzeniem referencyjnym.</string>
+    <string name="watch_settings_section">Ustawienia zegarka</string>
+    <string name="watch_settings_not_read">Zegarek sam przechowuje te ustawienia. Odczytaj je, aby zmienić je tutaj.</string>
+    <string name="watch_settings_unreachable">Zegarek nie odpowiedział. Czy jest w pobliżu i działa na nim aplikacja OpenWatch?</string>
+    <string name="watch_settings_read">Odczytaj z zegarka</string>
+    <string name="watch_settings_power_save">Tętno w trybie oszczędzania</string>
+    <string name="watch_settings_power_save_body">Mniej więcej co 10 minut poza trybem snu. Tryb snu zawsze mierzy co 10 sekund.</string>
+    <string name="watch_settings_synced">Zsynchronizowane wybudzenia podczas snu</string>
+    <string name="watch_settings_synced_body">Zachowuje każdą minutę snu dzięki wybudzeniom czujnika tętna zamiast stałej blokady uśpienia. Działa tylko z tętnem z czujnika.</string>
+    <string name="watch_settings_samsung_note">Platforma Samsung: wymaga trybu dewelopera Health Platform na zegarku. Bez niego platforma pyta Samsung o tę aplikację. Źródło Samsung, które zawiedzie, wraca do czujnika.</string>
+    <string name="watch_settings_hr_samsung">Tętno z platformy Samsung</string>
+    <string name="watch_settings_hrv_samsung">HRV z platformy Samsung</string>
+    <string name="watch_settings_skin">Temperatura skóry w nocy</string>
+    <string name="watch_settings_spo2">SpO2 co godzinę w nocy</string>
+    <string name="watch_settings_allow_on_watch">Zezwól na zegarku: otwórz tam OpenWatch i włącz to raz.</string>
 </resources>

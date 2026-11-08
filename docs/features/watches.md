@@ -67,13 +67,38 @@ Each finished night with sleep also gives a resting heart rate: the lowest half-
 
 One sleep session with estimated stages is written per night under a fixed id, so the later estimate replaces the earlier as the night fills in. A night whose window already holds a sleep session from anywhere else, the vendor's app through Health Connect or a session entered by hand, is left alone: those win over an estimate. The session's notes say it was estimated by OpenWatch from the watch app's heart rate and movement.
 
-The stages are a heuristic, not a sleep lab: read them as when heart rate was low and steady versus high and variable. The pipeline is evaluated offline against polysomnography-labelled nights (PhysioNet's sleep-accel dataset, 31 adults wearing an Apple Watch in a sleep lab); the thresholds change only with that evaluation's numbers in the commit message. As of 2026-10-08, per minute over the 31 nights: 90% of minutes scored right, 92% of sleep minutes found, 68% of wake minutes found (Cole-Kripke alone finds 56%), the night's start within 9 minutes and its end within 13 minutes on average, total sleep within 23 minutes, and REM told from non-REM 80% of the time; one night of the 31 went unfound because its recording was mostly empty. Naps are not written: one session per night.
+The stages are a heuristic, not a sleep lab: read them as when heart rate was low and steady versus high and variable. The pipeline is evaluated offline against polysomnography-labelled nights (PhysioNet's sleep-accel dataset, 31 adults wearing an Apple Watch in a sleep lab); the thresholds change only with that evaluation's numbers in the commit message. As of 2026-10-08, per minute over the 31 nights: 90% of minutes scored right, 92% of sleep minutes found, 68% of wake minutes found (Cole-Kripke alone finds 56%), the night's start within 9 minutes and its end within 13 minutes on average, total sleep within 23 minutes, and REM told from non-REM 80% of the time; one night of the 31 went unfound because its recording was mostly empty.
+
+Naps are written too, each as its own sleep session: a still, worn stretch of at least 20 minutes whose pulse falls clearly below your own waking level (the lower quarter of the day's pulse, so resting on the sofa does not count), at most four hours long. A nap that overlaps a session from another app is left alone. The thresholds are judgement, not fitted: no nap was recorded against a reference yet.
+
+The watch also keeps every minute whole without bedtime mode once it sees sleep starting: ten still minutes on the wrist with a falling pulse (twenty by day, so reading or a film does not start it). It stops after five waking minutes in a row, off the wrist, on the charger, after ten hours, or at once when you unlock your phone: the phone tells the watch, at most every five minutes. A glance at the watch does not stop it. Holding the processor awake costs battery; see Night measurements below.
 
 While the watch's device screen is open and the watch is worn, its status card shows the heart rate as it happens ("Now: 72 bpm"). The watch measures it for the phone only while someone looks, and nothing live is stored: the same readings arrive with the next sync. Not yet tried on a watch.
 
 Not yet: series beyond heart rate, steps and sleep. Recorded data from the vendor app, if it is installed, still reaches Health Connect, and the apps that read it, as before.
 
 Verified on 2026-10-07 with a Galaxy Watch8 (Wear OS on Android 16) and a GrapheneOS Pixel 6 Pro that never ran Galaxy Wearable: the watch accepted a plain bond from the phone's Bluetooth settings (it appears twice in the list, once per radio; either entry bonds both), the phone's cached service list then carried the OpenWatch UUID, and the status card got its answer. The bond is Android's, not the vendor app's, so the plan to onboard with the vendor app, install OpenWatch on the watch and then uninstall the vendor app rests on something that holds. Not yet verified: the bond and the watch service surviving a reboot, and Samsung's battery manager leaving a sideloaded service alone overnight. The watch app is installed over adb; see [Install the watch app on a Wear OS watch](../how-to/wear-os-sideload.md), which also covers skipping the vendor onboarding on the watches that allow adb before onboarding (the Galaxy Watch8 does not; it is onboarded once with Galaxy Wearable, which is uninstalled afterwards).
+
+### Night measurements
+
+While sleep is held, the watch can measure more than the minutes:
+
+- **Heart rate variability (HRV)**: a five-minute window once the arm was still for ten minutes, at most every half hour, written as RMSSD to Health Connect. The beats come from the raw pulse signal by default, or from the Samsung platform's own beat intervals.
+- **Breathing rate**: from the same windows, written only when you switch on *Breathing rate from the watch (experimental)* in the phone's settings; it is not yet checked against a reference.
+- **SpO2** (Samsung watches): a spot measurement once an hour while the arm is still, written as oxygen saturation.
+- **Skin temperature** (Samsung watches): one value a minute, written per night as the difference from your own usual night.
+
+None of these is checked against a reference device yet. Each needs its Health Connect grant on the phone; without it the values wait on the watch for a week and the sync card asks.
+
+### Settings on the watch and from the phone
+
+The watch app's screen and the phone's *Watch settings* card (on the watch's device screen) show the same settings, kept on the watch:
+
+- **Heart rate outside bedtime mode**: every 10 seconds (the default) or power save, about every 10 minutes. Bedtime mode and a sleep hold always measure every 10 seconds.
+- **Sleep: wake lock or synced wake-ups**: how a sleep hold keeps every minute. Synced wake-ups let the processor sleep between the heart rate sensor's wake-ups and empty every sensor then; they work only with the heart rate from the sensor.
+- **Samsung sources** (only on a watch with the Samsung Health Platform): heart rate and HRV from the platform, skin temperature and SpO2 at night. They need the platform's Developer Mode; without it the platform asks Samsung about this app. A Samsung source that fails falls back to the sensor until a setting changes. Skin temperature and SpO2 also need a permission that only the watch can grant: switch them on once on the watch.
+
+On a Galaxy Watch7 a night with the Samsung heart rate and a wake lock cost about 4.7% battery an hour, one with the sensor's heart rate and a wake lock about 8%; the debug build's measurement protocol is there to compare the settings.
 
 ## Experimental Status
 
@@ -364,7 +389,7 @@ Different devices do not contend with each other, so the scale is unaffected by 
 
 ## Privacy
 
-Nothing leaves the phone. The watch is read over Bluetooth, the files are parsed on the device, and the results go to Health Connect or to OpenWatch's own local database.
+Nothing leaves the phone. The watch is read over Bluetooth, the files are parsed on the device, and the results go to Health Connect or to OpenWatch's own local database. A Samsung source on a Wear OS watch talks to the Samsung Health Platform on the watch, a Samsung service; what that service sends and how to keep it quiet is in [samsung-health-and-privacy.md](../engineering/samsung-health-and-privacy.md). The phone keeps no copy of a Wear OS watch's data: the watch is the store, for a week.
 
 Notification text is read on the device, held in memory only while it is needed, and sent only to the paired watch. It is never written to a file or a database. Turning the feature off, or revoking notification access in Android settings, stops it immediately.
 
@@ -377,7 +402,7 @@ See [Privacy](../../PRIVACY.md) and [Permissions](../app/permissions.md) for the
 - Verified end to end against one Garmin model. Other recent models are expected to work, but are untested.
 - Older single-link transport watches cannot sync.
 - The Connected and Not connected labels reflect whether the watch is switched on in OpenWatch, not whether a Bluetooth link is open right now.
-- Wear OS watches sync heart rate, steps, floors and an estimated sleep session per night, by hand or on the automatic schedule. Notification forwarding, watch settings, find and sending a point are Garmin-only.
+- Wear OS watches sync heart rate, steps, floors, an estimated sleep session per night and per nap, the night's resting heart rate, and, from the night measurements, HRV, the breathing rate (opt-in), SpO2 and skin temperature, by hand or on the automatic schedule. Notification forwarding, find and sending a point are Garmin-only.
 - Music controls are confirmed on one Garmin model. A volume change made on the phone reaches the watch only with the next player change.
 - Sending the alarm list has not yet been confirmed on a watch. Whether an empty list clears the watch's alarms is unknown.
 - Sending a point has not yet been confirmed on a watch. Only one point is sent at a time, and points already on the watch cannot be listed, edited, or removed from the phone.
