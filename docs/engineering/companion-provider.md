@@ -43,8 +43,8 @@ For users and for other apps both look like one system:
 | Groups | `/groups` | both | read, no permission | API version, which scopes exist |
 | Body profile | `/profile` | OpenVitals | read | OpenWatch's walking energy and the watch's calories without a second profile |
 | Units | `/units` | OpenVitals | read | the watch shows the user's units |
-| Devices | `/devices` | OpenWatch | read | OpenVitals shows the paired watches, their last sync and battery |
-| Commands | `/commands` | OpenWatch | write (`call()`) | "start a workout on the watch" from OpenVitals' recording |
+| Devices | `/devices` | OpenWatch, any recorder | read | the paired devices, what they can record, the state of a running workout |
+| Commands | `call()` | OpenWatch, any recorder | write | OpenVitals starts, pauses and stops a workout the device records |
 
 Rows are plain columns, no blobs, with an `api_version` column on `/groups`. A change is
 announced with `notifyChange` on the scope's URI, so a reader never polls.
@@ -121,156 +121,149 @@ watch link.
 
 OpenWatch writes the watch's data to Health Connect and computes only what a Health Connect
 record needs from the watch's raw values (a sleep session from the minute rows, an RMSSD from
-the beats). The provider adds no computation: it carries settings, state and commands.
+the beats, an exercise session with its route from a workout the watch recorded). The
+provider adds no computation: it carries settings, state and commands.
 
-## Commands: a workout on the watch when OpenVitals starts one
+## Delegated recording: OpenVitals starts, a connected device records (decided, 2026-11-08)
 
-The first command. When the user starts a recording in OpenVitals, the watch starts a workout
-with it and stops with it, so the heart rate of the workout comes from the watch.
+When the user starts a workout in OpenVitals and a connected app has a device that can record
+it, that device records the whole workout, GPS included, and its app writes it to Health
+Connect. OpenVitals is then only the remote control: it starts, pauses, resumes and stops, and
+shows the state. **Whoever records, writes.**
 
-**Direction.** OpenWatch serves the command; OpenVitals calls it:
-`call(authority, "start_workout", null, extras)` on `<openwatch>.provider.companion`. It needs
-`<openwatch>.permission.SEND_COMMANDS` and the user's approval in OpenWatch's sharing screen.
-The other direction (a workout started on the watch makes OpenVitals record the route) is a
-later command served by OpenVitals, under the same rules.
+- One recorder, one `ExerciseSessionRecord` with its route in Health Connect. Nothing is merged,
+  and no measured value goes through the provider.
+- OpenVitals records nothing itself in that case and needs no foreground service for it.
+- The workout goes on when the phone stays behind.
+- Health Connect lets only the writing app edit a record, so the user edits or deletes such a
+  workout in the recorder's app. OpenVitals shows it like any workout another app wrote.
+- There is no mixed recording (phone GPS with the watch's heart rate). A device without GPS does
+  not offer outdoor workouts with a route; OpenVitals records those itself, and the watch writes
+  its heart rate to Health Connect as it always does.
+
+### Finding recorders
+
+The contract is open, so OpenVitals knows no fixed package names for recorders.
+
+- A recorder app exports a service with the action `<contract>.action.WORKOUT_RECORDER` and names
+  its provider's authority in that service's `meta-data`. The service does nothing else; it
+  exists to be found.
+- OpenVitals declares `<queries><intent><action android:name="<contract>.action.WORKOUT_RECORDER" /></intent></queries>`
+  and lists recorders with `queryIntentServices`. It then checks each as in "Reading it in
+  OpenWatch": the provider's owner is the package that answered, and the user approved it in
+  OpenVitals' sharing screen. An app the user did not approve is not offered.
+- Each recorder app lists its devices on `/devices`, one row per device, with:
+  - `device_id` (stable within that app), `name`, `link` (`connected`/`lost`);
+  - `capabilities`, a list: `workout.record`, `workout.gps`, `workout.heart_rate`,
+    `workout.pause`;
+  - `exercise_types`, the Health Connect `ExerciseSessionRecord` types it records;
+  - `workout_state`, `workout_session_id`, `workout_state_at` (below).
+
+### Choosing at the start
+
+- When the user taps start, OpenVitals offers "Phone" and every connected device that can record
+  that type: it has `workout.record`, the type is in `exercise_types`, and it has `workout.gps`
+  when the type needs a route.
+- With only "Phone" there is no question. Otherwise the choice made last time for this type is
+  preselected; one tap starts.
+- OpenVitals hands over only workouts the recorder covers completely. Sets, rests between sets
+  (`RESTING`) and the heart rate recovery test exist only in OpenVitals; such workouts it records
+  itself.
+- **When the hand-over fails** (`busy`, `unavailable`, device not reachable, no answer within
+  10 seconds), OpenVitals asks: "The watch cannot start. Record on the phone?" It never starts
+  on the phone by itself, so a workout is not recorded twice when the watch started after all.
+
+### Commands
+
+OpenVitals calls the recorder's provider with `call()`. Each needs the recorder's
+`SEND_COMMANDS` permission and the user's approval of OpenVitals in the recorder's sharing
+screen.
 
 | Method | Extras | Answer |
 | --- | --- | --- |
-| `start_workout` | `session_id` (string, OpenVitals' recording id), `exercise_type` (int, Health Connect's `ExerciseSessionRecord` type), `started_at` (epoch millis) | `status`: `ok` means accepted, not yet running |
-| `pause_workout` | `session_id`, `at` (epoch millis) | `status` |
-| `resume_workout` | `session_id`, `at` (epoch millis) | `status` |
-| `stop_workout` | `session_id`, `at` (epoch millis) | `status` |
+| `start_workout` | `device_id`, `session_id` (string, chosen by OpenVitals), `exercise_type` (int), `at`, and for later: `group_id`, `role` (`primary`), `write_health_connect` (`true`) | `status`; `ok` means accepted, not yet running |
+| `pause_workout` | `session_id`, `at` | `status` |
+| `resume_workout` | `session_id`, `at` | `status` |
+| `stop_workout` | `session_id`, `at` | `status` |
 
-`status` is `refused` with a `reason` (`busy`, `not_owner`, `rate_limit`, `bad_argument`) when
-OpenWatch will not carry a command out.
+`at` is OpenVitals' time of the command (epoch millis). `status` is `refused` with a `reason`
+(`busy`, `not_owner`, `rate_limit`, `bad_argument`) when the recorder will not carry it out.
 
-### One workout at a time
+### Rules for the recorder
 
-- OpenWatch runs **at most one workout**, linked or started on the watch itself. A
-  `start_workout` with a new `session_id` while another workout runs answers `refused`,
-  `reason = busy`. Nothing is queued and nothing is taken over, as OpenVitals' own foreground
-  services refuse rather than queue. OpenVitals then says that the watch already records a
-  workout; the user stops it on the watch.
-- **A linked workout has two sides: the app that started it and the watch.** Both may pause and
-  resume it, and the other side follows (below). Any other app, or a command with another
-  `session_id`, gets `refused`, `reason = not_owner`, and changes nothing. `stop_workout` with an
-  id that is not running at all answers `ok` and changes nothing; it never stops the running
-  workout.
-- OpenVitals itself records one activity at a time (its one-foreground-service rule), so it never
-  sends a second `session_id` while the first runs.
+- **One workout per device.** A `start_workout` for a device that records already answers
+  `refused`, `reason = busy`. Nothing is queued, nothing is taken over.
+- **Idempotent.** A repeated command with the same `session_id` changes nothing and answers `ok`.
+  `stop_workout` with a `session_id` that is not running answers `ok` and never stops another
+  workout. A caller may repeat any command after a failure.
+- **Only the starting app controls.** Pause, resume and stop with that `session_id` come from the
+  app that started it, or from the device itself. Another app gets `refused`,
+  `reason = not_owner`.
+- **The recorder holds the state.** It keeps the desired state (`running`, `paused`, `stopped`)
+  with the `at` of the last change and brings the device to it whenever the link is up. A
+  command older than the last change is ignored. When the device is out of reach, `call()` still
+  answers `ok`, `/devices` shows `link = lost`, and the device follows when the link is back.
+- **The device controls too.** Pause, resume and stop on the watch set the same state, stamped
+  with the phone's time when the message arrives, and appear on `/devices`. OpenVitals observes
+  `/devices` while the workout runs and shows what the recorder reports; it has no state of its
+  own that could disagree. All times are the phone's clock, so the watch's clock plays no part.
+- **Stop asks once on the watch** ("End workout?"); pause asks nothing. A stop from either side
+  ends the workout, and the recorder saves it to Health Connect at once. OpenVitals needs no
+  save step of its own.
+- **The watch shows who started it:** it vibrates and shows "Started by OpenVitals" with its
+  controls.
+- **Limits.** One `start_workout` per caller per 10 seconds. A workout without a stop ends after
+  6 hours. Every command goes into the recorder's log for that caller (method, time, result; no
+  values).
+- **What OpenVitals shows** while the workout runs: the device, the state and the time since the
+  start, from `/devices`. No distance, no heart rate: those are measured values and stay on the
+  device and in Health Connect.
 
-### Pause and resume
+### Start from the background (OpenWatch)
 
-- OpenVitals' recording knows `RECORDING`, `RESTING` (rest between sets) and `PAUSED`. Only
-  `PAUSED` sends `pause_workout`. `RESTING` sends nothing: the watch keeps measuring during a
-  rest, and OpenVitals' own bookkeeping handles the rest.
-- In a pause the watch stops the workout clock, the distance and the energy, and shows "Paused".
-  It keeps measuring heart rate, because a heart rate sample in Health Connect stands on its own
-  and the recovery in a pause is useful.
-- OpenVitals writes the pauses into its `ExerciseSessionRecord` as segments of type
-  `EXERCISE_SEGMENT_TYPE_PAUSE`, so Health Connect knows them once, from the session.
-- `pause_workout` while paused and `resume_workout` while running answer `ok` and change
-  nothing.
-- **Pause on the watch pauses OpenVitals too.** The user pauses or resumes on the watch;
-  OpenWatch sets the desired state, with the phone's time when the message arrives as `at`, and
-  announces it on
-  `/devices` (`workout_state = paused`, `workout_state_at`). OpenVitals observes `/devices` for
-  the `session_id` it started, during the whole recording (its foreground service keeps it
-  running), and pauses or resumes its own recording when the state differs from its own and is
-  newer.
-- OpenVitals follows by reading, not by a command it serves. It needs no new write scope; the
-  `READ_DEVICES` grant it already holds for the linked workout is enough. It never follows a
-  state for a `session_id` it did not start.
-- **No echo.** When OpenVitals follows a pause from the watch, it sends `pause_workout` like after
-  any pause of its own. OpenWatch is already paused and answers `ok`, so the two sides do not
-  bounce the state back and forth.
-- **Both at the same moment.** Pause on the phone and resume on the watch within a second: the
-  newer `at` wins on both sides, because both apply the same rule to the same two times. Every
-  `at` is a time of the phone's clock, so the watch's clock plays no part. The pause on the
-  watch's screen starts at once; the pause in the record starts when the phone has it, a moment
-  later.
+The call reaches OpenWatch on a binder thread, often while OpenWatch is in the background. From
+Android 12 an app in the background may not start a foreground service, and a provider call is
+no exemption. OpenWatch's manifest already requests
+`REQUEST_COMPANION_START_FOREGROUND_SERVICES_FROM_BACKGROUND`, which lets it start one while the
+watch has an active companion device association. The only foreground service OpenWatch
+declares today is the scale's `ScaleListeningService`, so a recorded workout needs its own
+service of type `connectedDevice` (and `location` while the watch sends GPS through the phone,
+if it does). The Wear OS onboarding makes the association optional
+(`OnboardWearOsWatchUseCase`). Without one, `start_workout` answers `unavailable` while OpenWatch
+is in the background, and OpenVitals asks as above. OpenWatch also needs Health Connect's
+`WRITE_EXERCISE` and `WRITE_EXERCISE_ROUTE`.
 
-### Stop on either side stops and saves both (decided, 2026-11-08)
+### Later: the same workout on several devices
 
-- **Stop in OpenVitals:** OpenVitals sends `stop_workout`; the watch ends its workout, and
-  OpenWatch writes the watch's samples for the session.
-- **Stop on the watch:** the watch asks once ("End workout?"), because a stop also ends the
-  phone's route recording. Pause asks nothing. OpenWatch then sets the desired state `stopped`
-  and announces it on `/devices`; OpenVitals follows as it does for a pause and stops its
-  recording.
-- **Saving without the phone in hand.** Today a stop in OpenVitals does not save:
-  `ActivityEntryViewModel.finishGpsRecording` keeps the finished recording on disk and opens the
-  review form, and the user saves there. A stop from the watch needs a second way: OpenVitals
-  finishes the recording, saves it at once with the values the review form would start with
-  (type, start, end, route, distance), and posts a notification "Workout saved", which opens the
-  saved activity in edit mode. The user corrects or deletes it there. The recording stays on disk
-  until the save succeeded, as today, so a process death in between loses nothing.
-- **Discard in OpenVitals:** OpenVitals sends `stop_workout`; the watch ends its workout. The
-  watch's heart rate samples stay in Health Connect, because they are measurements of their own;
-  no exercise session is written for them.
-- A stop that arrives while the link is lost: the watch keeps running until the link comes back,
-  then follows the desired state. The maximum length of a linked workout (6 hours) applies to
-  both sides.
+To compare devices, the user may want one workout recorded on several at once. That raises
+problems the first version does not solve:
 
-### Desired state instead of a command queue
+- **Duplicates.** N sessions in Health Connect count distance and energy N times, in OpenVitals
+  and in every other app. So exactly one device is `primary` and writes to Health Connect; the
+  others start with `role = secondary` and `write_health_connect = false` and keep their
+  recording in their own app, to export as a file for comparison.
+- **No comparison through the provider.** Comparing the recordings would move measured values;
+  the comparison works on files the user exports.
+- **Partial starts.** OpenVitals waits for every answer. If the primary fails, it asks as above;
+  if only a secondary fails, the workout goes on and OpenVitals says which device is missing.
+- **Pause and stop on one device** apply to all: OpenVitals observes every device, takes the
+  newest `at`, and sends it to the others.
+- One `group_id` per workout ties the sessions together; each device has its own `session_id`.
 
-OpenWatch does not forward each command to the watch as it comes. It stores the **desired
-state** of the linked workout (`running`, `paused`, `stopped`, with the `at` of the last
-command) and brings the watch to it whenever the link is up:
-
-- a command older (`at`) than the last one applied for that session is ignored, so commands that
-  arrive out of order cannot undo a newer one;
-- when the watch is out of reach, `call()` still answers `ok`; the watch follows when the link
-  comes back, and `/devices` shows `workout_state` with `link = lost` until then;
-- a repeated command changes nothing, so OpenVitals may repeat any command after a failure.
-
-`/devices` gains `workout_state` values `paused` and `stopping`, and a column `link`
-(`connected`/`lost`).
-
-**Rules:**
-
-- **Idempotent by `session_id`.** A second `start_workout` with the same id starts nothing new
-  and answers `ok`. OpenVitals may therefore repeat a command after a failure without starting
-  two workouts.
-- **`call()` answers at once.** The watch link can take seconds, and a binder call must not wait
-  for it. The real state goes to `/devices` (`workout_session_id`, `workout_state`:
-  `idle`/`starting`/`running`/`paused`/`stopping`/`failed`), announced with `notifyChange`. OpenVitals shows
-  "recording on the watch" only once that says `running`.
-- **One workout in Health Connect.** OpenVitals writes the `ExerciseSessionRecord` (it started the
-  recording and holds the route). For a workout linked by `session_id`, OpenWatch writes only the
-  watch's samples (heart rate) for that time and no second session, or Health Connect shows the
-  workout twice. Its `clientRecordId`s are derived from `session_id`, so a repeated sync
-  overwrites instead of duplicating.
-- **Start from the background.** The call reaches OpenWatch on a binder thread, often while
-  OpenWatch is in the background. From Android 12 an app in the background may not start a
-  foreground service, and a provider call is no exemption. OpenWatch holds a companion device
-  association for the watch, and its manifest already requests
-  `REQUEST_COMPANION_START_FOREGROUND_SERVICES_FROM_BACKGROUND`; with an active association for
-  the watch it may start a foreground service. The only foreground service OpenWatch declares
-  today is the scale's `ScaleListeningService`, so a linked workout needs its own service of type
-  `connectedDevice`. The Wear OS onboarding makes the association optional
-  (`OnboardWearOsWatchUseCase`: onboarding succeeds without it). Without an association
-  `start_workout` answers `unavailable` while OpenWatch is in the background, and OpenVitals says
-  that the watch must be connected in OpenWatch first.
-- **The watch shows it.** The workout starts without a question on the watch, since the user
-  just tapped start on the phone. The watch vibrates, shows "Started by OpenVitals" and offers
-  stop. A stop on the watch stops and saves on both sides (below).
-- **Limits.** One `start_workout` per caller per 10 seconds; more answer `refused`. Every command
-  goes into OpenWatch's log for that app (method, time, result; no values).
-- **No stop arrives.** If OpenVitals dies without `stop_workout`, the watch would run on.
-  OpenWatch ends a linked workout after a fixed maximum (proposed: 6 hours), and the watch's stop
-  always works.
+The first version already carries `group_id`, `role` and `write_health_connect`, and a recorder
+answers `refused`, `reason = bad_argument`, to `role = secondary` until it supports it. So the
+later version needs no new contract version.
 
 ## Open points
 
 1. ~~Protection level~~: `dangerous`, with a trust warning for an unknown signer (decided).
 2. ~~Profile and units~~: OpenVitals owns them; the user settles differences (decided).
 3. The contract's home: proposed a published library, included as a submodule until released.
-4. Commands: `start_workout` and `stop_workout` as above (proposed). Open: the maximum length of a
-   linked workout, and whether the Wear OS onboarding should require
-   the companion device association, which the background start needs.
-
-5. ~~Stop on the watch~~: stops and saves on both sides, the watch asks once (decided).
+4. ~~Commands~~: delegated recording, whoever records writes (decided). Still open: whether the
+   Wear OS onboarding should require the companion device association, which the background
+   start needs.
+5. ~~Stop on the watch~~: ends the workout, the recorder saves it, the watch asks once (decided).
+6. Several devices for one workout: sketched under "Later", not in the first version.
 
 ## First slice, once decided
 
