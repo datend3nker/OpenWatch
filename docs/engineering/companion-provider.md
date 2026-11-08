@@ -228,9 +228,12 @@ no exemption. OpenWatch's manifest already requests
 watch has an active companion device association. The only foreground service OpenWatch
 declares today is the scale's `ScaleListeningService`, so a recorded workout needs its own
 service of type `connectedDevice` (and `location` while the watch sends GPS through the phone,
-if it does). The Wear OS onboarding makes the association optional
-(`OnboardWearOsWatchUseCase`). Without one, `start_workout` answers `unavailable` while OpenWatch
-is in the background, and OpenVitals asks as above. OpenWatch also needs Health Connect's
+if it does). **The Wear OS onboarding requires the association (decided, 2026-11-08).** Today
+`OnboardWearOsWatchUseCase` succeeds without one and only records whether it was made; it must
+fail instead, with a message that the watch cannot be used for workouts without it. Watches
+onboarded before this change are asked to associate once. Should an association be gone later
+(the user removed it in Android's settings), `start_workout` answers `unavailable` while
+OpenWatch is in the background, and OpenVitals asks as above. OpenWatch also needs Health Connect's
 `WRITE_EXERCISE` and `WRITE_EXERCISE_ROUTE`.
 
 ### Later: the same workout on several devices
@@ -259,11 +262,11 @@ later version needs no new contract version.
 1. ~~Protection level~~: `dangerous`, with a trust warning for an unknown signer (decided).
 2. ~~Profile and units~~: OpenVitals owns them; the user settles differences (decided).
 3. The contract's home: proposed a published library, included as a submodule until released.
-4. ~~Commands~~: delegated recording, whoever records writes (decided). Still open: whether the
-   Wear OS onboarding should require the companion device association, which the background
-   start needs.
+4. ~~Commands~~: delegated recording, whoever records writes; the Wear OS onboarding requires
+   the companion device association (decided).
 5. ~~Stop on the watch~~: ends the workout, the recorder saves it, the watch asks once (decided).
-6. Several devices for one workout: sketched under "Later", not in the first version.
+6. ~~Several devices for one workout~~: put off (decided). The sketch under "Later" stays, so
+   the first version keeps its fields.
 
 ## First slice, once decided
 
