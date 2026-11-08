@@ -1,5 +1,6 @@
 package tech.mmarca.openwatch.domain.insights
 
+import java.time.Instant
 import tech.mmarca.openwatch.domain.model.SleepMinute
 import tech.mmarca.openwatch.domain.model.SleepMinuteKind
 import tech.mmarca.openwatch.domain.model.WearSleepMinute
@@ -22,10 +23,17 @@ object WearSleepEstimator {
         val stages: SleepEstimatorConfig = SleepEstimatorConfig(lidsWeight = 0.3f, lidsActivityScale = 0.2f),
     )
 
-    /** One estimated night with what the wear state and the window said about the rows. */
+    /**
+     * One estimated night with what the wear state and the window said about
+     * the rows. [bedTime] is when the SPT window opens: the wearer settled
+     * in, before [session]'s onset says sleep actually started. The gap
+     * between them is sleep latency.
+     */
     data class Night(
         val session: EstimatedSleepSession,
         val window: SptWindowDetector.SptWindow,
+        val bedTime: Instant,
+        val bedTimeEnd: Instant,
         val wornMinutes: Int,
         val notWornMinutes: Int,
         val notWornReasons: Map<NotWornReason, Int>,
@@ -55,6 +63,14 @@ object WearSleepEstimator {
             SleepMinute(grid.timeAt(index), kind, grid.movement[index], if (bpm.isNaN()) null else bpm)
         }
         val session = SleepStageEstimator.estimateWindow(minutes, labels, window.onset, window.end, config.stages) ?: return null
-        return Night(session, window, wear.wornMinutes, wear.notWornMinutes, wear.reasonCounts)
+        return Night(
+            session,
+            window,
+            grid.timeAt(window.onset),
+            grid.timeAt(window.end),
+            wear.wornMinutes,
+            wear.notWornMinutes,
+            wear.reasonCounts,
+        )
     }
 }

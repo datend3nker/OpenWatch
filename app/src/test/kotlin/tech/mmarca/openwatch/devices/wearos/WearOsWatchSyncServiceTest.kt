@@ -180,6 +180,16 @@ class WearOsWatchSyncServiceTest {
         }.toList()
     }
 
+    /** 2026-10-08 from 08:00 to 17:00 local, walking, with a still 45 minute nap from 10:00 at a pulse of 58. */
+    private fun napDayMinutes(): List<WearSleepMinute> {
+        val start = Instant.parse("2026-10-08T06:00:00Z")
+        return List(9 * 60) { index ->
+            val time = start.plusSeconds(60L * index)
+            if (index in 120 until 165) raw(time, 0f, 58f + (index * 7) % 3 * 0.4f) else raw(time, 9f + (index * 5) % 7, 74f + (index * 7) % 5 - 2)
+        }
+    }
+
+
     private fun samples(vararg offsetsSeconds: Long) =
         offsetsSeconds.map { WearOsHeartRateSample(t0.plusSeconds(it), 70) }
 
@@ -588,6 +598,54 @@ class WearOsWatchSyncServiceTest {
         // The vendor's session says nothing about the resting heart rate.
         assertEquals(1, insertedOf<RestingHeartRateRecord>().size)
         assertEquals(nightMinutes().last().time, cursors.sleepCursor(WATCH.id))
+    }
+
+    @Test
+    fun `a nap becomes its own session under its onset's id`() = runTest {
+        pages += WearOsHeartRatePage(emptyList(), hasMore = false)
+        sleepPages += WearOsSleepMinutePage(napDayMinutes(), hasMore = false)
+
+        val result = service().sync(WATCH, Duration.ZERO, null)
+
+        assertEquals(DeviceSyncResult.Succeeded(0), result)
+        val session = insertedOf<SleepSessionRecord>().single()
+        assertTrue(session.metadata.clientRecordId!!.startsWith("wearos_nap_"))
+        assertEquals(session.startTime.toEpochMilli().toString(), session.metadata.clientRecordId!!.removePrefix("wearos_nap_"))
+        assertTrue(session.startTime.isBefore(Instant.parse("2026-10-08T08:20:00Z")))
+        assertTrue(insertedOf<RestingHeartRateRecord>().isEmpty())
+    }
+
+    @Test
+    fun `a nap whose time already holds a session from elsewhere is left alone`() = runTest {
+        pages += WearOsHeartRatePage(emptyList(), hasMore = false)
+        sleepPages += WearOsSleepMinutePage(napDayMinutes(), hasMore = false)
+        val foreign = mockk<SleepSessionRecord> {
+            every { metadata } returns Metadata.manualEntry(clientRecordId = "samsung_sleep_1")
+        }
+        coEvery { healthConnect.forEachSyncRecordPage(SleepSessionRecord::class, any(), any(), any()) } coAnswers {
+            arg<suspend (List<androidx.health.connect.client.records.Record>) -> Unit>(3).invoke(listOf(foreign))
+        }
+
+        service().sync(WATCH, Duration.ZERO, null)
+
+        assertTrue(insertedOf<SleepSessionRecord>().isEmpty())
+    }
+
+    @Test
+    fun `an earlier estimate of the same nap with another onset is deleted`() = runTest {
+        pages += WearOsHeartRatePage(emptyList(), hasMore = false)
+        sleepPages += WearOsSleepMinutePage(napDayMinutes(), hasMore = false)
+        val earlier = mockk<SleepSessionRecord> {
+            every { metadata } returns Metadata.manualEntry(clientRecordId = "wearos_nap_1")
+        }
+        coEvery { healthConnect.forEachSyncRecordPage(SleepSessionRecord::class, any(), any(), any()) } coAnswers {
+            arg<suspend (List<androidx.health.connect.client.records.Record>) -> Unit>(3).invoke(listOf(earlier))
+        }
+
+        service().sync(WATCH, Duration.ZERO, null)
+
+        coVerify { healthConnect.deleteImportedRecordsByClientIds(SleepSessionRecord::class, listOf("wearos_nap_1")) }
+        assertEquals(1, insertedOf<SleepSessionRecord>().size)
     }
 
     @Test

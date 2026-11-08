@@ -9,7 +9,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import tech.mmarca.openwatch.devices.core.sync.sleepNightWindow
+import tech.mmarca.openwatch.domain.insights.sleepNightWindow
 import tech.mmarca.openwatch.domain.model.WearSleepMinute
 
 /**
@@ -66,12 +66,23 @@ class WearOsSleepImportTest {
     }
 
     @Test
-    fun `the pull starts at the night window of the cursor, or at the cursor in the afternoon`() {
+    fun `the pull starts at the night window of the cursor, or 18_00 before the cursor's day`() {
         val (windowStart, _) = sleepNightWindow(night, zone)
+        val dayBefore = windowStart.minusMillis(1)
 
-        assertEquals(windowStart.minusMillis(1), WearOsSleepImport.pullStart(at(3), zone))
-        assertEquals(at(15), WearOsSleepImport.pullStart(at(15), zone))
+        assertEquals(dayBefore, WearOsSleepImport.pullStart(at(3), zone))
+        // An afternoon or evening cursor reaches back a day, so the day's naps have their waking heart rate.
+        assertEquals(dayBefore, WearOsSleepImport.pullStart(at(15), zone))
         assertEquals(Instant.EPOCH, WearOsSleepImport.pullStart(Instant.EPOCH, zone))
+    }
+
+    @Test
+    fun `nap and night ids are both this import's own`() {
+        assertTrue(WearOsSleepImport.isOwnRecordId("wearos_sleep_est_2026-10-08"))
+        assertTrue(WearOsSleepImport.isOwnRecordId("wearos_nap_1760000000000"))
+        assertTrue(WearOsSleepImport.isOwnNapId("wearos_nap_1760000000000"))
+        assertFalse(WearOsSleepImport.isOwnNapId("wearos_sleep_est_2026-10-08"))
+        assertFalse(WearOsSleepImport.isOwnRecordId("samsung_sleep_1"))
     }
 
     @Test

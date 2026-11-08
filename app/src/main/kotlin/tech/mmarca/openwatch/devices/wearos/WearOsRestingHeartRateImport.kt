@@ -7,13 +7,13 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZoneOffset
-import tech.mmarca.openwatch.domain.insights.NocturnalRestingHeartRate
+import tech.mmarca.openwatch.domain.insights.WearNight
 import tech.mmarca.openwatch.domain.insights.WearSleepEstimator
 import tech.mmarca.openwatch.domain.model.WearSleepMinute
 
 /**
  * One nocturnal resting heart rate per estimated night, from the minutes the
- * sleep import already pulled; see [NocturnalRestingHeartRate]. Timed at the
+ * sleep import already pulled; see [WearNight.restingHeartRate]. Timed at the
  * night's end and keyed on the night. The sync time is the version, so a
  * later estimate replaces an earlier one, like the sleep session.
  *
@@ -44,12 +44,10 @@ object WearOsRestingHeartRateImport {
         offset: ZoneOffset,
         version: Long,
     ): RestingHeartRateRecord? {
-        val session = estimated.session
         // A part of the night reads high, and the value would stand until a later sync revises it.
-        if (session.inProgress) return null
-        val bpm = NocturnalRestingHeartRate.of(minutes, session.onset, session.end) ?: return null
+        val bpm = WearNight.restingHeartRate(minutes, estimated) ?: return null
         return RestingHeartRateRecord(
-            time = session.end,
+            time = estimated.session.end,
             zoneOffset = offset,
             beatsPerMinute = bpm.toLong(),
             metadata = Metadata.manualEntry(

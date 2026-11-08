@@ -3,9 +3,6 @@ package tech.mmarca.openwatch.devices.core.sync
 import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.metadata.Device
 import androidx.health.connect.client.records.metadata.Metadata
-import java.time.Instant
-import java.time.LocalDate
-import java.time.LocalTime
 import java.time.ZoneOffset
 import tech.mmarca.openwatch.domain.insights.EstimatedSleepSession
 import tech.mmarca.openwatch.domain.insights.EstimatedStage
@@ -16,12 +13,6 @@ import tech.mmarca.openwatch.domain.insights.EstimatedStage
  * Shared by every integration that feeds `SleepStageEstimator`; the id and
  * the wording are the integration's.
  */
-
-/** The window a night is estimated from: the evening before through the next early afternoon. */
-fun sleepNightWindow(night: LocalDate, offset: ZoneOffset): Pair<Instant, Instant> = Pair(
-    night.minusDays(1).atTime(NightWindowStart).toInstant(offset),
-    night.atTime(NightWindowEnd).toInstant(offset),
-)
 
 /**
  * The record for an estimated night, or null when nothing would count as
@@ -74,8 +65,6 @@ private fun healthConnectStageFor(stage: EstimatedStage): Int = when (stage) {
     EstimatedStage.UNKNOWN -> SleepSessionRecord.STAGE_TYPE_UNKNOWN
 }
 
-private val NightWindowStart: LocalTime = LocalTime.of(18, 0)
-private val NightWindowEnd: LocalTime = LocalTime.of(14, 0)
 private const val EstimatedSleepTitle = "Sleep"
 private val SleepingStages = setOf(
     SleepSessionRecord.STAGE_TYPE_LIGHT,
