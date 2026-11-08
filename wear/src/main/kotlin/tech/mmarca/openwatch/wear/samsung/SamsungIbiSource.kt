@@ -12,9 +12,13 @@ import tech.mmarca.openwatch.wear.RespiratoryRate
  * The beat-to-beat intervals the Samsung Health Platform computes itself,
  * for a night-time HRV window, read from the shared [SamsungHeartRateFeed].
  * The source subscribes only for the window (the feed may already run for
- * the heart rate recorder); at its end a flush fetches the points the
- * platform still batches, and the intervals that ended inside the window
- * are kept ([SamsungIbiWindow]).
+ * the heart rate recorder). With the screen off the platform hands its
+ * points over in batches up to ten minutes late, and a flush does not hurry
+ * them (on a Galaxy Watch7 the flush answered in 0.2 s and the window's own
+ * points were not among those delivered). So after the window the source
+ * stays subscribed until a point stamped after the window's end arrives,
+ * at most [BATCH_WAIT_MILLIS], and keeps the intervals that ended inside the
+ * window ([SamsungIbiWindow]).
  */
 internal class SamsungIbiSource(private val feed: SamsungHeartRateFeed) : HrvWindowSource, SamsungHeartRateFeed.Subscriber {
 
@@ -23,6 +27,7 @@ internal class SamsungIbiSource(private val feed: SamsungHeartRateFeed) : HrvWin
     private val points = ArrayList<IbiPoint>()
     private var failed = false
     private var waiting: (() -> Unit)? = null
+    private var waitingFor = 0L
     private var subscribed = false
 
     /** Whether the last window ended with a platform error or no point at all: the platform is not serving. */
@@ -43,10 +48,8 @@ internal class SamsungIbiSource(private val feed: SamsungHeartRateFeed) : HrvWin
 
     override fun onPoints(points: List<IbiPoint>) {
         if (subscribed && this.points.size < MAX_POINTS) this.points += points
-    }
-
-    override fun onFlushed() {
-        waiting?.invoke()
+        // The window is covered once a point from after its end has come in.
+        if (waitingFor != 0L && points.any { it.epochMillis >= waitingFor }) waiting?.invoke()
     }
 
     override fun onError() {
@@ -84,15 +87,19 @@ internal class SamsungIbiSource(private val feed: SamsungHeartRateFeed) : HrvWin
             cancel()
             onResult(NightWindowResult(result, breathing?.breathsPerMinute, if (breathing != null) 1 else 0))
         }
+        if (points.any { it.epochMillis >= endMillis }) return deliver()
         waiting = deliver
-        if (!feed.flush()) return deliver()
-        workerHandler.postAtTime(deliver, FLUSH_TOKEN, SystemClock.uptimeMillis() + FLUSH_TIMEOUT_MILLIS)
+        waitingFor = endMillis
+        // A flush may still bring the newest points sooner; the answer itself is not waited for.
+        feed.flush()
+        workerHandler.postAtTime(deliver, FLUSH_TOKEN, SystemClock.uptimeMillis() + BATCH_WAIT_MILLIS)
     }
 
     override fun cancel() {
         if (subscribed) feed.unsubscribe(this)
         subscribed = false
         waiting = null
+        waitingFor = 0L
         handler?.removeCallbacksAndMessages(FLUSH_TOKEN)
         points.clear()
         startedAt = 0L
@@ -101,10 +108,10 @@ internal class SamsungIbiSource(private val feed: SamsungHeartRateFeed) : HrvWin
     private companion object {
         val FLUSH_TOKEN = Any()
 
-        /** The flush answer is awaited this long; past it the points in hand are used. */
-        const val FLUSH_TIMEOUT_MILLIS = 15_000L
+        /** The platform's batches came up to ten minutes late; past this the points in hand are used. */
+        const val BATCH_WAIT_MILLIS = 12L * 60 * 1000
 
-        /** One point a second for five minutes, plus the history the first point carries. */
-        const val MAX_POINTS = 2_000
+        /** One point a second for the window and the wait, plus the history the first point carries. */
+        const val MAX_POINTS = 3_000
     }
 }

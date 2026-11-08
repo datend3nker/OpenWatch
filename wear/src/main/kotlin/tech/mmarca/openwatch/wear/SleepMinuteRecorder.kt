@@ -74,6 +74,10 @@ class SleepMinuteRecorder(
     @Volatile
     var isSleepHolding: Boolean = false
         private set
+
+    /** Whether the hold keeps a lasting wake lock now (false for a synced hold, or no hold). */
+    val holdsLastingLock: Boolean
+        get() = wakeLock.isHeld
     private val wakeLock = (context.getSystemService(Context.POWER_SERVICE) as PowerManager)
         .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, WAKE_LOCK_TAG)
         .apply { setReferenceCounted(false) }

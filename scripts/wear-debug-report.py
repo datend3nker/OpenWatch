@@ -75,7 +75,9 @@ def when(ms):
 def state_of(snap):
     parts = []
     if snap.get("sleepHold"):
-        parts.append("hold synced" if snap.get("syncedHold") else "hold lock")
+        # "lock" is whether the lasting wake lock was really held; older lines only have the setting.
+        lock = snap.get("lock", not snap.get("syncedHold"))
+        parts.append("hold lock" if lock else "hold synced")
     hr = snap.get("hrSec")
     parts.append("hr off" if not hr else ("hr 10s" if hr == 10 else "hr save"))
     if hr:

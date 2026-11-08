@@ -304,6 +304,7 @@ class WearAppService : Service() {
         "hold" to WearLinkState.state.value.bedtimeHold.name,
         "sleepHold" to minuteRecorder.isSleepHolding,
         "syncedHold" to WearSettings.syncedSleepHold(this),
+        "lock" to minuteRecorder.holdsLastingLock,
         "skin" to skinRecorder.isRunning,
         "spo2" to spo2Recorder.isRunning,
         "worn" to heartRateWanted,
