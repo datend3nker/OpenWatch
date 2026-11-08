@@ -151,10 +151,11 @@ OpenWatch will not carry a command out.
   `reason = busy`. Nothing is queued and nothing is taken over, as OpenVitals' own foreground
   services refuse rather than queue. OpenVitals then says that the watch already records a
   workout; the user stops it on the watch.
-- **The caller that started a workout owns it.** `pause_workout`, `resume_workout` and
-  `stop_workout` from another app, or with another `session_id`, answer `refused`,
-  `reason = not_owner`, and change nothing. `stop_workout` with an id that is not running at all
-  answers `ok` and changes nothing; it never stops the running workout.
+- **A linked workout has two sides: the app that started it and the watch.** Both may pause and
+  resume it, and the other side follows (below). Any other app, or a command with another
+  `session_id`, gets `refused`, `reason = not_owner`, and changes nothing. `stop_workout` with an
+  id that is not running at all answers `ok` and changes nothing; it never stops the running
+  workout.
 - OpenVitals itself records one activity at a time (its one-foreground-service rule), so it never
   sends a second `session_id` while the first runs.
 
@@ -170,9 +171,24 @@ OpenWatch will not carry a command out.
   `EXERCISE_SEGMENT_TYPE_PAUSE`, so Health Connect knows them once, from the session.
 - `pause_workout` while paused and `resume_workout` while running answer `ok` and change
   nothing.
-- **Pause on the watch.** A pause or stop the user makes on the watch acts on the watch only and
-  shows on `/devices` (`workout_state = paused`). OpenVitals shows it, but does not follow it:
-  passing it back is the other direction (a command served by OpenVitals), which comes later.
+- **Pause on the watch pauses OpenVitals too.** The user pauses or resumes on the watch;
+  OpenWatch sets the desired state, with the phone's time when the message arrives as `at`, and
+  announces it on
+  `/devices` (`workout_state = paused`, `workout_state_at`). OpenVitals observes `/devices` for
+  the `session_id` it started, during the whole recording (its foreground service keeps it
+  running), and pauses or resumes its own recording when the state differs from its own and is
+  newer.
+- OpenVitals follows by reading, not by a command it serves. It needs no new write scope; the
+  `READ_DEVICES` grant it already holds for the linked workout is enough. It never follows a
+  state for a `session_id` it did not start.
+- **No echo.** When OpenVitals follows a pause from the watch, it sends `pause_workout` like after
+  any pause of its own. OpenWatch is already paused and answers `ok`, so the two sides do not
+  bounce the state back and forth.
+- **Both at the same moment.** Pause on the phone and resume on the watch within a second: the
+  newer `at` wins on both sides, because both apply the same rule to the same two times. Every
+  `at` is a time of the phone's clock, so the watch's clock plays no part. The pause on the
+  watch's screen starts at once; the pause in the record starts when the phone has it, a moment
+  later.
 
 ### Desired state instead of a command queue
 
@@ -216,7 +232,7 @@ command) and brings the watch to it whenever the link is up:
   that the watch must be connected in OpenWatch first.
 - **The watch shows it.** The workout starts without a question on the watch, since the user
   just tapped start on the phone. The watch vibrates, shows "Started by OpenVitals" and offers
-  stop. Stopping on the watch only stops the watch; OpenVitals keeps recording.
+  stop. What a stop on the watch does to OpenVitals' recording is open point 5.
 - **Limits.** One `start_workout` per caller per 10 seconds; more answer `refused`. Every command
   goes into OpenWatch's log for that app (method, time, result; no values).
 - **No stop arrives.** If OpenVitals dies without `stop_workout`, the watch would run on.
@@ -231,6 +247,9 @@ command) and brings the watch to it whenever the link is up:
 4. Commands: `start_workout` and `stop_workout` as above (proposed). Open: the maximum length of a
    linked workout, and whether the Wear OS onboarding should require
    the companion device association, which the background start needs.
+
+5. Stop on the watch: stop only the watch (OpenVitals keeps recording the route), or stop and save
+   on both sides. Pause and resume already go both ways.
 
 ## First slice, once decided
 
