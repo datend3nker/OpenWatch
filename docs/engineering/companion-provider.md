@@ -24,15 +24,29 @@ Each app exports one provider, `<applicationId>.provider.companion`, read with
 reads CoMaps' navigation provider (`docs/features/comaps-navigation-context.md` in OpenVitals).
 Every path is one **scope**, and every scope has its own permission and its own consent.
 
+**Beside OpenVitals' data provider (decided, 2026-11-08).** OpenVitals already serves its
+read-only data provider `<applicationId>.data`, which OpenBridge reads (11 groups, status in the
+cursor extras, a switch "Share with other apps" that starts off). The companion provider stays a
+second provider, because it carries writes and commands and the data provider stays read-only.
+For users and for other apps both look like one system:
+
+- the same names: `/groups` with an `api_version` column, `status` in the extras, permissions
+  named `<applicationId>.permission.<ACTION>_<SCOPE>`;
+- one switch: "Share with other apps" also covers the companion scopes, and while it is off
+  every scope answers `sharing_off`;
+- one screen: the action `<applicationId>.action.MANAGE_DATA_SHARING` opens the serving app's
+  sharing screen, which lists every app with its data groups and its companion scopes;
+- one contract library for both providers (open point 3), with OpenBridge as its second user.
+
 | Scope | Path | Served by | Read or write | First use |
 | --- | --- | --- | --- | --- |
-| Meta | `/meta` | both | read, no permission | contract version, which scopes exist |
+| Groups | `/groups` | both | read, no permission | API version, which scopes exist |
 | Body profile | `/profile` | OpenVitals | read | OpenWatch's walking energy and the watch's calories without a second profile |
 | Units | `/units` | OpenVitals | read | the watch shows the user's units |
 | Devices | `/devices` | OpenWatch | read | OpenVitals shows the paired watches, their last sync and battery |
 | Commands | `/commands` | OpenWatch | write (`call()`) | "start a workout on the watch" from OpenVitals' recording |
 
-Rows are plain columns, no blobs, with a `contract_version` column on `/meta`. A change is
+Rows are plain columns, no blobs, with an `api_version` column on `/groups`. A change is
 announced with `notifyChange` on the scope's URI, so a reader never polls.
 
 ## Permissions and consent
@@ -50,7 +64,7 @@ Three layers, all required:
 2. **A consent list inside the serving app.** The provider looks up the caller with
    `Binder.getCallingUid()`, its package and its signing certificate digest, and answers only
    if the user approved that package, that certificate and that scope on the serving app's own
-   "Connected apps" screen. A reinstall with another key is a new app and asks again. The
+   "Share with other apps" screen. A reinstall with another key is a new app and asks again. The
    screen lists every grant, its last use, and revokes in one tap.
 3. **Least data.** A scope returns what its use needs and nothing more (the profile returns
    height, weight, sex and birth year, not the name), commands are a fixed list with checked
@@ -109,17 +123,69 @@ OpenWatch writes the watch's data to Health Connect and computes only what a Hea
 record needs from the watch's raw values (a sleep session from the minute rows, an RMSSD from
 the beats). The provider adds no computation: it carries settings, state and commands.
 
+## Commands: a workout on the watch when OpenVitals starts one
+
+The first command. When the user starts a recording in OpenVitals, the watch starts a workout
+with it and stops with it, so the heart rate of the workout comes from the watch.
+
+**Direction.** OpenWatch serves the command; OpenVitals calls it:
+`call(authority, "start_workout", null, extras)` on `<openwatch>.provider.companion`. It needs
+`<openwatch>.permission.SEND_COMMANDS` and the user's approval in OpenWatch's sharing screen.
+The other direction (a workout started on the watch makes OpenVitals record the route) is a
+later command served by OpenVitals, under the same rules.
+
+| Method | Extras | Answer |
+| --- | --- | --- |
+| `start_workout` | `session_id` (string, OpenVitals' recording id), `exercise_type` (int, Health Connect's `ExerciseSessionRecord` type), `started_at` (epoch millis) | `status`: `ok` means accepted, not yet running |
+| `stop_workout` | `session_id` | `status` |
+
+**Rules:**
+
+- **Idempotent by `session_id`.** A second `start_workout` with the same id starts nothing new
+  and answers `ok`; `stop_workout` with an unknown id answers `ok`. OpenVitals may therefore
+  repeat a command after a failure without starting two workouts.
+- **`call()` answers at once.** The watch link can take seconds, and a binder call must not wait
+  for it. The real state goes to `/devices` (`workout_session_id`, `workout_state`:
+  `idle`/`starting`/`running`/`failed`), announced with `notifyChange`. OpenVitals shows
+  "recording on the watch" only once that says `running`.
+- **One workout in Health Connect.** OpenVitals writes the `ExerciseSessionRecord` (it started the
+  recording and holds the route). For a workout linked by `session_id`, OpenWatch writes only the
+  watch's samples (heart rate) for that time and no second session, or Health Connect shows the
+  workout twice. Its `clientRecordId`s are derived from `session_id`, so a repeated sync
+  overwrites instead of duplicating.
+- **Start from the background.** The call reaches OpenWatch on a binder thread, often while
+  OpenWatch is in the background. From Android 12 an app in the background may not start a
+  foreground service, and a provider call is no exemption. OpenWatch holds a companion device
+  association for the watch, and its manifest already requests
+  `REQUEST_COMPANION_START_FOREGROUND_SERVICES_FROM_BACKGROUND`; with an active association for
+  the watch it may start a foreground service. The only foreground service OpenWatch declares
+  today is the scale's `ScaleListeningService`, so a linked workout needs its own service of type
+  `connectedDevice`. The Wear OS onboarding makes the association optional
+  (`OnboardWearOsWatchUseCase`: onboarding succeeds without it). Without an association
+  `start_workout` answers `unavailable` while OpenWatch is in the background, and OpenVitals says
+  that the watch must be connected in OpenWatch first.
+- **The watch shows it.** The workout starts without a question on the watch, since the user
+  just tapped start on the phone. The watch vibrates, shows "Started by OpenVitals" and offers
+  stop. Stopping on the watch only stops the watch; OpenVitals keeps recording.
+- **Limits.** One `start_workout` per caller per 10 seconds; more answer `refused`. Every command
+  goes into OpenWatch's log for that app (method, time, result; no values).
+- **No stop arrives.** If OpenVitals dies without `stop_workout`, the watch would run on.
+  OpenWatch ends a linked workout after a fixed maximum (proposed: 6 hours), and the watch's stop
+  always works.
+
 ## Open points
 
 1. ~~Protection level~~: `dangerous`, with a trust warning for an unknown signer (decided).
 2. ~~Profile and units~~: OpenVitals owns them; the user settles differences (decided).
 3. The contract's home: proposed a published library, included as a submodule until released.
-4. Commands: which ones, and whether the watch confirms them on its screen.
+4. Commands: `start_workout` and `stop_workout` as above (proposed). Open: the maximum length of a
+   linked workout, and whether the Wear OS onboarding should require
+   the companion device association, which the background start needs.
 
 ## First slice, once decided
 
-OpenVitals serves `/meta` and `/profile`; OpenWatch reads the profile when the grant is in,
-falls back to its own, and shows the grant on a "Connected apps" screen. Tests on both sides:
+OpenVitals serves `/groups` and `/profile`; OpenWatch reads the profile when the grant is in,
+falls back to its own, and shows the grant on a "Share with other apps" screen. Tests on both sides:
 the caller check (wrong package, wrong certificate, revoked scope), the columns, and the
 change notification.
 
@@ -165,7 +231,7 @@ integration OpenVitals already reads. Written so a new session can start from th
   scope's URI; a reader observes with `registerContentObserver`. `ConsentStore.approve()` and
   `ConsentStore.revoke()` do the same for every scope they change, so a reader that lost its
   consent learns it at once and does not keep showing old values.
-- `/meta` lists the scopes this build serves, not the scopes this caller was granted: it has no
+- `/groups` lists the scopes this build serves, not the scopes this caller was granted: it has no
   permission, so it must not tell one caller about another's consent.
 
 ### Manifest
@@ -190,7 +256,7 @@ integration OpenVitals already reads. Written so a new session can start from th
 </provider>
 ```
 
-`/meta` carries no permission. `grantUriPermissions="false"`: no one can hand a URI grant on.
+`/groups` carries no permission. `grantUriPermissions="false"`: no one can hand a URI grant on.
 `call()` is not covered by `<path-permission>`; it checks the permission itself (below). There
 is no `writePermission` on a path: no write goes through `insert` or `update`.
 
@@ -219,8 +285,9 @@ the build it found, not a fixed string.
    both branches, and the tests cover both.
 4. Not approved: return a cursor with the scope's normal columns and no rows, and put
    `status = consent_required` in its extras (below). Post nothing else. OpenVitals never shows a dialog on its own from the provider; the user approves
-   in OpenVitals' "Connected apps" screen, which a caller can open with an explicit intent
-   (`ACTION_MANAGE_CONNECTED_APP`, extra: the caller's package and the scopes it asks for).
+   in OpenVitals' "Share with other apps" screen, which a caller can open with an explicit intent
+   (`<applicationId>.action.MANAGE_DATA_SHARING`, extras: the caller's package and the scopes it
+   asks for).
 5. Keep a small log per caller (scope, time, granted or refused) for that screen; log no values.
 
 **The status of an answer** travels in `Cursor.setExtras(Bundle)` under the key `status`, as in
@@ -230,7 +297,9 @@ key in its result bundle.
 | `status` | Meaning | Rows |
 | --- | --- | --- |
 | `ok` | the answer is complete | the data |
+| `sharing_off` | the switch "Share with other apps" is off | none |
 | `consent_required` | permission granted, but the user has not approved this caller for this scope | none |
+| `refused` | a `call()` with arguments out of range, an unknown method, or over its rate limit | none |
 | `unavailable` | the startup gate timed out, or this build does not serve the scope | none |
 
 - The columns never change with the status, so a reader knows the shape in advance and a test
@@ -241,15 +310,15 @@ key in its result bundle.
   `unavailable`, never as `ok`. A later status (for example `partial`) is a new value, not a new
   column.
 - `adb shell content query` does not show extras. For debugging, the provider writes one log
-  line per answer with the scope and the status, without values. `/meta` does not carry the last
-  status, because anyone can read `/meta`.
+  line per answer with the scope and the status, without values. `/groups` does not carry the last
+  status, because anyone can read `/groups`.
 
 `Binder.clearCallingIdentity()` only around OpenVitals' own reads inside the provider, restored
 in `finally`.
 
 ### The consent screen
 
-The "Connected apps" activity is exported: any app can open it, and the package in the intent
+The "Share with other apps" activity is exported: any app can open it, and the package in the intent
 extra comes from that app. So:
 
 - The extra only preselects the app on the screen. If no package of that name is installed, the
@@ -292,6 +361,10 @@ GitHub release) as constants. On the consent screen:
 
 The reader treats OpenVitals as untrusted input, as OpenVitals treats CoMaps:
 
+- **Three builds.** As OpenBridge does, OpenWatch lists the permissions and the `<queries>`
+  entries of all three OpenVitals builds (release, `.debug`, `.ci`), finds the installed ones
+  with `resolveContentProvider`, and lets the user choose when more than one is installed.
+
 - **Owner check.** Before the first query, `resolveContentProvider(authority)` must name the
   expected OpenVitals package, and that package must carry one of the certificate digests of the
   official OpenVitals builds. A known package name with an unknown digest gets the same warning as
@@ -311,7 +384,7 @@ The reader treats OpenVitals as untrusted input, as OpenVitals treats CoMaps:
 
 ### Columns of the first scopes
 
-`/meta`: `contract_version` (int), `scopes` (comma list), `app_version`.
+`/groups`: `api_version` (int), `scopes` (comma list), `app_version`.
 `/profile`: `height_cm` (real), `weight_kg` (real), `sex` (`female`/`male`/`unspecified`),
 `birth_year` (int), `updated_at` (epoch millis). No name, no exact birth date.
 `/units`: `unit_system` (`metric`/`imperial`), `updated_at`.
@@ -334,11 +407,11 @@ answers `ok` or `refused` in the result bundle.
 
 ### Order of work
 
-1. The contract (authority, paths, columns, permission names, `contract_version = 1`) as one
+1. The contract (authority, paths, columns, permission names, `api_version = 1`) as one
    Kotlin file, to become the shared library later.
 2. `ConsentStore` and the caller check, pure and tested.
-3. `CompanionProvider` with `/meta` and `/profile`, and the manifest entries.
-4. The "Connected apps" screen with the trust warning and the overlay protection.
+3. `CompanionProvider` with `/groups` and `/profile`, and the manifest entries.
+4. The "Share with other apps" screen with the trust warning and the overlay protection.
 5. OpenWatch: the `<queries>` entry, the permission request, reading the profile, the
    field-by-field choice when values differ, and its fallback to its own profile.
 
