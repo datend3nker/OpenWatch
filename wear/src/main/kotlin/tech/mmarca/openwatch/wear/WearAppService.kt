@@ -57,6 +57,7 @@ class WearAppService : Service() {
     private lateinit var samsungFeed: SamsungHeartRateFeed
     private lateinit var debugSnapshots: DebugSnapshots
     private lateinit var wakeSync: SensorWakeSync
+    private lateinit var clock: WakeClock
     private lateinit var workout: WorkoutRecorder
     private lateinit var ppgLogger: PpgRawLogger
     private lateinit var trust: WearTrustStore
@@ -93,6 +94,7 @@ class WearAppService : Service() {
         store = MetricStore(this)
         samsungFeed = SamsungHeartRateFeed(this)
         wakeSync = SensorWakeSync(this)
+        clock = WakeClock(this, wakeSync)
         workout = WorkoutRecorder(this, store) {
             // The location type is held only while a workout reads the GPS; the heart rate runs at the full rate.
             if (isForeground) startInForeground()
@@ -110,13 +112,14 @@ class WearAppService : Service() {
             // The heart rate runs at full rate while sleep is held; the plan reads it.
             onSleepHoldChange = { mainHandler.post { reconcileRecorders() } },
             wakeSync = wakeSync,
-            syncedHold = { isHeartRateDense() && WearSettings.syncedSleepHold(this) },
+            // A synced hold rests on the dense beat; without one it keeps the lasting lock.
+            syncedHold = { WearSettings.syncedSleepHold(this) && clock.isDense },
         )
         recorder = HeartRateRecorder(
             this,
             store,
             samsungFeed,
-            wakeSync,
+            onBatch = clock::onExternalBatch,
             onSourceChanged = { mainHandler.post { reconcileRecorders() } },
             onSample = { at, bpm ->
                 minuteRecorder.noteHeartRate(at, bpm)
@@ -138,6 +141,7 @@ class WearAppService : Service() {
         skinRecorder = SkinTemperatureRecorder(store, samsungFeed)
         spo2Recorder = Spo2Recorder(this, store, samsungFeed, isHolding = { WearLinkState.state.value.sleepHoldActive })
         bedtimeMonitor = BedtimeMonitor(this, mainHandler) { reconcileRecorders() }
+        clock.addListener { recorder.onBeat() }
         debugSnapshots = DebugSnapshots(this, mainHandler, ::debugPlan)
         stepRecorder = StepRecorder(this, store, wakeSync)
         ascentRecorder = AscentRecorder(this, store, wakeSync)
@@ -190,9 +194,9 @@ class WearAppService : Service() {
                 if (ppgLogger.isRunning) ppgLogger.stop() else ppgLogger.start()
                 WearLinkState.update { it.copy(ppgLogging = ppgLogger.isRunning) }
             }
-            ACTION_HEART_RATE_ALARM -> {
-                DebugProtocol.count("hr.alarms")
-                recorder.onAlarmFired()
+            ACTION_CLOCK_BEAT -> {
+                DebugProtocol.count("clock.alarms")
+                clock.onAlarm()
                 return START_STICKY
             }
             ACTION_WORKOUT_START -> {
@@ -305,15 +309,25 @@ class WearAppService : Service() {
         } else {
             HeartRateInterval.OFF
         }
-        val before = recorder.interval to recorder.source
+        val before = Triple(recorder.interval, recorder.source, clock.isDense)
         recorder.setPlan(wanted, WearSettings.heartRateSource(this))
-        // Without the heart rate's wake-ups the step counter must wake the watch itself.
-        stepRecorder.setHeartRateRunning(isHeartRateDense())
+        reconcileClock()
         // Skin temperature and SpO2 come only from the Samsung platform, at night, each switched on by itself.
         val night = granted && heartRateWanted && minuteRecorder.isSleepHolding
         skinRecorder.setEnabled(night && WearSettings.skinTemperature(this) && WearPermissions.hasSkinTemperature(this))
         spo2Recorder.setEnabled(granted && WearSettings.spo2AtNight(this) && WearPermissions.hasOxygenSaturation(this))
-        if (before != (recorder.interval to recorder.source)) debugSnapshots.write("plan")
+        if (before != Triple(recorder.interval, recorder.source, clock.isDense)) debugSnapshots.write("plan")
+    }
+
+    /**
+     * The [WakeClock]'s mode: dense while the heart rate's batches beat
+     * anyway, or while a synced sleep hold needs every minute whole without
+     * a lasting lock; sparse otherwise. Main thread.
+     */
+    private fun reconcileClock() {
+        val dense = isHeartRateDense()
+        val syncedNight = minuteRecorder.isSleepHolding && WearSettings.syncedSleepHold(this)
+        clock.setMode(if (dense || syncedNight) WakeClock.Mode.DENSE else WakeClock.Mode.SPARSE, externalDense = dense)
     }
 
     private fun abilities() = WatchAbilities(
@@ -355,6 +369,8 @@ class WearAppService : Service() {
         "sleepHold" to minuteRecorder.isSleepHolding,
         "syncedHold" to WearSettings.syncedSleepHold(this),
         "lock" to minuteRecorder.holdsLastingLock,
+        "clock" to clock.mode.name,
+        "clockDense" to clock.isDense,
         "skin" to skinRecorder.isRunning,
         "spo2" to spo2Recorder.isRunning,
         "workout" to workout.isActive,
@@ -401,6 +417,7 @@ class WearAppService : Service() {
             WearLinkState.update { it.copy(ppgLogging = false) }
         }
         link.stop()
+        clock.shutdown()
         wakeSync.shutdown()
         super.onDestroy()
     }
@@ -410,7 +427,7 @@ class WearAppService : Service() {
         private const val CHANNEL_ID = "phone_link"
         private const val NOTIFICATION_ID = 1
         private const val ACTION_TOGGLE_PPG_LOG = "tech.mmarca.openwatch.wear.TOGGLE_PPG_LOG"
-        const val ACTION_HEART_RATE_ALARM = "tech.mmarca.openwatch.wear.HEART_RATE_ALARM"
+        const val ACTION_CLOCK_BEAT = "tech.mmarca.openwatch.wear.CLOCK_BEAT"
         private const val ACTION_SETTINGS_CHANGED = "tech.mmarca.openwatch.wear.SETTINGS_CHANGED"
         private const val ACTION_WORKOUT_START = "tech.mmarca.openwatch.wear.WORKOUT_START"
         private const val ACTION_WORKOUT_PAUSE = "tech.mmarca.openwatch.wear.WORKOUT_PAUSE"

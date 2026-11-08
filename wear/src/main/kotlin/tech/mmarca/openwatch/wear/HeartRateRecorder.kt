@@ -1,10 +1,6 @@
 package tech.mmarca.openwatch.wear
 
-import android.app.AlarmManager
-import android.app.PendingIntent
-import android.content.BroadcastReceiver
 import android.content.Context
-import android.content.Intent
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -31,10 +27,9 @@ import tech.mmarca.openwatch.wearlink.WearLinkProtocol
  * - [HeartRateInterval.POWER_SAVE]: the sensor is registered for a window of
  *   at most [WINDOW_CAP_MILLIS], unbatched, and is unregistered as soon as its
  *   first usable reading is stored. Between the windows the sensor, and
- *   usually the CPU, are off: `Handler.postDelayed` does not fire while the
- *   CPU sleeps, so the next window is scheduled with
- *   [AlarmManager.setAndAllowWhileIdle] instead, through [HeartRateAlarmReceiver]
- *   and `WearAppService`.
+ *   usually the CPU, are off. The next window opens on a [WakeClock] beat
+ *   ([onBeat]) once the interval has passed, so it shares the wake-up that
+ *   empties every other sensor's buffer; the recorder keeps no alarm of its own.
  *
  * From the Samsung Health Platform ([WearSettings.Source.SAMSUNG_PLATFORM],
  * Samsung watches only): the recorder subscribes to the [SamsungHeartRateFeed]
@@ -45,15 +40,15 @@ import tech.mmarca.openwatch.wearlink.WearLinkProtocol
  * [setPlan] is the only entry point; the service calls it with the plan in
  * force, and an unchanged one does nothing. The listener and the timers run
  * on the recorder's own thread, where the SQLite write is allowed.
- * [onAlarmFired] is the exception: `WearAppService` calls it on its own
- * thread, and it only posts to the recorder's thread.
+ * [onBeat] is the exception: the clock calls it on its own thread, and it
+ * only posts to the recorder's thread.
  */
 internal class HeartRateRecorder(
     private val context: Context,
     private val store: MetricStore,
     private val samsungFeed: SamsungHeartRateFeed,
-    /** Told at each batch, so every sensor's buffer is emptied in the same wake-up. */
-    private val wakeSync: SensorWakeSync? = null,
+    /** Told at each dense batch: the batch is the [WakeClock]'s beat. Called on the recorder's thread. */
+    private val onBatch: () -> Unit = {},
     /** The source in use changed by itself (a fall-back to the sensor). Called on the recorder's thread. */
     private val onSourceChanged: () -> Unit = {},
     /** Every stored sample, for the sleep minute recorder. Called on this recorder's thread. */
@@ -63,18 +58,9 @@ internal class HeartRateRecorder(
 ) : SensorEventListener, SamsungHeartRateFeed.Subscriber {
 
     private val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
-    private val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
     private val wakeLock = (context.getSystemService(Context.POWER_SERVICE) as PowerManager)
         .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, WAKE_LOCK_TAG)
         .apply { setReferenceCounted(false) }
-    private val alarmPendingIntent: PendingIntent by lazy {
-        PendingIntent.getBroadcast(
-            context,
-            ALARM_REQUEST_CODE,
-            Intent(context, HeartRateAlarmReceiver::class.java),
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-        )
-    }
     private var thread: HandlerThread? = null
 
     /** Set with [thread]; the timers and the window run on it. */
@@ -205,7 +191,6 @@ internal class HeartRateRecorder(
         val workerHandler = handler
         // Pending timers would reopen the sensor after this returns.
         workerHandler?.removeCallbacksAndMessages(null)
-        alarmManager.cancel(alarmPendingIntent)
         sensorManager.unregisterListener(this)
         samsungFeed.unsubscribe(this)
         if (wakeLock.isHeld) wakeLock.release()
@@ -219,16 +204,19 @@ internal class HeartRateRecorder(
     }
 
     /**
-     * An alarm fired while this recorder was [HeartRateInterval.POWER_SAVE].
-     * Called by `WearAppService` on its own thread; only posts to the
-     * recorder's thread, which does the actual work. A no-op once the
-     * interval has since changed: cancelling the alarm in [stop] races the
-     * alarm already having fired.
+     * A [WakeClock] beat: opens the next power-save window once the interval
+     * has passed since the last one opened. Called on the clock's thread;
+     * only posts to the recorder's thread. A no-op at any other interval or
+     * source.
      */
-    fun onAlarmFired() {
+    fun onBeat() {
         val workerHandler = handler ?: return
         if (interval != HeartRateInterval.POWER_SAVE || source != WearSettings.Source.RAW_SENSOR) return
-        workerHandler.post(openWindowTask)
+        workerHandler.post {
+            if (windowOpen || interval != HeartRateInterval.POWER_SAVE) return@post
+            val elapsed = SystemClock.elapsedRealtime() - windowOpenedAt
+            if (nextWindowDelayMillis(elapsed, interval.seconds) <= BEAT_TOLERANCE_MILLIS) openWindow()
+        }
     }
 
     /** Starts a window: the sensor on, until its first usable reading or [WINDOW_CAP_MILLIS]. Recorder thread. */
@@ -248,7 +236,6 @@ internal class HeartRateRecorder(
             Log.w(TAG, "Heart rate window not registered")
             DebugProtocol.event("HeartRate", "window_failed")
             if (wakeLock.isHeld) wakeLock.release()
-            scheduleNextWindow()
             return
         }
         windowOpen = true
@@ -270,26 +257,13 @@ internal class HeartRateRecorder(
         DebugProtocol.count("hr.windows")
         DebugProtocol.count("hr.windowMs", duration)
         if (windowValues == 0) DebugProtocol.count("hr.windowsEmpty")
-        scheduleNextWindow()
-    }
-
-    /**
-     * Schedules the next window: [AlarmManager.setAndAllowWhileIdle] fires
-     * [HeartRateAlarmReceiver] even while the watch is asleep, unlike
-     * `Handler.postDelayed`. The wait is the interval minus the time the
-     * window already used, never negative.
-     */
-    private fun scheduleNextWindow() {
-        val elapsed = SystemClock.elapsedRealtime() - windowOpenedAt
-        val wait = nextWindowDelayMillis(elapsed, interval.seconds)
-        alarmManager.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, SystemClock.elapsedRealtime() + wait, alarmPendingIntent)
     }
 
     override fun onSensorChanged(event: SensorEvent) {
         if (event.sensor.type != Sensor.TYPE_HEART_RATE) return
         DebugProtocol.arrival("hr")
         val arrived = SystemClock.elapsedRealtime()
-        if (arrived - lastArrivalAt > BATCH_GAP_MILLIS && interval == HeartRateInterval.EVERY_10_SECONDS) wakeSync?.onWake()
+        if (arrived - lastArrivalAt > BATCH_GAP_MILLIS && interval == HeartRateInterval.EVERY_10_SECONDS) onBatch()
         lastArrivalAt = arrived
         // No contact and unreliable readings carry a rate of zero or a flag; both are skipped.
         val bpm = event.values.firstOrNull()?.toInt() ?: return
@@ -402,7 +376,8 @@ internal class HeartRateRecorder(
         /** Held past [WINDOW_CAP_MILLIS] so the lock cannot expire mid-window on a slow start. */
         const val WAKE_LOCK_SLACK_MILLIS = 10_000L
 
-        const val ALARM_REQUEST_CODE = 1
+        /** A beat may come a little before the interval is up; it still opens the window. */
+        const val BEAT_TOLERANCE_MILLIS = 60_000L
 
         const val PRUNE_EVERY_MILLIS = 6L * 60 * 60 * 1000
         const val SKIP_LOG_EVERY_MILLIS = 60_000L
@@ -424,23 +399,7 @@ internal fun isUsableHeartRate(accuracy: Int, bpm: Int): Boolean =
 /**
  * How long to wait, from now, before a power-save window should next open:
  * the interval minus the time the window just used, never negative. Pure, so
- * it is tested without the real clock or [android.app.AlarmManager].
+ * it is tested without the real clock.
  */
 internal fun nextWindowDelayMillis(elapsedSinceOpenMillis: Long, intervalSeconds: Int): Long =
     (intervalSeconds * 1000L - elapsedSinceOpenMillis).coerceAtLeast(0L)
-
-/**
- * Wakes the watch for one power-save heart rate window. `AlarmManager`
- * delivers this while the CPU is asleep; it reaches the running
- * `WearAppService` through an action on the foreground service, never a
- * static reference to the recorder itself.
- */
-class HeartRateAlarmReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) {
-        runCatching {
-            context.startForegroundService(
-                Intent(context, WearAppService::class.java).setAction(WearAppService.ACTION_HEART_RATE_ALARM),
-            )
-        }.onFailure { Log.e("HeartRateAlarmReceiver", "Cannot reach the service for the heart rate alarm", it) }
-    }
-}

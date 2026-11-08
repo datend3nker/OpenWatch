@@ -46,10 +46,10 @@ internal object WearSettings {
 
     /**
      * How a sleep hold keeps every minute whole: false (the default) with a
-     * lasting wake lock, true with the heart rate's wake-ups and a flush of
-     * every sensor at each ([SensorWakeSync]), which lets the processor sleep
-     * in between. The second is the one to measure; it falls back to the
-     * lock while the heart rate is not dense from the sensor.
+     * lasting wake lock, true with the [WakeClock]'s dense beat and a flush
+     * of every sensor at each ([SensorWakeSync]), which lets the processor
+     * sleep in between. The second is the one to measure; it falls back to
+     * the lock while there is no dense beat (no heart rate grant).
      */
     fun syncedSleepHold(context: Context): Boolean = prefs(context).getBoolean(KEY_SYNCED_SLEEP_HOLD, false)
 
