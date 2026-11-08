@@ -111,4 +111,23 @@
         <item quantity="many">Оценён сон за %1$d ночей</item>
         <item quantity="other">Оценён сон за %1$d ночи</item>
     </plurals>
+    <string name="settings_watch_wearos_needs_respiratory_write">Частота дыхания не записана: разрешите OpenWatch записывать её в Health Connect и синхронизируйте снова.</string>
+    <string name="settings_watch_wearos_needs_spo2_write">Кислород в крови не записан: разрешите OpenWatch записывать его в Health Connect и синхронизируйте снова.</string>
+    <string name="settings_watch_wearos_needs_skin_write">Температура кожи не записана: разрешите OpenWatch записывать её в Health Connect и синхронизируйте снова.</string>
+    <string name="settings_respiratory_rate_title">Частота дыхания с часов (экспериментально)</string>
+    <string name="settings_respiratory_rate_body">Записывает в Health Connect частоту дыхания ночных окон ВСР часов. Ещё не проверено эталонным устройством.</string>
+    <string name="watch_settings_section">Настройки часов</string>
+    <string name="watch_settings_not_read">Часы хранят эти настройки сами. Прочитайте их, чтобы изменить здесь.</string>
+    <string name="watch_settings_unreachable">Часы не ответили. Они рядом и приложение OpenWatch на них запущено?</string>
+    <string name="watch_settings_read">Прочитать с часов</string>
+    <string name="watch_settings_power_save">Пульс в экономном режиме</string>
+    <string name="watch_settings_power_save_body">Примерно каждые 10 минут вне режима сна. В режиме сна измерение всегда каждые 10 секунд.</string>
+    <string name="watch_settings_synced">Совмещённые пробуждения во сне</string>
+    <string name="watch_settings_synced_body">Сохраняет каждую минуту сна за счёт пробуждений датчика пульса вместо постоянной блокировки сна. Работает только с пульсом от датчика.</string>
+    <string name="watch_settings_samsung_note">Платформа Samsung: нужен режим разработчика Health Platform на часах. Без него платформа запрашивает Samsung об этом приложении. Источник Samsung при сбое переключается на датчик.</string>
+    <string name="watch_settings_hr_samsung">Пульс от платформы Samsung</string>
+    <string name="watch_settings_hrv_samsung">ВСР от платформы Samsung</string>
+    <string name="watch_settings_skin">Температура кожи ночью</string>
+    <string name="watch_settings_spo2">SpO2 каждый час ночью</string>
+    <string name="watch_settings_allow_on_watch">Разрешите это на часах: откройте там OpenWatch и включите один раз.</string>
 </resources>

@@ -105,4 +105,23 @@
         <item quantity="one">已估算 %1$d 晚的睡眠</item>
         <item quantity="other">已估算 %1$d 晚的睡眠</item>
     </plurals>
+    <string name="settings_watch_wearos_needs_respiratory_write">呼吸频率未写入：请允许 OpenWatch 写入 Health Connect，然后再次同步。</string>
+    <string name="settings_watch_wearos_needs_spo2_write">血氧未写入：请允许 OpenWatch 写入 Health Connect，然后再次同步。</string>
+    <string name="settings_watch_wearos_needs_skin_write">皮肤温度未写入：请允许 OpenWatch 写入 Health Connect，然后再次同步。</string>
+    <string name="settings_respiratory_rate_title">来自手表的呼吸频率（实验性）</string>
+    <string name="settings_respiratory_rate_body">将手表夜间 HRV 时段的呼吸频率写入 Health Connect。尚未用参考设备验证。</string>
+    <string name="watch_settings_section">手表设置</string>
+    <string name="watch_settings_not_read">这些设置保存在手表上。读取后即可在此更改。</string>
+    <string name="watch_settings_unreachable">手表没有响应。它在附近吗？OpenWatch 应用在运行吗？</string>
+    <string name="watch_settings_read">从手表读取</string>
+    <string name="watch_settings_power_save">省电心率</string>
+    <string name="watch_settings_power_save_body">睡眠模式之外约每 10 分钟一次。睡眠模式始终每 10 秒测量一次。</string>
+    <string name="watch_settings_synced">睡眠时合并唤醒</string>
+    <string name="watch_settings_synced_body">通过心率传感器的唤醒而非持续唤醒锁保留每一分钟睡眠。仅适用于传感器心率。</string>
+    <string name="watch_settings_samsung_note">Samsung 平台：需要在手表上开启 Health Platform 开发者模式。否则平台会向 Samsung 查询此应用。失败的 Samsung 来源会切换回传感器。</string>
+    <string name="watch_settings_hr_samsung">来自 Samsung 平台的心率</string>
+    <string name="watch_settings_hrv_samsung">来自 Samsung 平台的 HRV</string>
+    <string name="watch_settings_skin">夜间皮肤温度</string>
+    <string name="watch_settings_spo2">夜间每小时 SpO2</string>
+    <string name="watch_settings_allow_on_watch">请在手表上允许：在手表上打开 OpenWatch 并开启一次。</string>
 </resources>

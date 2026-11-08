@@ -111,4 +111,23 @@
         <item quantity="many">Odhadnuto %1$d noci spánku</item>
         <item quantity="other">Odhadnuto %1$d nocí spánku</item>
     </plurals>
+    <string name="settings_watch_wearos_needs_respiratory_write">Dechová frekvence nebyla zapsána: povolte OpenWatch zapisovat ji do Health Connect a znovu synchronizujte.</string>
+    <string name="settings_watch_wearos_needs_spo2_write">Kyslík v krvi nebyl zapsán: povolte OpenWatch zapisovat ho do Health Connect a znovu synchronizujte.</string>
+    <string name="settings_watch_wearos_needs_skin_write">Teplota kůže nebyla zapsána: povolte OpenWatch zapisovat ji do Health Connect a znovu synchronizujte.</string>
+    <string name="settings_respiratory_rate_title">Dechová frekvence z hodinek (experimentální)</string>
+    <string name="settings_respiratory_rate_body">Zapisuje do Health Connect dechovou frekvenci z nočních oken HRV hodinek. Zatím neověřeno referenčním zařízením.</string>
+    <string name="watch_settings_section">Nastavení hodinek</string>
+    <string name="watch_settings_not_read">Hodinky si tato nastavení ukládají samy. Načtěte je, abyste je zde mohli změnit.</string>
+    <string name="watch_settings_unreachable">Hodinky neodpověděly. Jsou poblíž a běží na nich aplikace OpenWatch?</string>
+    <string name="watch_settings_read">Načíst z hodinek</string>
+    <string name="watch_settings_power_save">Úsporný tep</string>
+    <string name="watch_settings_power_save_body">Přibližně každých 10 minut mimo režim spánku. Režim spánku měří vždy každých 10 sekund.</string>
+    <string name="watch_settings_synced">Sdružené probouzení ve spánku</string>
+    <string name="watch_settings_synced_body">Zachová každou minutu spánku díky probouzení snímačem tepu místo trvalého wake locku. Funguje jen s tepem ze snímače.</string>
+    <string name="watch_settings_samsung_note">Platforma Samsung: vyžaduje vývojářský režim Health Platform na hodinkách. Bez něj se platforma ptá Samsungu na tuto aplikaci. Zdroj Samsung, který selže, přejde na snímač.</string>
+    <string name="watch_settings_hr_samsung">Tep z platformy Samsung</string>
+    <string name="watch_settings_hrv_samsung">HRV z platformy Samsung</string>
+    <string name="watch_settings_skin">Teplota kůže v noci</string>
+    <string name="watch_settings_spo2">SpO2 každou hodinu v noci</string>
+    <string name="watch_settings_allow_on_watch">Povolte to na hodinkách: otevřete tam OpenWatch a jednou to zapněte.</string>
 </resources>
