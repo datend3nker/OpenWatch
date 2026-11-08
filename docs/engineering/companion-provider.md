@@ -28,7 +28,7 @@ Every path is one **scope**, and every scope has its own permission and its own 
 | Body profile | `/profile` | OpenVitals | read | OpenWatch's walking energy and the watch's calories without a second profile |
 | Units | `/units` | OpenVitals | read | the watch shows the user's units |
 | Devices | `/devices` | OpenWatch | read | OpenVitals shows the paired watches, their last sync and battery |
-| Commands | `/commands` | OpenWatch | write (`insert`) | "start a workout on the watch" from OpenVitals' recording |
+| Commands | `/commands` | OpenWatch | write (`call()`) | "start a workout on the watch" from OpenVitals' recording |
 
 Rows are plain columns, no blobs, with a `contract_version` column on `/meta`. A change is
 announced with `notifyChange` on the scope's URI, so a reader never polls.
@@ -37,11 +37,14 @@ announced with `notifyChange` on the scope's URI, so a reader never polls.
 
 Three layers, all required:
 
-1. **A permission per scope**, declared by the serving app:
-   `tech.mmarca.openvitals.permission.READ_PROFILE`, `…READ_UNITS`,
-   `tech.mmarca.openwatch.permission.READ_DEVICES`, `…SEND_COMMANDS`. The provider sets
-   `readPermission`/`writePermission` per path (`<path-permission>`), so a grant for one scope
-   opens nothing else.
+1. **A permission per scope**, declared by the serving app and named after its application id:
+   `<applicationId>.permission.READ_PROFILE`, `…READ_UNITS`, `…WRITE_PROFILE` on OpenVitals,
+   `…READ_DEVICES`, `…SEND_COMMANDS` on OpenWatch. The release, `.debug` and `.ci` builds are
+   signed with different keys, and Android refuses to install a second app that defines the same
+   permission name with another key; with the application id in the name, each build defines its
+   own. The provider sets `readPermission` per path (`<path-permission>`), so a grant for one
+   scope opens nothing else. Writes and commands go through `call()`, which `<path-permission>`
+   does not cover; `call()` checks the write permission itself.
 2. **A consent list inside the serving app.** The provider looks up the caller with
    `Binder.getCallingUid()`, its package and its signing certificate digest, and answers only
    if the user approved that package, that certificate and that scope on the serving app's own
@@ -78,7 +81,7 @@ OpenVitals owns them; OpenWatch reads them and keeps its own only as the fallbac
 OpenVitals is not installed or not granted. When both hold a value and they differ (the first
 connection, or a change made in OpenWatch while disconnected), OpenWatch does not choose: it
 shows both values field by field and asks which to keep, OpenVitals' or its own. Keeping
-OpenWatch's value needs a write scope on OpenVitals (`/profile` with `insert`/`update`,
+OpenWatch's value needs a write scope on OpenVitals (`call("set_profile_fields")`,
 `…WRITE_PROFILE`), granted separately from the read.
 
 ## Where the contract lives (open point 3)
@@ -145,7 +148,7 @@ integration OpenVitals already reads. Written so a new session can start from th
 
 ```xml
 <permission
-    android:name="tech.mmarca.openvitals.permission.READ_PROFILE"
+    android:name="${applicationId}.permission.READ_PROFILE"
     android:label="@string/companion_permission_read_profile"
     android:description="@string/companion_permission_read_profile_body"
     android:protectionLevel="dangerous" />
@@ -157,15 +160,19 @@ integration OpenVitals already reads. Written so a new session can start from th
     android:exported="true"
     android:grantUriPermissions="false">
     <path-permission android:pathPrefix="/profile"
-        android:readPermission="tech.mmarca.openvitals.permission.READ_PROFILE"
-        android:writePermission="tech.mmarca.openvitals.permission.WRITE_PROFILE" />
+        android:readPermission="${applicationId}.permission.READ_PROFILE" />
     <path-permission android:pathPrefix="/units"
-        android:readPermission="tech.mmarca.openvitals.permission.READ_UNITS" />
+        android:readPermission="${applicationId}.permission.READ_UNITS" />
 </provider>
 ```
 
 `/meta` carries no permission. `grantUriPermissions="false"`: no one can hand a URI grant on.
-`call()` is not covered by `<path-permission>`; it checks the permission itself (below).
+`call()` is not covered by `<path-permission>`; it checks the permission itself (below). There
+is no `writePermission` on a path: no write goes through `insert` or `update`.
+
+The contract builds a permission name from the serving app's package
+(`permissionName(servingPackage, "READ_PROFILE")`), so a caller asks for the name that belongs to
+the build it found, not a fixed string.
 
 ### The caller check, in every entry point
 
@@ -173,11 +180,19 @@ integration OpenVitals already reads. Written so a new session can start from th
    which the system checks against the calling uid).
 2. `context.checkCallingPermission(permission) == PERMISSION_GRANTED` for the scope, also in
    `query()` (defence in depth beside the manifest) and always in `call()`.
-3. The consent list: `ConsentStore.isApproved(caller, certificateDigest, scope)`. The digest is
-   the SHA-256 of the caller's signing certificate:
-   `packageManager.getPackageInfo(caller, GET_SIGNING_CERTIFICATES).signingInfo`, take
-   `apkContentsSigners` (or the signing history), hash each. A caller whose certificate is not
-   the one approved gets nothing, so a reinstall with another key asks again.
+3. The consent list: `ConsentStore.approvedDigests(caller, scope)` returns the SHA-256 digests
+   of the signing certificates the user approved, and the provider checks each with
+   `packageManager.hasSigningCertificate(caller, digest, PackageManager.CERT_INPUT_SHA256)`.
+   That call follows the signing history, so an app that rotated its key (APK signature scheme
+   v3) still matches the certificate the user approved. When `signingInfo.hasMultipleSigners()`
+   is true, the provider requires every signer's digest, not one. Do not hash
+   `apkContentsSigners` by hand: that misses rotation. A caller whose certificate is not the one
+   approved gets nothing, so a reinstall with another key asks again.
+
+   `hasSigningCertificate` needs API 28, and OpenVitals' `minSdk` is 26. Key rotation also came
+   with API 28, so on API 26 and 27 the provider reads `getPackageInfo(caller, GET_SIGNATURES)`,
+   hashes every signature, and requires the set to equal the approved set. One function holds
+   both branches, and the tests cover both.
 4. Not approved: return an empty cursor with one column `status` = `consent_required`, and post
    nothing else. OpenVitals never shows a dialog on its own from the provider; the user approves
    in OpenVitals' "Connected apps" screen, which a caller can open with an explicit intent
