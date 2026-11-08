@@ -98,9 +98,9 @@
             android:name=".WearPhoneConfirmReceiver"
             android:exported="false" />
 
-        <!-- The power-save heart rate window's alarm; see HeartRateRecorder. -->
+        <!-- The sparse beat's alarm, the app's only one; see WakeClock. -->
         <receiver
-            android:name=".HeartRateAlarmReceiver"
+            android:name=".WakeClockAlarmReceiver"
             android:exported="false" />
 
         <!-- The metric tiles: each reads what the recorders stored and starts no sensor. -->

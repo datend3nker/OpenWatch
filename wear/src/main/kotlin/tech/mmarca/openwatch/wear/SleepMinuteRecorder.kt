@@ -45,7 +45,7 @@ class SleepMinuteRecorder(
     private val onSleepHoldChange: (holding: Boolean) -> Unit = {},
     /** Empties the accelerometer's buffer at each heart rate wake-up; see [SensorWakeSync]. */
     private val wakeSync: SensorWakeSync? = null,
-    /** Whether a sleep hold may rest on [wakeSync] instead of a lasting wake lock ([WearSettings.syncedSleepHold]). */
+    /** Whether a sleep hold may rest on the [WakeClock]'s dense beat instead of a lasting wake lock ([WearSettings.syncedSleepHold]). */
     private val syncedHold: () -> Boolean = { false },
 ) : SensorEventListener2 {
 
@@ -218,7 +218,7 @@ class SleepMinuteRecorder(
     private fun applyHold() {
         val next = BedtimeHold.decide(bedtime?.isBedtime == true, worn, charging)
         val holding = next == BedtimeHold.HOLDING || (autoHold.isHolding && worn && !charging)
-        // A synced hold keeps the minutes whole with the heart rate's wake-ups and no lasting lock.
+        // A synced hold keeps the minutes whole with the clock's dense beat and no lasting lock.
         val lasting = holding && !syncedHold()
         if (lasting) {
             val now = SystemClock.elapsedRealtime()

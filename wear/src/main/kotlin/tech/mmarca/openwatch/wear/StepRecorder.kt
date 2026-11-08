@@ -20,12 +20,10 @@ import tech.mmarca.openwatch.wearlink.WearLinkProtocol
  *
  * The counter is the non-waking variant: it counts while the processor
  * sleeps. Every reading carries the running total, so a dropped batch loses
- * resolution, not steps. It reports with the heart rate's latency, so both
- * arrive in one wake-up. Without the heart rate nothing of ours wakes the
- * processor, and a reading could come hours late, past the hour
- * [StepMinuteCounter] spreads over; so while the heart rate is not running
- * ([setHeartRateRunning]) the counter's waking variant is used, where the
- * watch has one.
+ * resolution, not steps. Its buffer is emptied at every [WakeClock] beat
+ * ([SensorWakeSync]), at most ten minutes apart, well inside the hour
+ * [StepMinuteCounter] spreads over. The waking variant is never used: while
+ * walking it woke the processor at every batch, beside the clock.
  *
  * A batch is written once, a second after its last event, in one
  * transaction with the last reading. So a restart neither loses nor
@@ -34,7 +32,7 @@ import tech.mmarca.openwatch.wearlink.WearLinkProtocol
 class StepRecorder(
     context: Context,
     private val store: MetricStore,
-    /** Empties the counter's buffer at each heart rate wake-up; see [SensorWakeSync]. */
+    /** Empties the counter's buffer at each beat; see [SensorWakeSync]. */
     private val wakeSync: SensorWakeSync? = null,
 ) : SensorEventListener2 {
 
@@ -54,25 +52,8 @@ class StepRecorder(
     /** False on a watch without a step counter: then nothing will ever start. */
     val hasSensor: Boolean = hasStepCounter(context)
 
-    /** True while the heart rate's wake-ups bring the readings; false asks for the waking counter. */
-    private var heartRateRunning = true
-
-    /** Switches between the two variants of the counter. A running recorder registers again. */
-    fun setHeartRateRunning(running: Boolean) {
-        if (running == heartRateRunning) return
-        heartRateRunning = running
-        val workerHandler = handler ?: return
-        sensorManager.unregisterListener(this)
-        if (!register(workerHandler)) Log.w(TAG, "Step listener not registered again")
-    }
-
-    /** The waking counter while nothing else wakes the processor and the watch has one, else the non-waking one. */
-    private fun sensor(): Sensor? =
-        sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER, true)?.takeIf { !heartRateRunning }
-            ?: sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
-
     private fun register(workerHandler: Handler): Boolean {
-        val sensor = sensor() ?: return false
+        val sensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER) ?: return false
         val registered = try {
             sensorManager.registerListener(
                 this,
@@ -86,14 +67,14 @@ class StepRecorder(
             Log.e(TAG, "Step counter refused", e)
             false
         }
-        if (registered) Log.i(TAG, "Recording steps from ${sensor.name}${if (sensor.isWakeUpSensor) " (waking)" else ""}")
+        if (registered) Log.i(TAG, "Recording steps from ${sensor.name}")
         return registered
     }
 
     /** Starts recording. False when the watch has no step counter or the registration failed. */
     fun start(): Boolean {
         if (thread != null) return true
-        if (sensor() == null) {
+        if (sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER) == null) {
             Log.w(TAG, "No step counter")
             return false
         }

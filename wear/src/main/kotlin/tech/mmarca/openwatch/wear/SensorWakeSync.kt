@@ -20,7 +20,7 @@ import android.os.SystemClock
  * accelerometer's holds only 48 seconds: readings were lost even with the
  * heart rate waking the watch every 40 seconds.
  *
- * At each heart rate batch [HeartRateRecorder] calls [onWake]. This class
+ * At each beat [WakeClock] calls [onWake]. This class
  * then flushes every member's buffer at once, holds a short wake lock until
  * each member reports its flush done (or [FLUSH_TIMEOUT_MILLIS] passes), and
  * lets the processor sleep again. One wake-up, every buffer emptied, so the
@@ -52,7 +52,7 @@ class SensorWakeSync(context: Context) {
         if (pending.remove(member) && pending.isEmpty()) handler.post { finish(timedOut = false) }
     }
 
-    /** The processor is awake for a heart rate batch: empty every member's buffer now. */
+    /** The processor is awake for a beat: empty every member's buffer now. */
     fun onWake() {
         val asked = synchronized(lock) {
             if (pending.isNotEmpty() || members.isEmpty()) return
