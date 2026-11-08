@@ -41,10 +41,11 @@ internal class RawPoint(val epochMillis: Long, val ints: IntArray, val floats: F
 internal class SamsungHealthPlatform(
     private val context: Context,
     private val handler: Handler,
+    /** The binding itself failed: the platform went away. Every tracker is affected. */
     private val onError: () -> Unit,
 ) {
-    /** What one tracker type delivers to. */
-    class Tracker(val onPoints: (List<RawPoint>) -> Unit, val onFlushed: () -> Unit)
+    /** What one tracker type delivers to; [onError] is that tracker's own failure (a refused permission, a platform error). */
+    class Tracker(val onPoints: (List<RawPoint>) -> Unit, val onFlushed: () -> Unit, val onError: () -> Unit)
 
     private var service: IBinder? = null
     private var bound = false
@@ -113,15 +114,16 @@ internal class SamsungHealthPlatform(
     }
 
     private fun startTracker(type: String, listener: Binder) {
+        val tracker = trackers[type]?.first
         try {
             call(TX_CREATE) { writeString(appId()); writeString(type); writeInt(0); writeString(null) }
             call(TX_SET_LISTENER) { writeString(appId()); writeString(type); writeStrongBinder(listener) }
         } catch (e: RemoteException) {
             Log.w(TAG, "Tracker refused", e)
-            onError()
+            tracker?.onError?.invoke()
         } catch (e: RuntimeException) {
             Log.w(TAG, "Tracker refused", e)
-            onError()
+            tracker?.onError?.invoke()
         }
     }
 
@@ -141,13 +143,13 @@ internal class SamsungHealthPlatform(
                     }
                     CB_ERROR -> {
                         Log.w(TAG, "Platform error ${data.readInt()}")
-                        handler.post(onError)
+                        handler.post(tracker.onError)
                     }
                     else -> handler.post(tracker.onFlushed)
                 }
             } catch (e: RuntimeException) {
                 Log.w(TAG, "Unreadable callback", e)
-                handler.post(onError)
+                handler.post(tracker.onError)
             }
             reply?.writeNoException()
             return true

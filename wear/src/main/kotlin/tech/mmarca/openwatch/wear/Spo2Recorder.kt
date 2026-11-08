@@ -106,6 +106,10 @@ internal class Spo2Recorder(
         DebugProtocol.event("Spo2", "started")
     }
 
+    override fun onError() {
+        endMeasurement(null, "tracker_error")
+    }
+
     override fun onRawPoints(points: List<RawPoint>) {
         if (measuringSince == 0L) return
         val decoded = points.map { it.toSpo2Point() }

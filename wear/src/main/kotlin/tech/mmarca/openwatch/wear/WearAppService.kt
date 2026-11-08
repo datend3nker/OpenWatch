@@ -280,8 +280,8 @@ class WearAppService : Service() {
         stepRecorder.setHeartRateRunning(isHeartRateDense())
         // Skin temperature and SpO2 come only from the Samsung platform, at night, each switched on by itself.
         val night = granted && heartRateWanted && minuteRecorder.isSleepHolding
-        skinRecorder.setEnabled(night && WearSettings.skinTemperature(this))
-        spo2Recorder.setEnabled(granted && WearSettings.spo2AtNight(this))
+        skinRecorder.setEnabled(night && WearSettings.skinTemperature(this) && WearPermissions.hasSkinTemperature(this))
+        spo2Recorder.setEnabled(granted && WearSettings.spo2AtNight(this) && WearPermissions.hasOxygenSaturation(this))
         if (before != (recorder.interval to recorder.source)) debugSnapshots.write("plan")
     }
 

@@ -27,6 +27,9 @@
         android:name="android.permission.BODY_SENSORS_BACKGROUND"
         android:maxSdkVersion="35" />
     <uses-permission android:name="android.permission.health.READ_HEART_RATE" />
+    <!-- The Samsung platform checks these per tracker on Android 16 (skin temperature, SpO2); asked only when switched on. -->
+    <uses-permission android:name="android.permission.health.READ_SKIN_TEMPERATURE" />
+    <uses-permission android:name="android.permission.health.READ_OXYGEN_SATURATION" />
     <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND" />
 
     <!-- The step counter. -->

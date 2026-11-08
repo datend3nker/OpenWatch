@@ -40,6 +40,22 @@ object WearPermissions {
 
     fun hasHeartRate(context: Context): Boolean = isGranted(context, heartRate)
 
+    /**
+     * What the Samsung platform's skin temperature tracker checks on this
+     * release (`PermissionUtil` in the platform): the Health Connect
+     * permission from Android 16, `BODY_SENSORS` before.
+     */
+    val skinTemperature: String
+        get() = if (Build.VERSION.SDK_INT >= 36) "android.permission.health.READ_SKIN_TEMPERATURE" else Manifest.permission.BODY_SENSORS
+
+    /** The same for the platform's SpO2 tracker. */
+    val oxygenSaturation: String
+        get() = if (Build.VERSION.SDK_INT >= 36) "android.permission.health.READ_OXYGEN_SATURATION" else Manifest.permission.BODY_SENSORS
+
+    fun hasSkinTemperature(context: Context): Boolean = isGranted(context, skinTemperature)
+
+    fun hasOxygenSaturation(context: Context): Boolean = isGranted(context, oxygenSaturation)
+
     /** The step counter needs ACTIVITY_RECOGNITION, a runtime grant on every release this app runs on. */
     fun hasActivityRecognition(context: Context): Boolean =
         isGranted(context, Manifest.permission.ACTIVITY_RECOGNITION)

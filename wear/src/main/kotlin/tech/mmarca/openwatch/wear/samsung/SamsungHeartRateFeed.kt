@@ -33,6 +33,9 @@ internal class SamsungHeartRateFeed(private val context: Context) {
     /** A reader of one other tracker type (skin temperature, SpO2): the raw points, decoded by the reader. */
     fun interface RawSubscriber {
         fun onRawPoints(points: List<RawPoint>)
+
+        /** The tracker failed (a missing permission, a platform error). */
+        fun onError() = Unit
     }
 
     private val lock = Any()
@@ -102,7 +105,7 @@ internal class SamsungHeartRateFeed(private val context: Context) {
         if (platform != null) return true
         val worker = HandlerThread("SamsungHeartRateFeed").apply { start() }
         val workerHandler = Handler(worker.looper)
-        val client = SamsungHealthPlatform(context, workerHandler, ::failed)
+        val client = SamsungHealthPlatform(context, workerHandler) { failed(null) }
         if (!client.start()) {
             worker.quitSafely()
             DebugProtocol.event("SamsungFeed", "bind_refused")
@@ -122,10 +125,12 @@ internal class SamsungHeartRateFeed(private val context: Context) {
             SamsungHealthPlatform.TRACKER_HEART_RATE -> SamsungHealthPlatform.Tracker(
                 onPoints = { raw -> deliverHeartRate(raw.map { it.toHeartRatePoint() }) },
                 onFlushed = ::flushed,
+                onError = { failed(type) },
             )
             else -> SamsungHealthPlatform.Tracker(
                 onPoints = { raw -> deliverRaw(type, raw) },
                 onFlushed = {},
+                onError = { failed(type) },
             )
         }
         handler?.post { client.track(type, tracker) }
@@ -188,9 +193,16 @@ internal class SamsungHeartRateFeed(private val context: Context) {
         forEach { it.onFlushed() }
     }
 
-    private fun failed() {
-        DebugProtocol.event("SamsungFeed", "error")
-        forEach { it.onError() }
+    /** A tracker's failure ([type]), or the binding's (null), which hits every tracker. */
+    private fun failed(type: String?) {
+        DebugProtocol.event("SamsungFeed", "error", "type" to type)
+        if (type == null || type == SamsungHealthPlatform.TRACKER_HEART_RATE) forEach { it.onError() }
+        if (type != SamsungHealthPlatform.TRACKER_HEART_RATE) {
+            val readers = synchronized(lock) {
+                rawSubscribers.filterKeys { type == null || it == type }.values.flatMap { it.toList() }
+            }
+            for ((subscriber, target) in readers) target.post { subscriber.onError() }
+        }
     }
 
     private fun forEach(action: (Subscriber) -> Unit) {

@@ -59,6 +59,10 @@ internal class SkinTemperatureRecorder(
         Log.i(TAG, "Skin temperature off")
     }
 
+    override fun onError() {
+        DebugProtocol.event("Skin", "tracker_error")
+    }
+
     override fun onRawPoints(raw: List<RawPoint>) {
         val points = raw.map { it.toSkinPoint() }
         val rows = minutes(points)

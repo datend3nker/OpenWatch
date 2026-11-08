@@ -1,6 +1,8 @@
 package tech.mmarca.openwatch.wear
 
 import android.content.Context
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -58,15 +60,34 @@ internal fun WatchSettingsSection(context: Context) {
         WearSettings.setHrvSource(context, hrvSource)
         WearAppService.settingsChanged(context)
     }
-    Toggle(stringResource(if (skin) R.string.settings_skin_temperature_on else R.string.settings_skin_temperature_off)) {
-        skin = !skin
-        WearSettings.setSkinTemperature(context, skin)
+    // Switching on asks for the permission the platform checks; the switch stays off without it.
+    val askSkin = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        skin = granted
+        WearSettings.setSkinTemperature(context, granted)
         WearAppService.settingsChanged(context)
     }
-    Toggle(stringResource(if (spo2) R.string.settings_spo2_on else R.string.settings_spo2_off)) {
-        spo2 = !spo2
-        WearSettings.setSpo2AtNight(context, spo2)
+    val askSpo2 = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        spo2 = granted
+        WearSettings.setSpo2AtNight(context, granted)
         WearAppService.settingsChanged(context)
+    }
+    Toggle(stringResource(if (skin) R.string.settings_skin_temperature_on else R.string.settings_skin_temperature_off)) {
+        if (!skin && !WearPermissions.hasSkinTemperature(context)) {
+            askSkin.launch(WearPermissions.skinTemperature)
+        } else {
+            skin = !skin
+            WearSettings.setSkinTemperature(context, skin)
+            WearAppService.settingsChanged(context)
+        }
+    }
+    Toggle(stringResource(if (spo2) R.string.settings_spo2_on else R.string.settings_spo2_off)) {
+        if (!spo2 && !WearPermissions.hasOxygenSaturation(context)) {
+            askSpo2.launch(WearPermissions.oxygenSaturation)
+        } else {
+            spo2 = !spo2
+            WearSettings.setSpo2AtNight(context, spo2)
+            WearAppService.settingsChanged(context)
+        }
     }
     if (heartRateSamsung || hrvSamsung || skin || spo2) Line(stringResource(R.string.status_hrv_source_samsung_note))
 }
