@@ -11,6 +11,7 @@ object WearRoutes {
     fun metric(metric: MetricTile) = "metric/${metric.name}"
     const val SETTINGS = "settings"
     const val STATUS = "status"
+    const val WORKOUT = "workout"
     const val PHONE = "phone"
     const val SENSORS = "sensors"
     const val MEASURE = "measure"

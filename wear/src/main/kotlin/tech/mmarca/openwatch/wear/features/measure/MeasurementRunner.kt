@@ -1,5 +1,9 @@
 package tech.mmarca.openwatch.wear.features.measure
 
+import tech.mmarca.openwatch.wear.samsung.toSpo2Point
+import tech.mmarca.openwatch.wear.samsung.Spo2Point
+import tech.mmarca.openwatch.wear.samsung.RawPoint
+import tech.mmarca.openwatch.wear.samsung.SamsungHealthPlatform
 import tech.mmarca.openwatch.wear.samsung.SamsungIbiSource
 import tech.mmarca.openwatch.wear.samsung.SamsungHeartRateFeed
 import tech.mmarca.openwatch.wear.WearSettings
@@ -35,6 +39,7 @@ class MeasurementRunner(private val context: Context) {
         Measurement.HEART_RATE -> heartRate()
         Measurement.HRV -> hrv()
         Measurement.AIR_PRESSURE -> airPressure()
+        Measurement.SPO2 -> spo2()
     }
 
     private fun heartRate(): Flow<MeasureEvent> = flow {
@@ -128,6 +133,48 @@ class MeasurementRunner(private val context: Context) {
         emit(MeasureEvent.Result(value))
     }
 
+    /**
+     * One reading of the Samsung platform's SpO2 tracker: the first "completed"
+     * point since the start; a moving arm ends it with its own message.
+     */
+    private fun spo2(): Flow<MeasureEvent> = flow {
+        val feed = SamsungHeartRateFeed.shared(context)
+        if (!feed.isAvailable) throw MeasureException(MeasureError.NOT_SUPPORTED)
+        val thread = HandlerThread("SpotSpo2").apply { start() }
+        val handler = Handler(thread.looper)
+        val startedAt = System.currentTimeMillis()
+        var moved = false
+        var subscriber: SamsungHeartRateFeed.RawSubscriber? = null
+        try {
+            val point = withTimeoutOrNull(Measurement.SPO2.durationSeconds * 1000L) {
+                suspendCancellableCoroutine { done ->
+                    val reader = object : SamsungHeartRateFeed.RawSubscriber {
+                        override fun onRawPoints(points: List<RawPoint>) {
+                            val decoded = points.map { it.toSpo2Point() }
+                            if (decoded.any { it.status == Spo2Point.STATUS_MOVING }) moved = true
+                            decoded.firstOrNull { it.isComplete && it.epochMillis >= startedAt - STALE_SPO2_MILLIS }
+                                ?.let { if (done.isActive) done.resume(it) }
+                        }
+
+                        override fun onError() {
+                            if (done.isActive) done.resume(null)
+                        }
+                    }
+                    subscriber = reader
+                    if (!feed.subscribeRaw(SamsungHealthPlatform.TRACKER_SPO2, reader, handler) && done.isActive) done.resume(null)
+                }
+            }
+            when {
+                point != null -> emit(MeasureEvent.Result(point.percent.toDouble(), secondary = point.bpm.toDouble()))
+                moved -> throw MeasureException(MeasureError.MOVED)
+                else -> throw MeasureException(MeasureError.NO_SIGNAL)
+            }
+        } finally {
+            subscriber?.let { feed.unsubscribeRaw(SamsungHealthPlatform.TRACKER_SPO2, it) }
+            thread.quitSafely()
+        }
+    }
+
     private fun airPressure(): Flow<MeasureEvent> = flow {
         val readings = mutableListOf<Double>()
         withTimeoutOrNull(Measurement.AIR_PRESSURE.durationSeconds * 1000L) {
@@ -187,6 +234,9 @@ class MeasurementRunner(private val context: Context) {
     }
 
     private companion object {
+        /** A completed reading from before the start would be one the platform kept. */
+        const val STALE_SPO2_MILLIS = 5_000L
+
         const val PressureReadingsNeeded = 5
     }
 }

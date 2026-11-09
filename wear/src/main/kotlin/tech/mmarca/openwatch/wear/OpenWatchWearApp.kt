@@ -38,7 +38,7 @@ private const val DefaultWeightKg = 70.0
  * The whole watch UI: theme, scaffold and navigation. It renders [state] and
  * hands entries to [onLog]; nothing here reads a sensor except through a
  * screen's own ViewModel. A workout runs in the recorder's own screen
- * ([onStartWorkout]), and tile choices are persisted via
+ * ([workoutScreen]), and tile choices are persisted via
  * [WearTilePreferences]. [deepLinkRoute] is a screen a tile asked for.
  */
 @Composable
@@ -47,8 +47,8 @@ fun OpenWatchWearApp(
     onLog: (LoggedEntry) -> Unit = {},
     deepLinkRoute: String? = null,
     onDeepLinkHandled: () -> Unit = {},
-    /** Opens the workout recorder's own screen, which picks the sport. */
-    onStartWorkout: () -> Unit = {},
+    /** The workout recorder's sport list; the running workout takes the whole screen by itself. */
+    workoutScreen: @Composable (onClose: () -> Unit) -> Unit = {},
     /** Link and recorder status, permissions and paired phones; the activity owns its stores. */
     statusScreen: @Composable () -> Unit = {},
     phoneScreen: @Composable () -> Unit = {},
@@ -102,7 +102,7 @@ fun OpenWatchWearApp(
                         onMeasure = { navController.navigate(WearRoutes.MEASURE) },
                         onQuickLog = { navController.navigate(WearRoutes.QUICK_LOG) },
                         onEditTiles = { navController.navigate(WearRoutes.TILE_EDITOR) },
-                        onStartActivity = onStartWorkout,
+                        onStartActivity = { navController.navigate(WearRoutes.WORKOUT) },
                         onOpenSettings = { navController.navigate(WearRoutes.SETTINGS) },
                     )
                 }
@@ -223,6 +223,7 @@ fun OpenWatchWearApp(
                 composable(WearRoutes.PHONE) { phoneScreen() }
                 composable(WearRoutes.SENSORS) { sensorScreen { navController.navigate(WearRoutes.STATUS) } }
                 composable(WearRoutes.STATUS) { statusScreen() }
+                composable(WearRoutes.WORKOUT) { workoutScreen { navController.popBackStack() } }
             }
         }
     }

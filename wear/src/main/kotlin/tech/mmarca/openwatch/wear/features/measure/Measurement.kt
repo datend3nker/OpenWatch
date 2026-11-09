@@ -1,5 +1,7 @@
 package tech.mmarca.openwatch.wear.features.measure
 
+import androidx.compose.material.icons.outlined.Bloodtype
+import tech.mmarca.openwatch.wear.WearPermissions
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Compress
@@ -22,8 +24,8 @@ enum class Measurement(
     @param:StringRes val instruction: Int,
     val icon: ImageVector,
     val accentColor: Color,
-    /** Needs the heart rate permission before it can start. */
-    val needsHeartRatePermission: Boolean,
+    /** The permission it needs before it can start, or null. */
+    val permission: () -> String?,
     /** How long the measurement runs at most. */
     val durationSeconds: Int,
 ) {
@@ -34,7 +36,7 @@ enum class Measurement(
         R.string.measure_instruction_still,
         Icons.Outlined.Favorite,
         HeartColor,
-        needsHeartRatePermission = true,
+        permission = { WearPermissions.heartRate },
         durationSeconds = 30,
     ),
 
@@ -48,7 +50,7 @@ enum class Measurement(
         R.string.measure_instruction_still_minutes,
         Icons.Outlined.Insights,
         VitalsColor,
-        needsHeartRatePermission = true,
+        permission = { WearPermissions.heartRate },
         durationSeconds = 180,
     ),
 
@@ -59,8 +61,23 @@ enum class Measurement(
         R.string.measure_instruction_none,
         Icons.Outlined.Compress,
         ElevationColor,
-        needsHeartRatePermission = false,
+        permission = { null },
         durationSeconds = 10,
+    ),
+
+    /**
+     * The Samsung platform's on-demand SpO2 tracker, as at night (`Spo2Recorder`): red and infrared
+     * light and a still arm; a reading after about 13 seconds on a Galaxy Watch7. Only offered with
+     * the platform: the red and infrared channels are closed to ordinary apps.
+     */
+    SPO2(
+        R.string.measure_spo2,
+        R.string.measure_spo2_description,
+        R.string.measure_instruction_still,
+        Icons.Outlined.Bloodtype,
+        VitalsColor,
+        permission = { WearPermissions.oxygenSaturation },
+        durationSeconds = 45,
     ),
 }
 

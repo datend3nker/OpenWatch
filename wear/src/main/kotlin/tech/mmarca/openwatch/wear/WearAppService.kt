@@ -295,11 +295,18 @@ class WearAppService : Service() {
      * pill away while the link's notification stays.
      */
     private fun buildWorkoutNotification(key: WorkoutPillKey, activeSeconds: Long): Notification {
+        val base = stopwatchBaseMillis(key, activeSeconds, SystemClock.elapsedRealtime())
         val builder = NotificationCompat.Builder(this, WORKOUT_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher_monochrome)
             .setContentTitle(getString(sportName(key.sport)))
             .setOngoing(true)
             .setCategory(NotificationCompat.CATEGORY_WORKOUT)
+        // The time also as the notification's own chronometer, for a surface that shows that rather than the status.
+        if (base == null) {
+            builder.setContentText(getString(R.string.recording_paused))
+        } else {
+            builder.setUsesChronometer(true).setShowWhen(true).setWhen(System.currentTimeMillis() - activeSeconds * 1000)
+        }
         applyWorkoutPill(builder, key, activeSeconds)
         return builder.build()
     }
@@ -323,6 +330,7 @@ class WearAppService : Service() {
         builder.setContentIntent(open)
         OngoingActivity.Builder(applicationContext, WORKOUT_NOTIFICATION_ID, builder)
             .setStaticIcon(R.drawable.ic_launcher_monochrome)
+            .setTitle(getString(sportName(key.sport)))
             .setStatus(status.build())
             .setTouchIntent(open)
             .build()

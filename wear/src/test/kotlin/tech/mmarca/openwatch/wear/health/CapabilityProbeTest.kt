@@ -19,6 +19,7 @@ class CapabilityProbeTest {
         barometer = true,
         gps = true,
         vendorSpo2 = true,
+        samsung = true,
     )
     private val nothing = WatchSensors(
         heartRate = false,

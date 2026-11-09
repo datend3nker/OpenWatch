@@ -137,4 +137,5 @@ private val Measurement.entryType: EntryType?
         Measurement.HEART_RATE -> EntryType.HEART_RATE
         Measurement.HRV -> EntryType.HRV
         Measurement.AIR_PRESSURE -> null
+        Measurement.SPO2 -> EntryType.BLOOD_OXYGEN
     }
