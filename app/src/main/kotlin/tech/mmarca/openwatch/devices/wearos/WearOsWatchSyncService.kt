@@ -130,6 +130,8 @@ class WearOsWatchSyncService(
         writeRespiratoryRate = writeRespiratoryRate,
     )
 
+    private val dayLink = WearOsDayLinkSync(importRepository, healthConnect, cursors, nodePort, clock, zone)
+
     private val workouts = WearOsWorkoutSync(
         importRepository = importRepository,
         cursors = cursors,
@@ -173,6 +175,7 @@ class WearOsWatchSyncService(
             progress.unwritten += night.unwritten
             progress.withheldPermissions += night.withheld
             if (!pullWorkouts(device, progress)) return notPaired(device)
+            dayLink.sync(device, linkRetry) ?: return notPaired(device)
         } catch (error: CancellationException) {
             throw error
         } catch (failure: WearOsLinkFailure) {

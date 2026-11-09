@@ -171,6 +171,15 @@ class WearLinkServer(
                 for (measurement in page.items) writer.line(WearLinkProtocol.formatSpo2(measurement))
                 writer.line(WearLinkProtocol.formatEnd(page.items.size, page.more))
             }
+            is WearLinkProtocol.Request.PutDay -> {
+                val kept = handler.putDay(request.day)
+                writer.line(if (kept) WearLinkProtocol.DAY_OK else WearLinkProtocol.formatError(WearLinkProtocol.ErrorCode.BAD_REQUEST))
+            }
+            is WearLinkProtocol.Request.EntriesSince -> {
+                val page = handler.entriesSince(request.sinceEpochMillis, request.limit)
+                for (entry in page.items) writer.line(WearLinkDaily.formatEntry(entry))
+                writer.line(WearLinkProtocol.formatEnd(page.items.size, page.more))
+            }
             is WearLinkProtocol.Request.SkinSince -> {
                 val page = handler.skinSince(request.sinceEpochMillis, request.limit)
                 for (minute in page.items) writer.line(WearLinkProtocol.formatSkinMinute(minute))

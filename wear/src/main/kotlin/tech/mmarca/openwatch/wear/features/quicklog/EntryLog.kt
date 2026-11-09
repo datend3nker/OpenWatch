@@ -1,5 +1,8 @@
 package tech.mmarca.openwatch.wear.features.quicklog
 
+import tech.mmarca.openwatch.wearlink.Page
+import tech.mmarca.openwatch.wearlink.WatchEntry
+import tech.mmarca.openwatch.wearlink.WearLinkDaily
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.core.content.edit
@@ -39,7 +42,7 @@ data class LoggedEntry(
 
 /**
  * Entries made on the watch: quick logs and spot measurements. They stay
- * here until phone sync exists to carry them to Health Connect. Shared with
+ * here; the phone pulls them (`LG_SINCE`) and writes them to Health Connect. Shared with
  * the quick log tile, which writes to it directly.
  */
 class EntryLog(context: Context) {
@@ -54,6 +57,12 @@ class EntryLog(context: Context) {
         val updated = (load() + entry).takeLast(MaxEntries)
         prefs.edit { putString(KEY_ENTRIES, encodeEntries(updated)) }
         if (refreshTile) TileService.getUpdater(appContext).requestUpdate(QuickLogTileService::class.java)
+    }
+
+    /** The entries made after [sinceEpochMillis], oldest first, as the phone pulls them. */
+    fun entriesSince(sinceEpochMillis: Long, limit: Int): Page<WatchEntry> {
+        val newer = load().filter { it.timeMillis > sinceEpochMillis }.sortedBy { it.timeMillis }
+        return Page(newer.take(limit).map { it.toWatchEntry() }, more = newer.size > limit)
     }
 
     /** The log now and after every change, including changes the tile makes. */
@@ -72,6 +81,21 @@ class EntryLog(context: Context) {
         const val MaxEntries = 500
     }
 }
+
+/** The entry as the link carries it. */
+internal fun LoggedEntry.toWatchEntry(): WatchEntry = WatchEntry(
+    epochMillis = timeMillis,
+    type = when (type) {
+        EntryType.WATER -> WearLinkDaily.WATER
+        EntryType.WEIGHT -> WearLinkDaily.WEIGHT
+        EntryType.BLOOD_PRESSURE -> WearLinkDaily.BLOOD_PRESSURE
+        EntryType.MINDFULNESS -> WearLinkDaily.MINDFULNESS
+        EntryType.HEART_RATE -> WearLinkDaily.HEART_RATE
+        EntryType.HRV -> WearLinkDaily.HRV
+    },
+    value = value,
+    value2 = value2,
+)
 
 /** One entry per line: `TYPE;time;value[;value2]`. */
 internal fun encodeEntries(entries: List<LoggedEntry>): String =

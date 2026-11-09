@@ -40,6 +40,10 @@ private class FakeWearOsNodePort : WearOsNodePort {
 
     override suspend fun pullWorkouts(targetAddress: String?, targetName: String?, since: Instant): WearOsWorkoutPage? = null
 
+    override suspend fun pushDays(targetAddress: String?, targetName: String?, days: List<tech.mmarca.openwatch.wearlink.DaySummary>): Boolean = false
+
+    override suspend fun pullEntries(targetAddress: String?, targetName: String?, since: Instant): WearOsEntryPage? = WearOsEntryPage(emptyList(), false)
+
     override suspend fun notifyPhoneActive(targetAddress: String?, targetName: String?, at: Instant): Boolean = false
 
     /** One entry per live session: the readings it hands out, then whether the watch could stream; a failure throws. */

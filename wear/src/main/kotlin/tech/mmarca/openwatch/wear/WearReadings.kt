@@ -5,6 +5,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import tech.mmarca.openwatch.wearlink.AscentCredit
+import tech.mmarca.openwatch.wearlink.DaySummary
 import tech.mmarca.openwatch.wearlink.WearLinkProtocol.AscentMinute
 import tech.mmarca.openwatch.wearlink.WearLinkProtocol.HeartRateSample
 import tech.mmarca.openwatch.wearlink.WearLinkProtocol.StepMinute
@@ -37,6 +38,25 @@ internal data class TodayTotals(val steps: Int?, val heartRate: Int?)
 internal object WearReadings {
 
     private const val HOURS = 24
+
+    /** The tiles the phone's figures fill, each in the tile's base unit. */
+    private val PHONE_METRICS: List<Pair<MetricTile, (DaySummary) -> Double?>> = listOf(
+        MetricTile.SLEEP to { it.sleepMinutes?.toDouble() },
+        MetricTile.RESTING_HEART_RATE to { it.restingBpm?.toDouble() },
+        MetricTile.ACTIVE_CALORIES to { it.activeKcal?.toDouble() },
+        MetricTile.DISTANCE to { it.distanceMetres?.toDouble() },
+    )
+
+    /** The stages of the latest night the phone reported, for the sleep detail screen. */
+    fun sleepStages(phone: Map<Long, DaySummary>): Map<SleepStage, Double> {
+        val night = phone.values.filter { it.sleepMinutes != null }.maxByOrNull { it.epochDay } ?: return emptyMap()
+        return listOf(
+            SleepStage.AWAKE to night.awakeMinutes,
+            SleepStage.REM to night.remMinutes,
+            SleepStage.LIGHT to night.lightMinutes,
+            SleepStage.DEEP to night.deepMinutes,
+        ).mapNotNull { (stage, minutes) -> minutes?.let { stage to it.toDouble() } }.toMap()
+    }
 
     /** The tiles a day's [DayReadings.night] fills. */
     val NIGHT_METRICS = listOf(MetricTile.HRV, MetricTile.BLOOD_OXYGEN, MetricTile.SKIN_TEMPERATURE, MetricTile.RESPIRATORY_RATE)
@@ -85,7 +105,13 @@ internal object WearReadings {
      * seven, oldest first, today last. A tile with no row in any of them is
      * left out, so the screen says "no reading yet" instead of showing zero.
      */
-    fun metrics(days: List<DayReadings>, now: Instant, zone: ZoneId): Map<MetricTile, MetricUiState> {
+    fun metrics(
+        days: List<DayReadings>,
+        now: Instant,
+        zone: ZoneId,
+        /** The phone's figures by day number ([DaySummary.epochDay]). */
+        phone: Map<Long, DaySummary> = emptyMap(),
+    ): Map<MetricTile, MetricUiState> {
         val today = days.lastOrNull() ?: return emptyMap()
         val thisHour = hourOf(now.toEpochMilli(), zone)
         return buildMap {
@@ -97,6 +123,18 @@ internal object WearReadings {
                 put(
                     MetricTile.FLOORS,
                     cumulative(days, thisHour) { day -> day.ascentByHour.map { it / AscentCredit.METRES_PER_FLOOR } },
+                )
+            }
+            for ((metric, value) in PHONE_METRICS) {
+                val week = days.map { day -> phone[day.date.toEpochDay()]?.let(value) }
+                if (week.all { it == null }) continue
+                put(
+                    metric,
+                    MetricUiState(
+                        // A total for the day is today's; a resting rate or a night carries over until the next.
+                        current = if (metric.kind == MetricKind.CUMULATIVE && metric != MetricTile.SLEEP) week.last() else week.lastOrNull { it != null },
+                        week = week.dropWhile { it == null }.map { it ?: 0.0 },
+                    ),
                 )
             }
             for (metric in NIGHT_METRICS) {

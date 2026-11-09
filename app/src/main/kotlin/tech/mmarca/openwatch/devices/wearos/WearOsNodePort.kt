@@ -1,5 +1,7 @@
 package tech.mmarca.openwatch.devices.wearos
 
+import tech.mmarca.openwatch.wearlink.DaySummary
+import tech.mmarca.openwatch.wearlink.WatchEntry
 import java.time.Instant
 import tech.mmarca.openwatch.domain.model.WearSleepMinute
 
@@ -154,6 +156,9 @@ data class WearOsRespiratoryPage(
 )
 
 /** One page of an HRV pull. [hasMore] means the watch cut the reply at its limit. */
+/** Entries made on the watch, oldest first. */
+data class WearOsEntryPage(val entries: List<WatchEntry>, val hasMore: Boolean)
+
 data class WearOsHrvPage(
     val windows: List<WearOsHrvWindow>,
     val hasMore: Boolean,
@@ -311,4 +316,18 @@ interface WearOsNodePort {
         targetName: String?,
         at: Instant,
     ): Boolean
+
+    /**
+     * Hands the watch the phone's figures for [days]. False when no bonded
+     * watch matches or the watch app does not take them. Any other failure
+     * throws [WearOsLinkFailure].
+     */
+    suspend fun pushDays(targetAddress: String?, targetName: String?, days: List<DaySummary>): Boolean
+
+    /**
+     * Entries made on the watch after [since]. Empty page: the watch app has
+     * none or is too old to keep them. Null: no bonded watch matches. Any
+     * other failure throws [WearOsLinkFailure].
+     */
+    suspend fun pullEntries(targetAddress: String?, targetName: String?, since: Instant): WearOsEntryPage?
 }

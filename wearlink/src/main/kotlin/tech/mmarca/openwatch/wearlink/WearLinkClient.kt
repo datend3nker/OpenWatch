@@ -164,6 +164,25 @@ class WearLinkSession internal constructor(
         }
     }
 
+    /** Hands the watch the phone's figures for one day. */
+    fun putDay(day: DaySummary): WearLinkOutcome<Unit> =
+        exchange(WearLinkProtocol.Request.PutDay(day)) { line ->
+            if (line.trim() == WearLinkProtocol.DAY_OK) Reply.Done(Unit) else Reply.Unexpected
+        }
+
+    /** The entries made on the watch after [sinceEpochMillis]; a line this side cannot read is skipped. */
+    fun pullEntries(sinceEpochMillis: Long, limit: Int): WearLinkOutcome<Page<WatchEntry>> {
+        val items = ArrayList<WatchEntry>()
+        return exchange(WearLinkProtocol.Request.EntriesSince(sinceEpochMillis, limit)) { line ->
+            if (line.startsWith("${WearLinkProtocol.ENTRY} ")) {
+                WearLinkDaily.parseEntry(line)?.let { items += it }
+                return@exchange Reply.More
+            }
+            WearLinkProtocol.parseEnd(line)?.let { return@exchange Reply.Done(Page(items, it.more)) }
+            Reply.Unexpected
+        }
+    }
+
     /** Closes the connection; the watch is waiting for exactly this. */
     fun close() = connection.close()
 

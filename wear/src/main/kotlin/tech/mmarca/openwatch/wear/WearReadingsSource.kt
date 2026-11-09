@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.Dispatchers
+import tech.mmarca.openwatch.wearlink.DaySummary
 import tech.mmarca.openwatch.wearlink.WearLinkProtocol.SkinMinute
 
 /**
@@ -20,19 +21,23 @@ import tech.mmarca.openwatch.wearlink.WearLinkProtocol.SkinMinute
  */
 internal class WearReadingsSource(
     private val store: MetricStore,
+    private val phoneDays: () -> Map<Long, DaySummary> = { emptyMap() },
     private val clock: Clock = Clock.systemDefaultZone(),
 ) {
     private val pastDays = HashMap<LocalDate, DayReadings>()
 
+    /** The tiles' values and the last night's stages. */
+    data class Readings(val metrics: Map<MetricTile, MetricUiState>, val sleepStages: Map<SleepStage, Double>)
+
     /** The tiles' values now, read again every [REFRESH_MILLIS] while someone collects. */
-    fun metrics(): Flow<Map<MetricTile, MetricUiState>> = flow {
+    fun metrics(): Flow<Readings> = flow {
         while (true) {
             emit(load())
             delay(REFRESH_MILLIS)
         }
     }.flowOn(Dispatchers.IO)
 
-    internal fun load(): Map<MetricTile, MetricUiState> {
+    internal fun load(): Readings {
         val zone = clock.zone
         val today = LocalDate.now(clock)
         val days = (DAYS - 1 downTo 0).map { back ->
@@ -40,7 +45,8 @@ internal class WearReadingsSource(
             if (back == 0) read(date, zone) else pastDays.getOrPut(date) { read(date, zone) }
         }
         pastDays.keys.retainAll { it >= today.minusDays(DAYS.toLong()) }
-        return WearReadings.metrics(days, clock.instant(), zone)
+        val phone = phoneDays()
+        return Readings(WearReadings.metrics(days, clock.instant(), zone, phone), WearReadings.sleepStages(phone))
     }
 
     /** Today only, read now: what the Today tile shows. */

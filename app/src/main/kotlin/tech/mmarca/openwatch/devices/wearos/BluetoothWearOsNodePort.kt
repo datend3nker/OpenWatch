@@ -1,5 +1,6 @@
 package tech.mmarca.openwatch.devices.wearos
 
+import tech.mmarca.openwatch.wearlink.DaySummary
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
@@ -233,6 +234,26 @@ class BluetoothWearOsNodePort @Inject constructor(
             true
         }
     }
+
+    override suspend fun pushDays(targetAddress: String?, targetName: String?, days: List<DaySummary>): Boolean =
+        withContext(Dispatchers.IO) {
+            val match = bondedWatchOrNull(targetAddress, targetName) ?: return@withContext false
+            withSession(match, targetAddress, PULL_TIMEOUT_MS) { session ->
+                if (WearLinkProtocol.CAP_DAY_SUMMARY !in session.peer.capabilities) return@withSession false
+                for (day in days) unwrap(session.putDay(day))
+                true
+            }
+        }
+
+    override suspend fun pullEntries(targetAddress: String?, targetName: String?, since: Instant): WearOsEntryPage? =
+        withContext(Dispatchers.IO) {
+            val match = bondedWatchOrNull(targetAddress, targetName) ?: return@withContext null
+            withSession(match, targetAddress, PULL_TIMEOUT_MS) { session ->
+                if (WearLinkProtocol.CAP_ENTRIES !in session.peer.capabilities) return@withSession WearOsEntryPage(emptyList(), false)
+                val page = unwrap(session.pullEntries(since.toEpochMilli(), WearLinkProtocol.MAX_WINDOWS_PER_REQUEST))
+                WearOsEntryPage(page.items, page.more)
+            }
+        }
 
     override suspend fun liveHeartRate(
         targetAddress: String?,
