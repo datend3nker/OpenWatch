@@ -81,7 +81,7 @@ internal class WearReadingsSource(
         const val DAYS = 7
         const val REFRESH_MILLIS = 30_000L
 
-        /** Above a day's most: a heart rate sample every ten seconds is 8 640. */
-        const val ROW_LIMIT = 10_000
+        /** Above a day's most: a sample every ten seconds is 8 640, and a workout keeps one a second. */
+        const val ROW_LIMIT = 30_000
     }
 }

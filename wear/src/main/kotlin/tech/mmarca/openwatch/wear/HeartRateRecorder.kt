@@ -103,6 +103,10 @@ internal class HeartRateRecorder(
 
     private var sensor: Sensor? = null
     private var lastStoredAt = 0L
+
+    /** True while a workout runs: the raw sensor, unbatched, every reading kept. */
+    @Volatile
+    private var workoutMode = false
     private var lastPrunedAt = 0L
     private var subscribedAt = 0L
     private var lastArrivalAt = 0L
@@ -123,13 +127,15 @@ internal class HeartRateRecorder(
      * its interval or source, or stops it. False when [wanted] is not off and
      * the source could not start (no sensor, a refused registration or bind).
      */
-    internal fun setPlan(wanted: HeartRateInterval, wantedSource: WearSettings.Source): Boolean {
+    internal fun setPlan(wanted: HeartRateInterval, wantedSource: WearSettings.Source, workout: Boolean = false): Boolean {
         val running = wanted != HeartRateInterval.OFF && thread != null
-        if (wanted == interval && (wanted == HeartRateInterval.OFF || (running && wantedSource == requestedSource))) return true
+        if (workout == workoutMode && wanted == interval && (wanted == HeartRateInterval.OFF || (running && wantedSource == requestedSource))) return true
         stop()
         requestedSource = wantedSource
+        workoutMode = workout
         if (wanted == HeartRateInterval.OFF) return true
-        val started = if (wantedSource == WearSettings.Source.SAMSUNG_PLATFORM && samsungFeed.isAvailable && !samsungFailed) {
+        // A workout reads the sensor live: the platform batches its points minutes late with the screen off.
+        val started = if (!workout && wantedSource == WearSettings.Source.SAMSUNG_PLATFORM && samsungFeed.isAvailable && !samsungFailed) {
             startSamsung(wanted)
         } else {
             start(wanted)
@@ -190,10 +196,11 @@ internal class HeartRateRecorder(
         return workerHandler
     }
 
-    /** Registration for the continuous interval: one reading a second, batched. */
+    /** Registration for the continuous interval: one reading a second, batched; unbatched during a workout. */
     private fun registerBatched(found: Sensor, workerHandler: Handler): Boolean =
         try {
-            sensorManager.registerListener(this, found, SAMPLING_PERIOD_MICROS, MAX_REPORT_LATENCY_MICROS, workerHandler)
+            val latency = if (workoutMode) 0 else MAX_REPORT_LATENCY_MICROS
+            sensorManager.registerListener(this, found, SAMPLING_PERIOD_MICROS, latency, workerHandler)
         } catch (e: SecurityException) {
             // The grant was revoked between the check and the registration.
             Log.e(TAG, "Heart rate sensor refused", e)
@@ -344,7 +351,7 @@ internal class HeartRateRecorder(
     }
 
     private fun keep(at: Long, bpm: Int) {
-        if (at - lastStoredAt < MIN_SAMPLE_GAP_MILLIS) return
+        if (at - lastStoredAt < if (workoutMode) WORKOUT_SAMPLE_GAP_MILLIS else MIN_SAMPLE_GAP_MILLIS) return
         lastStoredAt = at
         store.put(WearMetrics.HEART_RATE, WearLinkProtocol.HeartRateSample(at, bpm))
         onSample(at, bpm)
@@ -391,6 +398,9 @@ internal class HeartRateRecorder(
          * [TileDay.MAX_HEART_RATE_SAMPLES_PER_DAY] counts on it: a closer spacing needs a higher limit there.
          */
         const val MIN_SAMPLE_GAP_MILLIS = 10_000L
+
+        /** During a workout every reading of the 1 Hz sensor is kept: zones, TRIMP and the energy read the whole curve. */
+        const val WORKOUT_SAMPLE_GAP_MILLIS = 900L
 
         /**
          * The safety ceiling on a power-save window: the most time the sensor

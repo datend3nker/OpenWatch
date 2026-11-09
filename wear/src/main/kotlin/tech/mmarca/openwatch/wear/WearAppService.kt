@@ -391,7 +391,7 @@ class WearAppService : Service() {
             HeartRateInterval.OFF
         }
         val before = recorder.interval to recorder.source
-        recorder.setPlan(wanted, WearSettings.heartRateSource(this))
+        recorder.setPlan(wanted, WearSettings.heartRateSource(this), workout = active)
         // Without the heart rate's wake-ups the step counter must wake the watch itself.
         stepRecorder.setHeartRateRunning(isHeartRateDense())
         // Skin temperature and SpO2 come only from the Samsung platform, at night, each switched on by itself.
