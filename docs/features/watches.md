@@ -100,7 +100,7 @@ The phone writes each workout as an exercise session with its route and pauses, 
 
 The watch app's screen and the phone's *Watch settings* card (on the watch's device screen) show the same settings, kept on the watch:
 
-- **Heart rate outside bedtime mode**: every 10 seconds (the default) or power save, about every 10 minutes. Bedtime mode and a sleep hold always measure every 10 seconds.
+- **Power save**: the one switch that may cost data. Off (the default), the watch records without loss: the heart rate every 10 seconds, every movement at night. On, the heart rate comes about every 10 minutes by day, and at night the watch wakes only every 4 minutes while you lie still, keeping the last 48 seconds of movement of each pause; it wakes fully again as soon as it feels you move. Bedtime mode and a sleep hold always measure the heart rate every 10 seconds.
 - **Sleep: wake lock or synced wake-ups**: how a sleep hold keeps the night. The wake lock keeps every movement; synced wake-ups let the processor sleep between the heart rate sensor's batches and empty every sensor then, for less battery; whether they keep every movement is still being measured. Synced wake-ups take the heart rate from the watch's sensor while you sleep.
 - **Samsung sources** (only on a watch with the Samsung Health Platform): heart rate and HRV from the platform, skin temperature and SpO2 at night. They need the platform's Developer Mode; without it the platform asks Samsung about this app. A Samsung source that fails falls back to the sensor until a setting changes. Skin temperature and SpO2 also need a permission that only the watch can grant: switch them on once on the watch.
 

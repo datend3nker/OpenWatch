@@ -32,9 +32,9 @@
     <string name="link_requests_channel_name">Phone requests</string>
     <string name="status_samsung_diagnostics_off">Samsung diagnostics: off</string>
     <string name="status_samsung_diagnostics_on">Samsung diagnostics: on · turn off in Settings</string>
-    <string name="settings_heart_rate_every_10_seconds">Heart rate: every 10 s</string>
-    <string name="settings_heart_rate_power_save">Heart rate: power save</string>
-    <string name="settings_heart_rate_power_save_note">About every 10 minutes outside bedtime mode. Sleep without bedtime mode is then detected from sparse readings.</string>
+    <string name="settings_heart_rate_every_10_seconds">Power save: off</string>
+    <string name="settings_heart_rate_power_save">Power save: on</string>
+    <string name="settings_heart_rate_power_save_note">The heart rate about every 10 minutes by day; at night the watch wakes less while you lie still and keeps only part of the movement then. Off, nothing is lost.</string>
     <string name="settings_sleep_hold_wake_lock">Sleep: wake lock</string>
     <string name="settings_sleep_hold_synced">Sleep: synced wake-ups</string>
     <string name="settings_heart_rate_source_sensor">Heart rate: sensor</string>
