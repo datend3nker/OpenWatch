@@ -146,6 +146,10 @@ class WearOsWatchSyncServiceTest {
         override suspend fun pullWorkouts(targetAddress: String?, targetName: String?, since: Instant): WearOsWorkoutPage? =
             WearOsWorkoutPage(emptyList(), hasMore = false)
 
+        override suspend fun pushDays(targetAddress: String?, targetName: String?, days: List<tech.mmarca.openwatch.wearlink.DaySummary>): Boolean = false
+
+        override suspend fun pullEntries(targetAddress: String?, targetName: String?, since: Instant): WearOsEntryPage? = WearOsEntryPage(emptyList(), false)
+
         override suspend fun notifyPhoneActive(targetAddress: String?, targetName: String?, at: Instant): Boolean = false
     }
 

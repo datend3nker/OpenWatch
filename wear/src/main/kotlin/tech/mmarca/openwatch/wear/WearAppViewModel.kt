@@ -23,14 +23,16 @@ class WearAppViewModel(application: Application) : AndroidViewModel(application)
 
     private val entryLog = EntryLog(application)
     private val capabilities = MutableStateFlow(WearCapabilities())
-    private val readings = WearReadingsSource(MetricStore(application))
+    private val readings = WearReadingsSource(MetricStore(application), DaySummaryStore(application)::all)
 
     private val initial = WearUiState()
 
     val uiState: StateFlow<WearUiState> =
-        combine(capabilities, entryLog.entries, readings.metrics()) { capabilities, entries, metrics ->
+        combine(capabilities, entryLog.entries, readings.metrics()) { capabilities, entries, readings ->
+            val metrics = readings.metrics
             initial.copy(
                 metrics = metrics,
+                sleepStages = readings.sleepStages,
                 capabilities = capabilities,
                 // Until the probe answers, keep offering what was on offer before.
                 availableMetrics = if (capabilities.probed) capabilities.availableMetrics(metrics.keys) else initial.availableMetrics,

@@ -79,6 +79,14 @@ class WearOsSyncCursorStore(private val prefs: SharedPreferences) {
         prefs.edit { putLong(spo2Key(deviceId), at.toEpochMilli()) }
     }
 
+    /** The entries cursor: the time of the newest watch entry written. [Instant.EPOCH] for a watch never synced. */
+    fun entryCursor(deviceId: String): Instant =
+        Instant.ofEpochMilli(prefs.getLong(entryKey(deviceId), 0L))
+
+    fun setEntryCursor(deviceId: String, at: Instant) {
+        prefs.edit { putLong(entryKey(deviceId), at.toEpochMilli()) }
+    }
+
     /** The skin temperature cursor: the end of the newest night run written. [Instant.EPOCH] for a watch never synced. */
     fun skinCursor(deviceId: String): Instant =
         Instant.ofEpochMilli(prefs.getLong(skinKey(deviceId), 0L))
@@ -131,6 +139,8 @@ class WearOsSyncCursorStore(private val prefs: SharedPreferences) {
     private fun respiratoryKey(deviceId: String) = "respiratory_cursor_$deviceId"
 
     private fun spo2Key(deviceId: String) = "spo2_cursor_$deviceId"
+
+    private fun entryKey(deviceId: String) = "entry_cursor_$deviceId"
 
     private fun skinKey(deviceId: String) = "skin_cursor_$deviceId"
 

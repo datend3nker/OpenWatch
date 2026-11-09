@@ -30,6 +30,10 @@
     <uses-permission android:name="android.permission.health.WRITE_RESPIRATORY_RATE" />
     <uses-permission android:name="android.permission.health.WRITE_VO2_MAX" />
     <uses-permission android:name="android.permission.health.WRITE_SLEEP" />
+    <!-- What the watch's own entries write: a glass of water, a blood pressure, a breathing session. -->
+    <uses-permission android:name="android.permission.health.WRITE_HYDRATION" />
+    <uses-permission android:name="android.permission.health.WRITE_BLOOD_PRESSURE" />
+    <uses-permission android:name="android.permission.health.WRITE_MINDFULNESS" />
     <!-- What a scale weigh-in writes. -->
     <uses-permission android:name="android.permission.health.WRITE_WEIGHT" />
     <uses-permission android:name="android.permission.health.WRITE_BODY_FAT" />
@@ -39,6 +43,9 @@
          composition, the workouts a minute falls in, the sleep a night already holds. -->
     <uses-permission android:name="android.permission.health.READ_HEART_RATE" />
     <uses-permission android:name="android.permission.health.READ_STEPS" />
+    <!-- The day's active energy and distance, which the watch shows. -->
+    <uses-permission android:name="android.permission.health.READ_ACTIVE_CALORIES_BURNED" />
+    <uses-permission android:name="android.permission.health.READ_DISTANCE" />
     <uses-permission android:name="android.permission.health.READ_SLEEP" />
     <uses-permission android:name="android.permission.health.READ_RESTING_HEART_RATE" />
     <uses-permission android:name="android.permission.health.READ_EXERCISE" />

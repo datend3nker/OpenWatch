@@ -9,6 +9,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import tech.mmarca.openwatch.wearlink.Page
 import tech.mmarca.openwatch.wearlink.WearLinkConnection
+import tech.mmarca.openwatch.wearlink.DaySummary
+import tech.mmarca.openwatch.wearlink.WatchEntry
 import tech.mmarca.openwatch.wearlink.WearLinkProtocol
 import tech.mmarca.openwatch.wearlink.WearLinkWorkout
 import tech.mmarca.openwatch.wearlink.WearLinkRequestHandler
@@ -37,10 +39,14 @@ class WearLinkServerHost(
     setPreference: (key: String, value: String) -> Boolean,
     /** The finished workouts the phone pulls. Called on the link's thread. */
     workouts: (sinceEpochMillis: Long, limit: Int) -> Page<WearLinkWorkout>,
+    /** Keeps the phone's figures for a day. Called on the link's thread. */
+    putDay: (DaySummary) -> Unit,
+    /** The entries made on the watch, oldest first, that the phone pulls. Called on the link's thread. */
+    entries: (sinceEpochMillis: Long, limit: Int) -> Page<WatchEntry>,
     private val localName: () -> String,
     private val state: WearLinkState = WearLinkState,
 ) {
-    private val server = WearLinkServer(trust, Handler(store, live, hrvAvailable, skinAvailable, onPhoneActive, heldPreferences, setPreference, workouts, localName))
+    private val server = WearLinkServer(trust, Handler(store, live, hrvAvailable, skinAvailable, onPhoneActive, heldPreferences, setPreference, workouts, putDay, entries, localName))
 
     @Volatile
     private var serverSocket: BluetoothServerSocket? = null
@@ -128,6 +134,8 @@ class WearLinkServerHost(
         private val heldPreferences: () -> Map<String, String>,
         private val setPreference: (String, String) -> Boolean,
         private val workouts: (Long, Int) -> Page<WearLinkWorkout>,
+        private val putDay: (DaySummary) -> Unit,
+        private val entries: (Long, Int) -> Page<WatchEntry>,
         private val localName: () -> String,
     ) : WearLinkRequestHandler {
         override fun localName(): String = localName.invoke()
@@ -144,6 +152,8 @@ class WearLinkServerHost(
             }
             add(WearLinkProtocol.CAP_PHONE_ACTIVE)
             add(WearLinkProtocol.CAP_PREFERENCES)
+            add(WearLinkProtocol.CAP_DAY_SUMMARY)
+            add(WearLinkProtocol.CAP_ENTRIES)
             // The metric list holds the workouts' pauses and route too; only the header key is a capability.
             remove("wp")
             remove("wr")
@@ -166,6 +176,13 @@ class WearLinkServerHost(
         override fun workoutsSince(sinceEpochMillis: Long, limit: Int): Page<WearLinkWorkout> = workouts(sinceEpochMillis, limit)
 
         override fun heldPreferences(): Map<String, String> = heldPreferences.invoke()
+
+        override fun putDay(day: DaySummary): Boolean {
+            putDay.invoke(day)
+            return true
+        }
+
+        override fun entriesSince(sinceEpochMillis: Long, limit: Int): Page<WatchEntry> = entries(sinceEpochMillis, limit)
 
         override fun setPreference(key: String, value: String): Boolean = setPreference.invoke(key, value)
 

@@ -35,6 +35,7 @@ import tech.mmarca.openwatch.wear.workout.WorkoutState
 import tech.mmarca.openwatch.wear.workout.pillKey
 import tech.mmarca.openwatch.wear.workout.sportName
 import tech.mmarca.openwatch.wear.workout.stopwatchBaseMillis
+import tech.mmarca.openwatch.wear.features.quicklog.EntryLog
 import tech.mmarca.openwatch.wear.samsung.SamsungHeartRateFeed
 import tech.mmarca.openwatch.wear.workout.MetricStoreWorkoutRows
 import tech.mmarca.openwatch.wear.workout.WorkoutRecorder
@@ -175,6 +176,8 @@ class WearAppService : Service() {
             heldPreferences = { WearPreferenceCodec.encode(WearSettings.read(this), abilities()) },
             setPreference = ::applyPhonePreference,
             workouts = WorkoutStore(MetricStoreWorkoutRows(store))::workoutsSince,
+            putDay = DaySummaryStore(this)::put,
+            entries = EntryLog(this)::entriesSince,
             localName = ::localName,
         )
         isForeground = startInForeground()

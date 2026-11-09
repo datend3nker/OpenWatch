@@ -15,6 +15,10 @@ What a watch sync writes: `WRITE_STEPS`, `WRITE_DISTANCE`, `WRITE_EXERCISE`,
 `WRITE_CYCLING_PEDALING_CADENCE`, `WRITE_OXYGEN_SATURATION`, `WRITE_RESPIRATORY_RATE`,
 `WRITE_VO2_MAX`, `WRITE_SLEEP`.
 
+What the entries made on the watch write: `WRITE_HYDRATION`, `WRITE_WEIGHT`,
+`WRITE_BLOOD_PRESSURE`, `WRITE_MINDFULNESS` (a breathing session; only where Health Connect
+stores mindfulness), `WRITE_HEART_RATE` and `WRITE_HEART_RATE_VARIABILITY` (a spot measurement).
+
 What a scale weigh-in writes: `WRITE_WEIGHT`, `WRITE_BODY_FAT`, `WRITE_LEAN_BODY_MASS`,
 `WRITE_BODY_WATER_MASS`.
 
@@ -26,7 +30,9 @@ What the estimates read: `READ_WEIGHT` and `READ_HEIGHT` (the walking energy and
 composition), `READ_EXERCISE` (a minute inside a workout gets no walking-energy estimate),
 `READ_SLEEP` (a night that already holds a sleep session is left alone),
 `READ_RESTING_HEART_RATE`, `READ_HEART_RATE` and `READ_STEPS` (the sync cursors and the
-nightly resting heart rate), `READ_HEALTH_DATA_HISTORY`.
+nightly resting heart rate), `READ_HEALTH_DATA_HISTORY`. `READ_SLEEP`, `READ_RESTING_HEART_RATE`, `READ_ACTIVE_CALORIES_BURNED`
+and `READ_DISTANCE` also give the watch the last week's nights, resting heart rate, active energy
+and distance for its own screens; without a grant that figure stays off the watch.
 
 `READ_HEALTH_DATA_IN_BACKGROUND`: a scheduled sync with the app closed can only see other
 apps' weights, workouts and sleep with this grant. Without it the sync still writes the

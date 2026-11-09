@@ -49,6 +49,10 @@ import java.util.UUID
  *   started after `epochMillis` (exclusive): its `WO` header, then its `WP`
  *   pauses and `WR` route points (see [WearLinkWorkout]), then one `END
  *   <count> <more>` that counts workouts. Only a watch announcing `wo` serves it.
+ * - `PUT_DAY …` → `DAY_OK`: the phone's figures for one day ([WearLinkDaily]).
+ *   Only a watch announcing `dy` serves it.
+ * - `LG_SINCE <epochMillis> <limit>` → `LG` lines, as `HV_SINCE`: the entries
+ *   made on the watch ([WatchEntry]). Only a watch announcing `lg` serves it.
  * - `PHONE_ACTIVE <epochMillis>` → `END 0 0`. The wearer unlocked the phone at
  *   that time: they are awake, so the watch ends a sleep hold it started by
  *   itself. Only a watch announcing `pa` serves it.
@@ -132,6 +136,10 @@ object WearLinkProtocol {
     const val GET_PREFERENCES: String = "GET_PREF"
     const val PREFERENCE: String = "PREF"
     const val END: String = "END"
+    const val PUT_DAY: String = "PUT_DAY"
+    const val DAY_OK: String = "DAY_OK"
+    const val ENTRIES_SINCE: String = "LG_SINCE"
+    const val ENTRY: String = "LG"
 
     /** Longer than this a line is a protocol violation; the reader closes rather than buffers. */
     const val MAX_LINE_LENGTH: Int = 512
@@ -162,6 +170,12 @@ object WearLinkProtocol {
 
     /** The watch records workouts and serves `WO_SINCE`. */
     const val CAP_WORKOUTS: String = "wo"
+
+    /** The watch takes `PUT_DAY`: it shows the phone's figures for a day. */
+    const val CAP_DAY_SUMMARY: String = "dy"
+
+    /** The watch serves `LG_SINCE`: entries made on it. */
+    const val CAP_ENTRIES: String = "lg"
 
     /** The watch takes `GET_PREF` and `SET_PREF`: the phone can show and change its settings. */
     const val CAP_PREFERENCES: String = "pref"
@@ -259,6 +273,8 @@ object WearLinkProtocol {
         data class SkinSince(val sinceEpochMillis: Long, val limit: Int) : Request()
         data class Spo2Since(val sinceEpochMillis: Long, val limit: Int) : Request()
         data class LiveHeartRate(val seconds: Int) : Request()
+        data class PutDay(val day: DaySummary) : Request()
+        data class EntriesSince(val sinceEpochMillis: Long, val limit: Int) : Request()
     }
 
     fun formatHello(hello: Hello): String =
@@ -324,6 +340,8 @@ object WearLinkProtocol {
         is Request.Spo2Since -> "$SPO2_SINCE ${request.sinceEpochMillis} ${request.limit.coerceIn(1, MAX_WINDOWS_PER_REQUEST)}"
         is Request.SkinSince -> "$SKIN_SINCE ${request.sinceEpochMillis} ${request.limit.coerceIn(1, MAX_SKIN_MINUTES_PER_REQUEST)}"
         is Request.LiveHeartRate -> "$HEART_RATE_LIVE ${request.seconds.coerceIn(1, MAX_LIVE_SECONDS)}"
+        is Request.PutDay -> WearLinkDaily.formatPutDay(request.day)
+        is Request.EntriesSince -> "$ENTRIES_SINCE ${request.sinceEpochMillis} ${request.limit.coerceIn(1, MAX_WINDOWS_PER_REQUEST)}"
     }
 
     /** Null unless [line] is a well-formed request. */
@@ -348,6 +366,8 @@ object WearLinkProtocol {
         parseSinceRequest(line, SPO2_SINCE, MAX_WINDOWS_PER_REQUEST)?.let { (since, limit) -> return Request.Spo2Since(since, limit) }
         parseSinceRequest(line, SKIN_SINCE, MAX_SKIN_MINUTES_PER_REQUEST)?.let { (since, limit) -> return Request.SkinSince(since, limit) }
         parseLiveRequest(line)?.let { return Request.LiveHeartRate(it) }
+        WearLinkDaily.parsePutDay(line)?.let { return Request.PutDay(it) }
+        parseSinceRequest(line, ENTRIES_SINCE, MAX_WINDOWS_PER_REQUEST)?.let { (since, limit) -> return Request.EntriesSince(since, limit) }
         return null
     }
 

@@ -84,6 +84,12 @@ interface WearLinkRequestHandler {
 
     fun skinSince(sinceEpochMillis: Long, limit: Int): Page<WearLinkProtocol.SkinMinute>
 
+    /** Keeps the phone's figures for a day. False when the watch cannot keep them. Only called when the watch advertised [WearLinkProtocol.CAP_DAY_SUMMARY]. */
+    fun putDay(day: DaySummary): Boolean = false
+
+    /** The entries made on the watch after [sinceEpochMillis], oldest first. Only called when the watch advertised [WearLinkProtocol.CAP_ENTRIES]. */
+    fun entriesSince(sinceEpochMillis: Long, limit: Int): Page<WatchEntry> = Page(emptyList(), more = false)
+
     /**
      * Blocks for up to [seconds], handing each heart rate reading to [emit]
      * on the caller's thread as it arrives; returns how many. Returns 0 at
