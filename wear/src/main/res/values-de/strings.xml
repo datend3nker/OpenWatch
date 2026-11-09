@@ -186,11 +186,9 @@
     <string name="measure_heart_rate">Herzfrequenz</string>
     <string name="measure_heart_rate_description">Etwa 15 Sekunden</string>
     <string name="measure_hrv">Herzfrequenzvariabilität</string>
-    <string name="measure_hrv_description">1 Minute, still sitzen</string>
     <string name="measure_air_pressure">Luftdruck</string>
     <string name="measure_air_pressure_description">Barometer und Höhe</string>
     <string name="measure_instruction_still">Die Uhr eng am Handgelenk tragen und still halten.</string>
-    <string name="measure_instruction_still_minute">Hinsetzen, den Arm ablegen und eine Minute still bleiben.</string>
     <string name="measure_instruction_none">Dauert ein paar Sekunden.</string>
     <string name="measure_hint_detecting">Wird erkannt …</string>
     <string name="measure_hint_off_body">Uhr ans Handgelenk legen</string>
@@ -262,4 +260,16 @@
     <string name="unit_breaths">Atemzüge/min</string>
     <string name="unit_mmol_l">mmol/L</string>
     <string name="unit_mg_dl">mg/dL</string>
+    <string name="metric_height">Größe</string>
+    <string name="unit_cm">cm</string>
+    <string name="unit_inch">in</string>
+    <string name="detail_recent_entries">Letzte Einträge</string>
+    <string name="measure_hrv_description_minutes">3 Minuten, still sitzen</string>
+    <string name="measure_instruction_still_minutes">Hinsetzen, den Arm ablegen und drei Minuten still bleiben.</string>
+    <string name="quicklog_edit">Einträge bearbeiten</string>
+    <string name="quicklog_none_chosen">Keine Einträge ausgewählt</string>
+    <string name="quicklog_editor_title">Einträge</string>
+    <string name="quicklog_editor_active_header">Angezeigte Einträge</string>
+    <string name="quicklog_editor_available_header">Einträge hinzufügen</string>
+    <string name="quicklog_editor_reorder_hint">Eintrag lange drücken und ziehen, um ihn zu verschieben. Antippen entfernt ihn.</string>
 </resources>

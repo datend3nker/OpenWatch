@@ -46,6 +46,9 @@ enum class EntryType {
 
     /** Millimoles per litre; shown in mg/dL with the imperial units. */
     BLOOD_GLUCOSE,
+
+    /** Centimetres; shown in inches with the imperial units. */
+    HEIGHT,
 }
 
 data class LoggedEntry(
@@ -53,7 +56,23 @@ data class LoggedEntry(
     val timeMillis: Long,
     val value: Double,
     val value2: Double? = null,
+    /** True when a spot measurement made it, false when the user typed it. */
+    val measured: Boolean = false,
 )
+
+/**
+ * True for an entry the user made by hand. The quick log's recent list shows
+ * only these; the measurement results stay in the log, the sync and the tile
+ * detail screens.
+ */
+fun isManual(entry: LoggedEntry): Boolean = !entry.measured
+
+/**
+ * Lines written before the flag existed. Heart rate and HRV were almost only
+ * ever made by a spot measurement, so those two count as measured.
+ */
+internal fun measuredBeforeTheFlag(type: EntryType): Boolean =
+    type == EntryType.HEART_RATE || type == EntryType.HRV
 
 /**
  * Entries made on the watch: quick logs and spot measurements. They stay
@@ -112,26 +131,46 @@ internal fun LoggedEntry.toWatchEntry(): WatchEntry = WatchEntry(
         EntryType.RESPIRATORY_RATE -> WearLinkDaily.RESPIRATORY_RATE
         EntryType.BODY_TEMPERATURE -> WearLinkDaily.BODY_TEMPERATURE
         EntryType.BLOOD_GLUCOSE -> WearLinkDaily.BLOOD_GLUCOSE
+        EntryType.HEIGHT -> WearLinkDaily.HEIGHT
     },
     value = value,
     value2 = value2,
 )
 
-/** One entry per line: `TYPE;time;value[;value2]`. */
+/**
+ * One entry per line: `TYPE;time;value;value2;flag`. value2 is empty when there
+ * is none. The flag is `m` for measured and `h` for by hand.
+ */
 internal fun encodeEntries(entries: List<LoggedEntry>): String =
     entries.joinToString("\n") { entry ->
-        listOfNotNull(entry.type.name, entry.timeMillis, entry.value, entry.value2).joinToString(";")
+        listOf(
+            entry.type.name,
+            entry.timeMillis,
+            entry.value,
+            entry.value2 ?: "",
+            if (entry.measured) "m" else "h",
+        ).joinToString(";")
     }
 
-/** Lines that do not parse, for example from a type that no longer exists, are dropped. */
+/**
+ * Lines that do not parse, for example from a type that no longer exists, are
+ * dropped. Lines with three or four fields are from before the flag: see
+ * [measuredBeforeTheFlag].
+ */
 internal fun decodeEntries(raw: String?): List<LoggedEntry> =
     raw.orEmpty().lineSequence().mapNotNull { line ->
         val parts = line.split(";")
         if (parts.size < 3) return@mapNotNull null
+        val type = EntryType.entries.firstOrNull { it.name == parts[0] } ?: return@mapNotNull null
         LoggedEntry(
-            type = EntryType.entries.firstOrNull { it.name == parts[0] } ?: return@mapNotNull null,
+            type = type,
             timeMillis = parts[1].toLongOrNull() ?: return@mapNotNull null,
             value = parts[2].toDoubleOrNull() ?: return@mapNotNull null,
             value2 = parts.getOrNull(3)?.toDoubleOrNull(),
+            measured = when (parts.getOrNull(4)) {
+                "m" -> true
+                "h" -> false
+                else -> measuredBeforeTheFlag(type)
+            },
         )
     }.toList()

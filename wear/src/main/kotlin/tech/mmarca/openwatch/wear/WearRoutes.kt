@@ -18,6 +18,7 @@ object WearRoutes {
     const val MEASUREMENT = "measure/{$MEASUREMENT_ARG}"
     fun measurement(measurement: Measurement) = "measure/${measurement.name}"
     const val QUICK_LOG = "quick_log"
+    const val QUICK_LOG_EDITOR = "quick_log_editor"
     const val LOG_WEIGHT = "log_weight"
     const val LOG_BLOOD_PRESSURE = "log_blood_pressure"
     const val LOG_VALUE_ARG = "type"

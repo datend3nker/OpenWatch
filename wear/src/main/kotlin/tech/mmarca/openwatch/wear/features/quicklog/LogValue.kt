@@ -91,6 +91,17 @@ internal val LogValueSpecs: Map<EntryType, LogValueSpec> = mapOf(
         decimals = 1,
         imperialScale = 18.0182,
     ),
+    // Inches, not feet and inches: the stepper holds one number, and a whole inch
+    // (2.5 cm) is finer than a height is read to. Stored in whole centimetres.
+    EntryType.HEIGHT to LogValueSpec(
+        label = R.string.metric_height,
+        metricUnit = R.string.unit_cm,
+        imperialUnit = R.string.unit_inch,
+        metricRange = 50.0..250.0,
+        metricDefault = 170.0,
+        decimals = 0,
+        imperialScale = 1.0 / 2.54,
+    ),
 )
 
 /**

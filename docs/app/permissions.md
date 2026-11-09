@@ -18,7 +18,7 @@ Health Connect has no separate cadence permission.
 
 What the entries made on the watch write: `WRITE_HYDRATION`, `WRITE_WEIGHT`,
 `WRITE_BLOOD_PRESSURE`, `WRITE_BODY_FAT`, `WRITE_OXYGEN_SATURATION`, `WRITE_RESPIRATORY_RATE`,
-`WRITE_BODY_TEMPERATURE`, `WRITE_BLOOD_GLUCOSE`, `WRITE_MINDFULNESS` (a breathing session; only where Health Connect
+`WRITE_BODY_TEMPERATURE`, `WRITE_BLOOD_GLUCOSE`, `WRITE_HEIGHT`, `WRITE_MINDFULNESS` (a breathing session; only where Health Connect
 stores mindfulness), `WRITE_HEART_RATE` and `WRITE_HEART_RATE_VARIABILITY` (a spot measurement).
 
 What a scale weigh-in writes: `WRITE_WEIGHT`, `WRITE_BODY_FAT`, `WRITE_LEAN_BODY_MASS`,
