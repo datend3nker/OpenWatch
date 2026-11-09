@@ -112,16 +112,16 @@ class NightHrvTest {
     @Test
     fun `a missed beat does not become a huge step`() {
         val beats = beatTimes(330, swing = 25.0).toMutableList().also { it.removeAt(100) }.toDoubleArray()
-        val result = HrvRmssd.of(beats)!!
+        val result = HrvRmssd.of(beats, WINDOW)!!
         assertTrue("rmssd ${result.rmssdMillis}", result.rmssdMillis < 60)
     }
 
     @Test
     fun `too few clean beats give nothing`() {
-        assertNull(HrvRmssd.of(beatTimes(60, swing = 25.0)))
+        assertNull(HrvRmssd.of(beatTimes(60, swing = 25.0), WINDOW))
         val random = Random(5)
         val chaos = DoubleArray(300).also { var t = 0.0; for (i in it.indices) { it[i] = t; t += 300 + random.nextDouble() * 1500 } }
-        assertNull(HrvRmssd.of(chaos))
+        assertNull(HrvRmssd.of(chaos, WINDOW))
     }
 
     @Test
@@ -143,6 +143,18 @@ class NightHrvTest {
     @Test
     fun `identical intervals give zero RMSSD`() {
         val beats = DoubleArray(200) { 700.0 + it * 1000.0 }
-        assertEquals(0.0, HrvRmssd.of(beats)!!.rmssdMillis, 1e-9)
+        assertEquals(0.0, HrvRmssd.of(beats, WINDOW)!!.rmssdMillis, 1e-9)
+    }
+
+    @Test
+    fun `clean beats over too little of the window give nothing`() {
+        // 150 clean beats are 150 s: enough pairs, but half the window.
+        val beats = beatTimes(150, swing = 25.0)
+        assertNull(HrvRmssd.of(beats, WINDOW))
+        assertNotNull(HrvRmssd.of(beats, WINDOW, minCoverage = 0.3))
+    }
+
+    private companion object {
+        const val WINDOW = 5.0 * 60 * 1000
     }
 }

@@ -83,7 +83,7 @@ Verified on 2026-10-07 with a Galaxy Watch8 (Wear OS on Android 16) and a Graphe
 
 While sleep is held, the watch can measure more than the minutes:
 
-- **Heart rate variability (HRV)**: a five-minute window once the arm was still for ten minutes, at most every half hour, written as RMSSD to Health Connect. The beats come from the raw pulse signal by default, or from the Samsung platform's own beat intervals.
+- **Heart rate variability (HRV)**: five-minute windows one after another once the arm was still for ten minutes, each written as RMSSD to Health Connect; apps that read Health Connect take the night's value as their mean. A window counts only with a minute of clean beats that cover most of it. The beats come from the raw pulse signal by default, or from the Samsung platform's own beat intervals.
 - **Breathing rate**: from the same windows, written only when you switch on *Breathing rate from the watch (experimental)* in the phone's settings; it is not yet checked against a reference.
 - **SpO2** (Samsung watches): a spot measurement once an hour while the arm is still, written as oxygen saturation.
 - **Skin temperature** (Samsung watches): one value a minute, written per night as the difference from your own usual night.
@@ -155,7 +155,7 @@ The device screen has a **Large Bluetooth packets** switch, on by default and ke
 
 ### Automatic Sync
 
-"Automatic sync", on the device screen of a Garmin or Wear OS watch, syncs the watch on its own every 30 minutes, hour, or two hours. Off by default, and set per watch, so two paired watches can be on different schedules or only one of them on a schedule at all.
+"Automatic sync", on the device screen of a Garmin or Wear OS watch, syncs the watch on its own every 30 minutes, hour, or two hours. Off by default, and set per watch, so two paired watches can be on different schedules or only one of them on a schedule at all. Between 23:00 and 07:00 the scheduled runs are skipped, so the watch's radio stays quiet while you sleep; the first run after 07:00 brings the whole night. A sync by hand still runs at any hour.
 
 A scheduled sync runs while the app is closed. Health Connect then lets OpenWatch read other apps' records only with its "Access data in the background" grant. Without it the watch's data is still saved, but what needs other apps' records is skipped for that run: a Wear OS sync writes no walking-calorie estimate and no resting heart rate, because it cannot see the weight, the workouts or another app's value for the day. (A scale weigh-in heard with the app closed is affected the same way: it uses the body profile typed in OpenWatch instead of the newest height and weight in Health Connect.) So switching Automatic sync on asks for that grant when it is missing, and the card keeps a line and an "Allow background access" button for as long as it is.
 

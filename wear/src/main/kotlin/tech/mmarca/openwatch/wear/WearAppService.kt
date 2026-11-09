@@ -318,6 +318,9 @@ class WearAppService : Service() {
         val night = granted && heartRateWanted && minuteRecorder.isSleepHolding
         skinRecorder.setEnabled(night && WearSettings.skinTemperature(this) && WearPermissions.hasSkinTemperature(this))
         spo2Recorder.setEnabled(granted && WearSettings.spo2AtNight(this) && WearPermissions.hasOxygenSaturation(this))
+        // Nobody climbs stairs asleep: the barometer rests while sleep is held, unless a workout runs.
+        // A fresh start in the morning also keeps the night's weather drift out of the ascent.
+        if (minuteRecorder.isSleepHolding && !active) ascentRecorder.stop() else ascentRecorder.start()
         if (before != Triple(recorder.interval, recorder.source, clock.isDense)) debugSnapshots.write("plan")
     }
 
@@ -378,6 +381,7 @@ class WearAppService : Service() {
         "workout" to workout.isActive,
         "worn" to heartRateWanted,
         "steps" to stepRecorder.isRunning,
+        "baro" to ascentRecorder.isRunning,
     )
 
     /** The watch's Bluetooth name, as the phone will show it. */

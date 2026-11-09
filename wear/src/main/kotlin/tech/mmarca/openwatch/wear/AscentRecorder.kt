@@ -31,6 +31,9 @@ class AscentRecorder(
     private var counter: AscentMinuteCounter? = null
     private var lastPrunedAt = 0L
 
+    val isRunning: Boolean
+        get() = thread != null
+
     /** Starts recording. False when the watch has no barometer or the registration failed. */
     fun start(): Boolean {
         if (thread != null) return true
