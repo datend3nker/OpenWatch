@@ -1,5 +1,6 @@
 package tech.mmarca.openwatch.devices.wearos
 
+import tech.mmarca.openwatch.wearlink.WorkoutMetrics
 import java.time.Instant
 import java.time.ZoneId
 import kotlinx.coroutines.CancellationException
@@ -21,6 +22,8 @@ internal class WearOsWorkoutSync(
     private val cursors: WearOsSyncCursorStore,
     private val granted: suspend () -> Set<String>,
     private val zone: () -> ZoneId,
+    /** The workout's figures from its heart rate, route and the profile; null when they cannot be worked out. */
+    private val summarize: suspend (WearOsWorkout) -> WorkoutMetrics.Summary? = { null },
 ) {
 
     /** [written] sessions, and the grants that [withheld] some workouts. */
@@ -37,8 +40,23 @@ internal class WearOsWorkoutSync(
             for (workout in page.workouts) {
                 val missing = WearOsWorkoutImport.permissions(workout) - granted()
                 if (missing.isNotEmpty()) return Outcome(written, missing)
+                val summary = try {
+                    summarize(workout)
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (error: Exception) {
+                    WearOsLog.log("workout: figures not worked out: ${error.javaClass.simpleName}")
+                    null
+                }
+                val records = if (summary == null) {
+                    WearOsWorkoutImport.records(workout, zone())
+                } else {
+                    WearOsWorkoutImport.records(
+                        workout, zone(), WearOsWorkoutMetrics.laps(workout, summary), WearOsWorkoutMetrics.notes(summary),
+                    ) + WearOsWorkoutMetrics.records(workout, summary, zone(), granted())
+                }
                 try {
-                    importRepository.insertImportedRecords(WearOsWorkoutImport.records(workout, zone()))
+                    importRepository.insertImportedRecords(records)
                 } catch (error: CancellationException) {
                     throw error
                 } catch (error: Exception) {

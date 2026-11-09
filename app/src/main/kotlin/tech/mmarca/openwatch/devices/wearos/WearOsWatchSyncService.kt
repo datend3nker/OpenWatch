@@ -141,6 +141,7 @@ class WearOsWatchSyncService(
         cursors = cursors,
         granted = { healthConnect.grantedPermissions() },
         zone = zone,
+        summarize = WearOsWorkoutFigures(healthConnect, profile, zone)::summarize,
     )
 
     private val linkRetry = object : WearOsNightSeriesSync.Retry {
