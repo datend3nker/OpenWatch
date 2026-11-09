@@ -21,7 +21,7 @@ class HeartRateTileService : MetricTileService() {
 
     override val titleRes: Int = R.string.tile_heart_rate_label
 
-    override fun read(day: TileDay, chart: TileChart, store: MetricStore): MetricTile {
+    override fun read(day: TileDay, chart: TileChart, store: MetricStore): MetricTileContent {
         val granted = WearPermissions.hasHeartRate(this)
         val now = TileHeartRate.of(granted, store.latest(WearMetrics.HEART_RATE), day.nowMillis)
         val samples = if (granted) {
@@ -54,7 +54,7 @@ class HeartRateTileService : MetricTileService() {
         }
         val title = getString(titleRes)
         val detail = day.range(samples)?.let { getString(R.string.tile_heart_rate_range, it.first, it.last) }
-        return MetricTile(
+        return MetricTileContent(
             title = title,
             value = value,
             caption = caption,
@@ -74,7 +74,7 @@ class StepsTileService : MetricTileService() {
 
     override val titleRes: Int = R.string.tile_steps_label
 
-    override fun read(day: TileDay, chart: TileChart, store: MetricStore): MetricTile {
+    override fun read(day: TileDay, chart: TileChart, store: MetricStore): MetricTileContent {
         val missing = when {
             !StepRecorder.hasStepCounter(this) -> R.string.tile_steps_no_sensor
             !WearPermissions.hasActivityRecognition(this) -> R.string.tile_not_granted
@@ -86,7 +86,7 @@ class StepsTileService : MetricTileService() {
         val title = getString(titleRes)
         val value = formatCount(running.last().toLong())
         val caption = getString(R.string.tile_steps_caption)
-        return MetricTile(title, value, caption, accent, "$title: $value $caption", chart.cumulative(running, day))
+        return MetricTileContent(title, value, caption, accent, "$title: $value $caption", chart.cumulative(running, day))
     }
 }
 
@@ -103,7 +103,7 @@ class FloorsTileService : MetricTileService() {
 
     override val titleRes: Int = R.string.tile_floors_label
 
-    override fun read(day: TileDay, chart: TileChart, store: MetricStore): MetricTile {
+    override fun read(day: TileDay, chart: TileChart, store: MetricStore): MetricTileContent {
         val missing = when {
             !AscentRecorder.hasBarometer(this) -> R.string.tile_floors_no_sensor
             // Height counts only with steps around it, so floors need the step counter too.
@@ -121,7 +121,7 @@ class FloorsTileService : MetricTileService() {
         val value = formatCount(TileDay.wholeDown(running.last()))
         val caption = getString(R.string.tile_floors_caption)
         val detail = getString(R.string.tile_floors_climbed, formatCount(TileDay.wholeDown(metres.last())))
-        return MetricTile(
+        return MetricTileContent(
             title = title,
             value = value,
             caption = caption,

@@ -24,7 +24,7 @@ import androidx.wear.protolayout.types.argb
 import androidx.wear.protolayout.types.layoutString
 
 /** What one metric tile shows: today's value in the metric's accent, a caption, and the day's curve. */
-internal class MetricTile(
+internal class MetricTileContent(
     val title: String,
     /** The number, or a dash when there is none to show; [caption] then says why. */
     val value: String,
@@ -37,7 +37,7 @@ internal class MetricTile(
     val detail: String? = null,
 ) {
     /** The same tile without its curve, for when the curve cannot be served. */
-    fun withoutChart(): MetricTile = MetricTile(title, value, caption, accent, description, chart = null, detail)
+    fun withoutChart(): MetricTileContent = MetricTileContent(title, value, caption, accent, description, chart = null, detail)
 }
 
 /**
@@ -46,7 +46,7 @@ internal class MetricTile(
  * detail line under it when the metric has one. A tap anywhere opens the
  * watch app.
  */
-internal fun MaterialScope.metricTileLayout(tile: MetricTile, open: Clickable, density: Float): LayoutElement =
+internal fun MaterialScope.metricTileLayout(tile: MetricTileContent, open: Clickable, density: Float): LayoutElement =
     primaryLayout(
         titleSlot = { text(tile.title.layoutString) },
         mainSlot = {
