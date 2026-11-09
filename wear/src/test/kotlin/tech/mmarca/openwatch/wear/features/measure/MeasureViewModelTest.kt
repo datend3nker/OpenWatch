@@ -67,4 +67,27 @@ class MeasureViewModelTest {
 
         assertEquals(MeasureUiState.Failed(MeasureError.PERMISSION_DENIED), viewModel.state.value)
     }
+
+    @Test
+    fun onEnd_isCalledOnceForAResultAndOnceForAFailure() = runTest(dispatcher) {
+        val ends = mutableListOf<MeasureUiState>()
+        val ok = MeasureViewModel(
+            measurement = Measurement.HEART_RATE,
+            events = { flow { emit(MeasureEvent.Result(71.0)) } },
+            onResult = { _, _ -> },
+            onEnd = { ends += it },
+        )
+        ok.start()
+        advanceUntilIdle()
+        val failing = MeasureViewModel(
+            measurement = Measurement.HEART_RATE,
+            events = { flow { throw MeasureException(MeasureError.MOVED) } },
+            onResult = { _, _ -> },
+            onEnd = { ends += it },
+        )
+        failing.start()
+        advanceUntilIdle()
+
+        assertEquals(listOf(MeasureUiState.Done(71.0, null), MeasureUiState.Failed(MeasureError.MOVED)), ends)
+    }
 }

@@ -158,15 +158,11 @@ private fun MeasurementBody(
 ) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         if (state is MeasureUiState.Running) {
-            CircularProgressIndicator(
-                progress = { state.progress },
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(2.dp),
-                colors = ProgressIndicatorDefaults.colors(
-                    indicatorColor = measurement.accentColor,
-                    trackColor = measurement.accentColor.copy(alpha = Emphasis.subtle),
-                ),
+            EdgeProgress(
+                progress = state.progress,
+                color = measurement.accentColor,
+                trackColor = measurement.accentColor.copy(alpha = Emphasis.disabled),
+                modifier = Modifier.fillMaxSize(),
             )
         }
         Column(
