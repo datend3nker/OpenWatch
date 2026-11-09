@@ -33,7 +33,7 @@ class WearAppViewModel(application: Application) : AndroidViewModel(application)
                 metrics = metrics,
                 capabilities = capabilities,
                 // Until the probe answers, keep offering what was on offer before.
-                availableMetrics = if (capabilities.probed) capabilities.availableMetrics else initial.availableMetrics,
+                availableMetrics = if (capabilities.probed) capabilities.availableMetrics(metrics.keys) else initial.availableMetrics,
             ).withEntries(entries)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(StopTimeoutMillis), initial)
 

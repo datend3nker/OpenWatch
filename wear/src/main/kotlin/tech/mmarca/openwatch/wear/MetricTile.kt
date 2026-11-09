@@ -3,6 +3,7 @@ package tech.mmarca.openwatch.wear
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.DirectionsWalk
+import androidx.compose.material.icons.outlined.Air
 import androidx.compose.material.icons.outlined.Bedtime
 import androidx.compose.material.icons.outlined.Bloodtype
 import androidx.compose.material.icons.outlined.Favorite
@@ -14,6 +15,7 @@ import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.Stairs
 import androidx.compose.material.icons.outlined.Straighten
 import androidx.compose.material.icons.outlined.Terrain
+import androidx.compose.material.icons.outlined.Thermostat
 import androidx.compose.material.icons.outlined.WaterDrop
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -23,6 +25,7 @@ import tech.mmarca.openwatch.wear.ui.theme.ElevationColor
 import tech.mmarca.openwatch.wear.ui.theme.FloorsColor
 import tech.mmarca.openwatch.wear.ui.theme.HeartColor
 import tech.mmarca.openwatch.wear.ui.theme.HydrationColor
+import tech.mmarca.openwatch.wear.ui.theme.SkinTemperatureColor
 import tech.mmarca.openwatch.wear.ui.theme.SleepColor
 import tech.mmarca.openwatch.wear.ui.theme.StepsColor
 import tech.mmarca.openwatch.wear.ui.theme.VitalsColor
@@ -48,6 +51,9 @@ enum class MetricSource {
 
     /** Entered by hand on the watch. Always offered. */
     LOGGED,
+
+    /** Recorded by this watch at night, with the Samsung platform or the night HRV windows. Offered once there is a reading. */
+    NIGHT,
 }
 
 /**
@@ -117,6 +123,24 @@ enum class MetricTile(
         HydrationColor,
         MetricKind.CUMULATIVE,
         MetricSource.LOGGED,
+    ),
+
+    /** Degrees Celsius at the wrist, at night. Recorded from the Samsung platform while sleep is held. */
+    SKIN_TEMPERATURE(
+        R.string.metric_skin_temperature,
+        Icons.Outlined.Thermostat,
+        SkinTemperatureColor,
+        MetricKind.SAMPLED,
+        MetricSource.NIGHT,
+    ),
+
+    /** Breaths per minute, from the night HRV windows. */
+    RESPIRATORY_RATE(
+        R.string.metric_respiratory_rate,
+        Icons.Outlined.Air,
+        VitalsColor,
+        MetricKind.SAMPLED,
+        MetricSource.NIGHT,
     ),
 
     /** Kilograms. */

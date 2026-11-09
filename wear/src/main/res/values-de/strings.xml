@@ -261,4 +261,9 @@
     <string name="settings_units_imperial">Imperial</string>
     <string name="status_phone_refused">%1$s wurde abgelehnt: Sein Schlüssel hat sich geändert</string>
     <string name="action_forget_phone">Telefon vergessen</string>
+    <string name="metric_skin_temperature">Hauttemperatur</string>
+    <string name="metric_respiratory_rate">Atemfrequenz</string>
+    <string name="unit_celsius">°C</string>
+    <string name="unit_fahrenheit">°F</string>
+    <string name="unit_breaths_per_minute">Atemzüge/min</string>
 </resources>

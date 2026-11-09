@@ -18,7 +18,7 @@ class WearRoutesTest {
 
     @Test
     fun availableMetrics_offerPhoneAndLoggedMetrics_andOnlyMeasuredSensorOnes() {
-        val available = WearCapabilities(probed = true, sensorMetrics = setOf(MetricTile.STEPS)).availableMetrics
+        val available = WearCapabilities(probed = true, sensorMetrics = setOf(MetricTile.STEPS)).availableMetrics()
         assertTrue(MetricTile.STEPS in available)
         assertTrue(MetricTile.SLEEP in available)
         assertTrue(MetricTile.HYDRATION in available)

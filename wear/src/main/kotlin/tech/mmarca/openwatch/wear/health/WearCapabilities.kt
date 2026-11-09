@@ -20,9 +20,17 @@ data class WearCapabilities(
     /** Workouts its sensors support, with the fields each one reports. */
     val workouts: Map<ActivityType, Set<WorkoutField>> = emptyMap(),
 ) {
-    /** The metrics to offer as tiles: every phone and logged metric, sensor metrics if measured here. */
-    val availableMetrics: Set<MetricTile>
-        get() = MetricTile.entries.filterTo(mutableSetOf()) {
-            it.source != MetricSource.SENSOR || it in sensorMetrics
+    /**
+     * The metrics to offer as tiles: every phone and logged metric, sensor
+     * metrics if measured here. A night metric, and a sensor metric the
+     * sensor list does not show, joins once the watch holds a reading of it.
+     */
+    fun availableMetrics(withReadings: Set<MetricTile> = emptySet()): Set<MetricTile> =
+        MetricTile.entries.filterTo(mutableSetOf()) {
+            when (it.source) {
+                MetricSource.PHONE, MetricSource.LOGGED -> true
+                MetricSource.SENSOR -> it in sensorMetrics || it in withReadings
+                MetricSource.NIGHT -> it in withReadings
+            }
         }
 }

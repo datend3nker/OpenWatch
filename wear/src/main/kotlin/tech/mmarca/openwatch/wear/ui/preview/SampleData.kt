@@ -135,7 +135,7 @@ object SampleData {
 
     /** A watch with a barometer and no SpO2 sensor, so one metric is not on offer. */
     val uiState = WearUiState(
-        availableMetrics = capabilities.availableMetrics,
+        availableMetrics = capabilities.availableMetrics(),
         metrics = metrics,
         recording = recording,
         settings = settings,

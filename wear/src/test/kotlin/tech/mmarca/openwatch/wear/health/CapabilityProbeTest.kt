@@ -45,7 +45,7 @@ class CapabilityProbeTest {
         assertTrue(capabilities.measurements.isEmpty())
         assertTrue(capabilities.workouts.isEmpty())
         // Phone and logged metrics stay on offer.
-        assertTrue(MetricTile.SLEEP in capabilities.availableMetrics)
+        assertTrue(MetricTile.SLEEP in capabilities.availableMetrics())
     }
 
     @Test
@@ -68,5 +68,13 @@ class CapabilityProbeTest {
     fun `without GPS a run still has heart rate, steps and the barometer's height`() {
         val run = capabilitiesOf(everything.copy(gps = false)).workouts[ActivityType.RUN]
         assertEquals(setOf(WorkoutField.HEART_RATE, WorkoutField.ELEVATION, WorkoutField.STEPS), run)
+    }
+
+    @Test
+    fun `a night metric is offered once the watch holds a reading`() {
+        val capabilities = capabilitiesOf(nothing)
+        assertTrue(MetricTile.SKIN_TEMPERATURE !in capabilities.availableMetrics())
+        assertTrue(MetricTile.SKIN_TEMPERATURE in capabilities.availableMetrics(setOf(MetricTile.SKIN_TEMPERATURE)))
+        assertTrue(MetricTile.BLOOD_OXYGEN in capabilities.availableMetrics(setOf(MetricTile.BLOOD_OXYGEN)))
     }
 }

@@ -26,6 +26,8 @@ internal data class DayReadings(
     val latestHeartRate: HeartRateSample?,
     val hasSteps: Boolean,
     val hasAscent: Boolean,
+    /** The night values of the day, oldest first, each in its tile's base unit. Empty when there are none. */
+    val night: Map<MetricTile, List<Double>> = emptyMap(),
 )
 
 /** The Today tile's figures. */
@@ -35,6 +37,9 @@ internal data class TodayTotals(val steps: Int?, val heartRate: Int?)
 internal object WearReadings {
 
     private const val HOURS = 24
+
+    /** The tiles a day's [DayReadings.night] fills. */
+    val NIGHT_METRICS = listOf(MetricTile.HRV, MetricTile.BLOOD_OXYGEN, MetricTile.SKIN_TEMPERATURE, MetricTile.RESPIRATORY_RATE)
     private const val DECIMETRES_PER_METRE = 10.0
     private const val MINUTE_MILLIS = 60_000L
     private const val HEART_RATE_BUCKET_MILLIS = 5 * MINUTE_MILLIS
@@ -46,6 +51,7 @@ internal object WearReadings {
         heartRate: List<HeartRateSample>,
         steps: List<StepMinute>,
         ascent: List<AscentMinute>,
+        night: Map<MetricTile, List<Double>> = emptyMap(),
     ): DayReadings {
         val stepsAt = steps.associate { it.epochMillis to it.steps }
         val stepsByHour = DoubleArray(HOURS)
@@ -70,6 +76,7 @@ internal object WearReadings {
             latestHeartRate = heartRate.maxByOrNull { it.epochMillis },
             hasSteps = steps.isNotEmpty(),
             hasAscent = ascent.isNotEmpty(),
+            night = night.filterValues { it.isNotEmpty() },
         )
     }
 
@@ -90,6 +97,18 @@ internal object WearReadings {
                 put(
                     MetricTile.FLOORS,
                     cumulative(days, thisHour) { day -> day.ascentByHour.map { it / AscentCredit.METRES_PER_FLOOR } },
+                )
+            }
+            for (metric in NIGHT_METRICS) {
+                val latest = days.lastNotNullOfOrNull { it.night[metric]?.lastOrNull() } ?: continue
+                put(
+                    metric,
+                    MetricUiState(
+                        current = latest,
+                        today = today.night[metric].orEmpty(),
+                        // A day without a reading stays a zero bar, as for the heart rate.
+                        week = days.dropWhile { it.night[metric] == null }.map { day -> day.night[metric]?.average() ?: 0.0 },
+                    ),
                 )
             }
             val latest = days.lastNotNullOfOrNull { it.latestHeartRate }
