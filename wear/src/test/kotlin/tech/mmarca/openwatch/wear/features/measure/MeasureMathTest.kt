@@ -3,6 +3,7 @@ package tech.mmarca.openwatch.wear.features.measure
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import tech.mmarca.openwatch.wear.HrvRmssd
 
 class MeasureMathTest {
 
@@ -33,13 +34,13 @@ class MeasureMathTest {
 
     @Test
     fun rmssd_ofAlternatingIntervals_isTheirDifference() {
-        assertEquals(40.0, rmssd(beatsOf(alternating(HrvIntervalsNeeded + 1)), HrvIntervalsNeeded)!!, 1e-6)
+        assertEquals(40.0, rmssd(beatsOf(alternating(HrvRmssd.MIN_CLEAN_PAIRS + 2)), HrvIntervalsNeeded)!!, 1e-6)
     }
 
     @Test
     fun rmssd_dropsAnOutlierThatComesFirst() {
         // 1900 ms is inside the allowed range; it must not make every later 800 ms beat look ectopic.
-        val rr = listOf(1_900.0) + alternating(60)
+        val rr = listOf(1_900.0) + alternating(HrvRmssd.MIN_CLEAN_PAIRS + 2)
         assertEquals(40.0, rmssd(beatsOf(rr), HrvIntervalsNeeded)!!, 1e-6)
     }
 

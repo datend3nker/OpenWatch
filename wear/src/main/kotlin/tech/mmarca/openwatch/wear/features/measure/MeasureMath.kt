@@ -28,10 +28,15 @@ internal fun rrIntervalsMillis(beatTimestampsNanos: List<Long>): List<Double> =
  * rules as the night windows ([HrvRmssd]): intervals no heart produces and
  * ectopic ones are judged against their local median, and only neighbouring
  * intervals form a pair, so a removed beat never joins its two sides.
- * Null when fewer than [minCleanBeats] clean intervals remain.
+ * Null with [minCleanBeats] beats or fewer, or when the night windows'
+ * minimum of clean pairs ([HrvRmssd.MIN_CLEAN_PAIRS]) is not met.
  */
-internal fun rmssd(beatTimestampsNanos: List<Long>, minCleanBeats: Int): Double? =
-    HrvRmssd.of(DoubleArray(beatTimestampsNanos.size) { beatTimestampsNanos[it] / 1_000_000.0 }, minCleanBeats)?.rmssdMillis
+internal fun rmssd(beatTimestampsNanos: List<Long>, minCleanBeats: Int): Double? {
+    if (beatTimestampsNanos.size <= minCleanBeats) return null
+    val beats = DoubleArray(beatTimestampsNanos.size) { beatTimestampsNanos[it] / 1_000_000.0 }
+    // The span the beats cover is the window: a spot reading has no gaps to judge beyond its own.
+    return HrvRmssd.of(beats, windowMillis = beats.last() - beats.first())?.rmssdMillis
+}
 
 /**
  * Clean intervals a 3-minute reading needs: the night window's 100 is for five
