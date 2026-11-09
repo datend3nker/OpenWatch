@@ -33,9 +33,9 @@
     <string name="link_requests_channel_name">Anfragen vom Telefon</string>
     <string name="status_samsung_diagnostics_off">Samsung-Diagnose: aus</string>
     <string name="status_samsung_diagnostics_on">Samsung-Diagnose: an · in den Einstellungen ausschalten</string>
-    <string name="settings_heart_rate_every_10_seconds">Puls: alle 10 s</string>
-    <string name="settings_heart_rate_power_save">Puls: Sparmodus</string>
-    <string name="settings_heart_rate_power_save_note">Etwa alle 10 Minuten außerhalb des Schlafenszeitmodus. Schlaf ohne Schlafenszeitmodus wird dann aus wenigen Werten erkannt.</string>
+    <string name="settings_heart_rate_every_10_seconds">Stromsparen: aus</string>
+    <string name="settings_heart_rate_power_save">Stromsparen: an</string>
+    <string name="settings_heart_rate_power_save_note">Puls tagsüber etwa alle 10 Minuten; nachts weckt die Uhr seltener, solange du still liegst, und behält dann nur einen Teil der Bewegung. Aus geht nichts verloren.</string>
     <string name="settings_sleep_hold_wake_lock">Schlaf: Wake Lock</string>
     <string name="settings_sleep_hold_synced">Schlaf: gebündeltes Aufwecken</string>
     <string name="settings_heart_rate_source_sensor">Puls: Sensor</string>

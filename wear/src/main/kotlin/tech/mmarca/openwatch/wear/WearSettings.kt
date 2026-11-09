@@ -6,8 +6,9 @@ import tech.mmarca.openwatch.wearlink.HeartRateInterval
 /**
  * The choices made on the watch's status screen, kept on the watch.
  *
- * - [heartRateDay]: how often the heart rate is measured outside bedtime
- *   mode, every 10 seconds (the default, as in OpenVitals) or power save.
+ * - [heartRateDay]: every 10 seconds outside bedtime mode (the default, as
+ *   in OpenVitals) or power save, the one setting that may cost data: the
+ *   heart rate's windows by day and the quiet beat at night ([WakeClock]).
  *   Bedtime mode always measures at the full rate, because the sleep
  *   pipeline reads every sample (`HeartRateSchedule`).
  * - [heartRateSource] and [hrvSource]: the raw Android sensors by default.
