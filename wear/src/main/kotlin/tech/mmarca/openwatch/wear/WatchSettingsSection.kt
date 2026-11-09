@@ -30,7 +30,7 @@ internal fun WatchSettingsSection(context: Context) {
     var day by remember { mutableStateOf(WearSettings.heartRateDay(context)) }
     var heartRateSource by remember { mutableStateOf(WearSettings.heartRateSource(context)) }
     var hrvSource by remember { mutableStateOf(WearSettings.hrvSource(context)) }
-    var synced by remember { mutableStateOf(WearSettings.syncedSleepHold(context)) }
+    var hold by remember { mutableStateOf(WearSettings.sleepHold(context)) }
     var skin by remember { mutableStateOf(WearSettings.skinTemperature(context)) }
     var spo2 by remember { mutableStateOf(WearSettings.spo2AtNight(context)) }
 
@@ -41,9 +41,15 @@ internal fun WatchSettingsSection(context: Context) {
         WearAppService.settingsChanged(context)
     }
     if (powerSave) Line(stringResource(R.string.settings_heart_rate_power_save_note))
-    Toggle(stringResource(if (synced) R.string.settings_sleep_hold_synced else R.string.settings_sleep_hold_wake_lock)) {
-        synced = !synced
-        WearSettings.setSyncedSleepHold(context, synced)
+    val holdLabel = when (hold) {
+        WearSettings.SleepHoldMode.LOCK -> R.string.settings_sleep_hold_wake_lock
+        WearSettings.SleepHoldMode.SYNCED -> R.string.settings_sleep_hold_synced
+        WearSettings.SleepHoldMode.QUIET -> R.string.settings_sleep_hold_quiet
+    }
+    // Cycles lock, synced, quiet: the three are measured against each other.
+    Toggle(stringResource(holdLabel)) {
+        hold = WearSettings.SleepHoldMode.entries[(hold.ordinal + 1) % WearSettings.SleepHoldMode.entries.size]
+        WearSettings.setSleepHold(context, hold)
         WearAppService.settingsChanged(context)
     }
     if (!samsung) return

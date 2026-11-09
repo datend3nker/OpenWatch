@@ -77,7 +77,10 @@ def state_of(snap):
     if snap.get("sleepHold"):
         # "lock" is whether the lasting wake lock was really held; older lines only have the setting.
         lock = snap.get("lock", not snap.get("syncedHold"))
-        parts.append("hold lock" if lock else "hold synced")
+        if lock:
+            parts.append("hold lock")
+        else:
+            parts.append("hold quiet" if snap.get("holdMode") == "QUIET" else "hold synced")
     hr = snap.get("hrSec")
     parts.append("hr off" if not hr else ("hr 10s" if hr == 10 else "hr save"))
     if hr:
@@ -115,8 +118,8 @@ def drain(snaps):
 def wakeups(per):
     print("\n## 2. Sensor deliveries per hour (each batch is a processor wake-up for a wake-up sensor)\n")
     keys = ("hr.batches", "wake.cycles", "accel.events", "steps.batches", "baro.batches", "offbody.batches",
-            "hr.alarms", "samsung.deliveries")
-    labels = ("hr", "flushes", "accel/h", "steps", "baro", "offbody", "alarms", "samsung")
+            "clock.beats", "clock.alarms", "clock.motions", "samsung.deliveries")
+    labels = ("hr", "flushes", "accel/h", "steps", "baro", "offbody", "beats", "alarms", "motions", "samsung")
     print(f"{'state':38s} " + " ".join(f"{label:>8s}" for label in labels))
     for key, (hours, _, _, counters) in sorted(per.items(), key=lambda kv: -kv[1][0]):
         if hours < 0.1:
@@ -130,10 +133,11 @@ def power_save(snaps):
     for s in snaps:
         c.update(s.get("c", {}))
     windows = c.get("hr.windows", 0)
-    if not windows and not c.get("hr.alarms"):
+    alarms = c.get("hr.alarms", 0) + c.get("clock.alarms", 0)
+    if not windows and not alarms:
         print("None ran.")
         return
-    print(f"alarms {c.get('hr.alarms', 0)}, windows {windows}, empty windows {c.get('hr.windowsEmpty', 0)}")
+    print(f"alarms {alarms}, windows {windows}, empty windows {c.get('hr.windowsEmpty', 0)}")
     if windows:
         print(f"mean window {c.get('hr.windowMs', 0) / windows / 1000:.1f} s with the sensor on")
     gaps = []
