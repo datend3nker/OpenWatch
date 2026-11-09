@@ -18,7 +18,16 @@ import tech.mmarca.openwatch.wear.DebugProtocol
  * that subscriber's own handler. [subscribe], [unsubscribe] and [flush] may
  * be called from any thread.
  */
-internal class SamsungHeartRateFeed(private val context: Context) {
+internal class SamsungHeartRateFeed private constructor(private val context: Context) {
+
+    companion object {
+        @Volatile
+        private var instance: SamsungHeartRateFeed? = null
+
+        /** The process's one feed: the service's recorders and a spot measurement share the binding. */
+        fun shared(context: Context): SamsungHeartRateFeed =
+            instance ?: synchronized(this) { instance ?: SamsungHeartRateFeed(context.applicationContext).also { instance = it } }
+    }
 
     interface Subscriber {
         fun onPoints(points: List<IbiPoint>)

@@ -111,7 +111,7 @@ class WearAppService : Service() {
         super.onCreate()
         DebugProtocol.init(this)
         store = MetricStore(this)
-        samsungFeed = SamsungHeartRateFeed(this)
+        samsungFeed = SamsungHeartRateFeed.shared(this)
         wakeSync = SensorWakeSync(this)
         clock = WakeClock(this, wakeSync, onBatchLatency = { recorder.setBatchLatency(it) })
         workout = WorkoutRecorder(this, store) {

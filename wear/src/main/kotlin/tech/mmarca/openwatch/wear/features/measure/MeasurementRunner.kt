@@ -1,5 +1,13 @@
 package tech.mmarca.openwatch.wear.features.measure
 
+import tech.mmarca.openwatch.wear.samsung.SamsungIbiSource
+import tech.mmarca.openwatch.wear.samsung.SamsungHeartRateFeed
+import tech.mmarca.openwatch.wear.WearSettings
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.delay
+import kotlin.coroutines.resume
+import android.os.HandlerThread
+import android.os.Handler
 import android.content.Context
 import android.hardware.Sensor
 import android.hardware.SensorEvent
@@ -60,11 +68,42 @@ class MeasurementRunner(private val context: Context) {
     }
 
     private fun hrv(): Flow<MeasureEvent> =
-        if (context.getSystemService(SensorManager::class.java)?.getDefaultSensor(Sensor.TYPE_HEART_BEAT) != null) {
+        if (WearSettings.hrvSource(context) == WearSettings.Source.SAMSUNG_PLATFORM && SamsungHeartRateFeed.shared(context).isAvailable) {
+            samsungHrv()
+        } else if (context.getSystemService(SensorManager::class.java)?.getDefaultSensor(Sensor.TYPE_HEART_BEAT) != null) {
             heartBeatHrv()
         } else {
             rawPpgHrv()
         }
+
+    /**
+     * The HRV source chosen on the watch is the Samsung platform: its own
+     * beat-to-beat intervals for the measurement's span, read and cleaned as
+     * a night window's ([SamsungIbiSource]). The screen is on, so the platform
+     * hands the points over soon after the span ends.
+     */
+    private fun samsungHrv(): Flow<MeasureEvent> = flow {
+        val thread = HandlerThread("SpotHrvSamsung").apply { start() }
+        val handler = Handler(thread.looper)
+        val source = SamsungIbiSource(SamsungHeartRateFeed.shared(context))
+        try {
+            val started = suspendCancellableCoroutine { done ->
+                handler.post { done.resume(source.begin(handler, System.currentTimeMillis())) }
+            }
+            if (!started) throw MeasureException(MeasureError.NOT_SUPPORTED)
+            delay(Measurement.HRV.durationSeconds * 1000L)
+            val end = System.currentTimeMillis()
+            val window = suspendCancellableCoroutine { done ->
+                handler.post { source.finish(end) { done.resume(it) } }
+                done.invokeOnCancellation { handler.post { source.cancel() } }
+            }
+            val result = window.hrv ?: throw MeasureException(MeasureError.NO_SIGNAL)
+            emit(MeasureEvent.Result(result.rmssdMillis))
+        } finally {
+            handler.post { source.cancel() }
+            thread.quitSafely()
+        }
+    }
 
     /** A watch with no single beats: the raw pulse sensor and the accelerometer, as the night windows do. */
     private fun rawPpgHrv(): Flow<MeasureEvent> = flow {
