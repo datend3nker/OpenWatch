@@ -77,4 +77,12 @@ class CapabilityProbeTest {
         assertTrue(MetricTile.SKIN_TEMPERATURE in capabilities.availableMetrics(setOf(MetricTile.SKIN_TEMPERATURE)))
         assertTrue(MetricTile.BLOOD_OXYGEN in capabilities.availableMetrics(setOf(MetricTile.BLOOD_OXYGEN)))
     }
+
+    @Test
+    fun `HRV is offered with single beats or with the raw pulse signal, not with neither`() {
+        val noBeats = everything.copy(heartBeat = false)
+        assertTrue(Measurement.HRV in capabilitiesOf(noBeats.copy(rawPpg = true)).measurements)
+        assertTrue(Measurement.HRV in capabilitiesOf(noBeats.copy(heartBeat = true)).measurements)
+        assertFalse(Measurement.HRV in capabilitiesOf(noBeats).measurements)
+    }
 }

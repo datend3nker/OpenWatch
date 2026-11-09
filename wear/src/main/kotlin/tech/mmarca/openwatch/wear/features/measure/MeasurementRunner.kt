@@ -59,7 +59,23 @@ class MeasurementRunner(private val context: Context) {
         emit(MeasureEvent.Result(value))
     }
 
-    private fun hrv(): Flow<MeasureEvent> = flow {
+    private fun hrv(): Flow<MeasureEvent> =
+        if (context.getSystemService(SensorManager::class.java)?.getDefaultSensor(Sensor.TYPE_HEART_BEAT) != null) {
+            heartBeatHrv()
+        } else {
+            rawPpgHrv()
+        }
+
+    /** A watch with no single beats: the raw pulse sensor and the accelerometer, as the night windows do. */
+    private fun rawPpgHrv(): Flow<MeasureEvent> = flow {
+        val outcome = RawPpgWindow(context).measure(Measurement.HRV.durationSeconds * 1000L)
+            ?: throw MeasureException(MeasureError.NOT_SUPPORTED)
+        if (outcome.moved) throw MeasureException(MeasureError.MOVED)
+        val result = outcome.result ?: throw MeasureException(MeasureError.NO_SIGNAL)
+        emit(MeasureEvent.Result(result.rmssdMillis))
+    }
+
+    private fun heartBeatHrv(): Flow<MeasureEvent> = flow {
         val beats = mutableListOf<Long>()
         withTimeoutOrNull(Measurement.HRV.durationSeconds * 1000L) {
             sensorEvents(Sensor.TYPE_HEART_BEAT).collect { event ->

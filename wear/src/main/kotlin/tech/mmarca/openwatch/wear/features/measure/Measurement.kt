@@ -38,15 +38,18 @@ enum class Measurement(
         durationSeconds = 30,
     ),
 
-    /** RMSSD over a minute of single beats. Only on watches that report each beat. */
+    /**
+     * RMSSD over three minutes: of single beats where the watch reports them, else of the raw pulse
+     * signal. A watch with neither does not offer it.
+     */
     HRV(
         R.string.measure_hrv,
-        R.string.measure_hrv_description,
-        R.string.measure_instruction_still_minute,
+        R.string.measure_hrv_description_minutes,
+        R.string.measure_instruction_still_minutes,
         Icons.Outlined.Insights,
         VitalsColor,
         needsHeartRatePermission = true,
-        durationSeconds = 60,
+        durationSeconds = 180,
     ),
 
     /** The barometer, with the altitude it implies at standard pressure. */
@@ -67,6 +70,7 @@ enum class MeasureError(@param:StringRes val message: Int) {
     PERMISSION_DENIED(R.string.measure_error_permission),
     OFF_BODY(R.string.measure_error_off_body),
     NO_SIGNAL(R.string.measure_error_no_signal),
+    MOVED(R.string.measure_error_moved),
     FAILED(R.string.measure_error_failed),
 }
 
