@@ -94,7 +94,7 @@ fun metricUnitLabel(metric: MetricTile, unitSystem: UnitSystem): Int =
             UnitSystem.METRIC -> R.string.unit_celsius
             UnitSystem.IMPERIAL -> R.string.unit_fahrenheit
         }
-        MetricTile.RESPIRATORY_RATE -> R.string.unit_breaths_per_minute
+        MetricTile.RESPIRATORY_RATE -> R.string.unit_breaths
         MetricTile.HYDRATION -> when (unitSystem) {
             UnitSystem.METRIC -> R.string.unit_ml
             UnitSystem.IMPERIAL -> R.string.unit_fl_oz

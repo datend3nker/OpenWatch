@@ -21,6 +21,7 @@ import tech.mmarca.openwatch.wear.features.metric.MetricDetailScreen
 import tech.mmarca.openwatch.wear.features.quicklog.BloodPressureEntryScreen
 import tech.mmarca.openwatch.wear.features.quicklog.BreatheScreen
 import tech.mmarca.openwatch.wear.features.quicklog.EntryType
+import tech.mmarca.openwatch.wear.features.quicklog.LogValueScreen
 import tech.mmarca.openwatch.wear.features.quicklog.LoggedEntry
 import tech.mmarca.openwatch.wear.features.quicklog.QuickLogScreen
 import tech.mmarca.openwatch.wear.features.quicklog.WaterServingMl
@@ -145,6 +146,7 @@ fun OpenWatchWearApp(
                         onAddWater = { log(EntryType.WATER, WaterServingMl) },
                         onLogWeight = { navController.navigate(WearRoutes.LOG_WEIGHT) },
                         onLogBloodPressure = { navController.navigate(WearRoutes.LOG_BLOOD_PRESSURE) },
+                        onLogValue = { navController.navigate(WearRoutes.logValue(it)) },
                         onBreathe = { navController.navigate(WearRoutes.BREATHE) },
                     )
                 }
@@ -156,6 +158,18 @@ fun OpenWatchWearApp(
                         unitSystem = currentState.preferences.unitSystem,
                         onSave = { kilograms ->
                             log(EntryType.WEIGHT, kilograms)
+                            navController.popBackStack()
+                        },
+                    )
+                }
+                composable(WearRoutes.LOG_VALUE) { entry ->
+                    val type = EntryType.valueOf(checkNotNull(entry.arguments?.getString(WearRoutes.LOG_VALUE_ARG)))
+                    LogValueScreen(
+                        type = type,
+                        initialMetric = currentState.entries.lastOrNull { it.type == type }?.value,
+                        unitSystem = currentState.preferences.unitSystem,
+                        onSave = { metric ->
+                            log(type, metric)
                             navController.popBackStack()
                         },
                     )

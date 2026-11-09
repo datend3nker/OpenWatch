@@ -31,6 +31,21 @@ enum class EntryType {
 
     /** Milliseconds RMSSD from a spot measurement. */
     HRV,
+
+    /** Percent of body mass. */
+    BODY_FAT,
+
+    /** Percent of haemoglobin carrying oxygen. */
+    BLOOD_OXYGEN,
+
+    /** Breaths per minute. */
+    RESPIRATORY_RATE,
+
+    /** Degrees Celsius; shown in Fahrenheit with the imperial units. */
+    BODY_TEMPERATURE,
+
+    /** Millimoles per litre; shown in mg/dL with the imperial units. */
+    BLOOD_GLUCOSE,
 }
 
 data class LoggedEntry(
@@ -92,6 +107,11 @@ internal fun LoggedEntry.toWatchEntry(): WatchEntry = WatchEntry(
         EntryType.MINDFULNESS -> WearLinkDaily.MINDFULNESS
         EntryType.HEART_RATE -> WearLinkDaily.HEART_RATE
         EntryType.HRV -> WearLinkDaily.HRV
+        EntryType.BODY_FAT -> WearLinkDaily.BODY_FAT
+        EntryType.BLOOD_OXYGEN -> WearLinkDaily.BLOOD_OXYGEN
+        EntryType.RESPIRATORY_RATE -> WearLinkDaily.RESPIRATORY_RATE
+        EntryType.BODY_TEMPERATURE -> WearLinkDaily.BODY_TEMPERATURE
+        EntryType.BLOOD_GLUCOSE -> WearLinkDaily.BLOOD_GLUCOSE
     },
     value = value,
     value2 = value2,

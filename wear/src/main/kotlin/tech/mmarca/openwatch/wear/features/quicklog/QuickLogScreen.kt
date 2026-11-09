@@ -71,6 +71,7 @@ fun QuickLogScreen(
     onAddWater: () -> Unit,
     onLogWeight: () -> Unit,
     onLogBloodPressure: () -> Unit,
+    onLogValue: (EntryType) -> Unit,
     onBreathe: () -> Unit,
 ) {
     val listState = rememberTransformingLazyColumnState()
@@ -140,6 +141,18 @@ fun QuickLogScreen(
                     transformation = SurfaceTransformation(transformationSpec),
                 )
             }
+            // The one-number entries, in the order the phone lists them.
+            items(LogValueButtons) { (type, spec) ->
+                QuickLogButton(
+                    label = stringResource(spec.label),
+                    secondary = state.entries.lastOrNull { it.type == type }?.let { formatEntry(it, unitSystem) } ?: notLogged,
+                    icon = type.icon,
+                    color = type.color,
+                    onClick = { onLogValue(type) },
+                    modifier = Modifier.transformedHeight(this, transformationSpec),
+                    transformation = SurfaceTransformation(transformationSpec),
+                )
+            }
             item {
                 QuickLogButton(
                     label = stringResource(R.string.breathe_title),
@@ -165,6 +178,8 @@ fun QuickLogScreen(
         curvedText = null,
     )
 }
+
+private val LogValueButtons: List<Pair<EntryType, LogValueSpec>> = LogValueSpecs.toList()
 
 @Composable
 private fun QuickLogButton(
@@ -217,7 +232,7 @@ private fun RecentEntryRow(entry: LoggedEntry, unitSystem: UnitSystem) {
 private fun QuickLogScreenPreview() {
     OpenWatchWearTheme {
         AppScaffold {
-            QuickLogScreen(SampleData.uiState, {}, {}, {}, {})
+            QuickLogScreen(SampleData.uiState, {}, {}, {}, {}, {})
         }
     }
 }

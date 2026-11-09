@@ -20,6 +20,9 @@ object WearRoutes {
     const val QUICK_LOG = "quick_log"
     const val LOG_WEIGHT = "log_weight"
     const val LOG_BLOOD_PRESSURE = "log_blood_pressure"
+    const val LOG_VALUE_ARG = "type"
+    const val LOG_VALUE = "log_value/{$LOG_VALUE_ARG}"
+    fun logValue(type: tech.mmarca.openwatch.wear.features.quicklog.EntryType) = "log_value/${type.name}"
     const val BREATHE = "breathe"
 
     /** Routes an outside caller, such as a tile, may open. Anything else is ignored. */

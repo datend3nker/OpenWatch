@@ -255,6 +255,11 @@
     <string name="metric_respiratory_rate">Atemfrequenz</string>
     <string name="unit_celsius">°C</string>
     <string name="unit_fahrenheit">°F</string>
-    <string name="unit_breaths_per_minute">Atemzüge/min</string>
     <string name="measure_error_moved">Zu viel Bewegung. Arm ablegen und erneut versuchen.</string>
+    <string name="metric_body_fat">Körperfett</string>
+    <string name="metric_body_temperature">Körpertemperatur</string>
+    <string name="metric_blood_glucose">Blutzucker</string>
+    <string name="unit_breaths">Atemzüge/min</string>
+    <string name="unit_mmol_l">mmol/L</string>
+    <string name="unit_mg_dl">mg/dL</string>
 </resources>

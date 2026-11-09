@@ -39,7 +39,15 @@ object WearLinkDaily {
     const val MINDFULNESS = "mindful"
     const val HEART_RATE = "hr"
     const val HRV = "hrv"
-    val ENTRY_TYPES: Set<String> = setOf(WATER, WEIGHT, BLOOD_PRESSURE, MINDFULNESS, HEART_RATE, HRV)
+    const val BODY_FAT = "bodyfat"
+    const val BLOOD_OXYGEN = "spo2"
+    const val RESPIRATORY_RATE = "breath"
+    const val BODY_TEMPERATURE = "temp"
+    const val BLOOD_GLUCOSE = "glucose"
+    val ENTRY_TYPES: Set<String> = setOf(
+        WATER, WEIGHT, BLOOD_PRESSURE, MINDFULNESS, HEART_RATE, HRV,
+        BODY_FAT, BLOOD_OXYGEN, RESPIRATORY_RATE, BODY_TEMPERATURE, BLOOD_GLUCOSE,
+    )
 
     private const val NO_VALUE = "-"
     private const val MINUTES_PER_DAY = 24 * 60
