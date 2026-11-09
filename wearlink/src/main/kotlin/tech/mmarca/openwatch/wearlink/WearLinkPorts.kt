@@ -69,7 +69,7 @@ interface WearLinkRequestHandler {
      */
     fun workoutsSince(sinceEpochMillis: Long, limit: Int): Page<WearLinkWorkout>
 
-    /** Every setting the watch holds, by key ([WearLinkProtocol.Preferences]). Only called when the watch advertised [WearLinkProtocol.CAP_PREFERENCES]. */
+    /** Every setting the watch holds, by key ([WearLinkPreferences]). Only called when the watch advertised [WearLinkProtocol.CAP_PREFERENCES]. */
     fun heldPreferences(): Map<String, String>
 
     /** Applies a setting the phone pushed. False for a key or value the watch does not take, which the phone sees as `ERROR bad_request`. */

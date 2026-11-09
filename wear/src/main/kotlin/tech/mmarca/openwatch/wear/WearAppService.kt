@@ -147,7 +147,7 @@ class WearAppService : Service() {
             onSourceChanged = { mainHandler.post { reconcileRecorders() } },
             onSample = { at, bpm ->
                 minuteRecorder.noteHeartRate(at, bpm)
-                if (workout.isActive) workout.noteHeartRate(at, bpm)
+                if (workout.isActive || workout.isRecovering) workout.noteHeartRate(at, bpm)
             },
             onContact = minuteRecorder::noteHeartRateContact,
         )
@@ -233,7 +233,7 @@ class WearAppService : Service() {
             }
             ACTION_WORKOUT_PAUSE -> { workout.pause(); return START_STICKY }
             ACTION_WORKOUT_RESUME -> { workout.resume(); return START_STICKY }
-            ACTION_WORKOUT_STOP -> { workout.stop(); return START_STICKY }
+            ACTION_WORKOUT_STOP -> { workout.stop(intent.getBooleanExtra(EXTRA_RECOVERY, false)); return START_STICKY }
             ACTION_SETTINGS_CHANGED -> {
                 recorder.resetFallBack()
                 nightHrv.resetFallBack()
@@ -390,7 +390,7 @@ class WearAppService : Service() {
             !heartRateWanted -> Log.i(TAG, "Heart rate resting: not worn")
         }
         val day = WearSettings.heartRateDay(this)
-        val active = ::workout.isInitialized && workout.isActive
+        val active = ::workout.isInitialized && (workout.isActive || workout.isRecovering)
         val wanted = if (granted && (heartRateWanted || active)) {
             HeartRateSchedule.interval(
                 heartRate = true,
@@ -562,6 +562,7 @@ class WearAppService : Service() {
         private const val ACTION_WORKOUT_STOP = "tech.mmarca.openwatch.wear.WORKOUT_STOP"
         private const val EXTRA_SPORT = "sport"
         private const val EXTRA_GPS = "gps"
+        private const val EXTRA_RECOVERY = "recovery"
 
         /** Starts a workout; [gps] only takes effect with the location grant. Called from the foreground app. */
         fun startWorkout(context: Context, sport: WorkoutSport, gps: Boolean) =
@@ -571,7 +572,9 @@ class WearAppService : Service() {
 
         fun resumeWorkout(context: Context) = sendWorkout(context, Intent(context, WearAppService::class.java).setAction(ACTION_WORKOUT_RESUME))
 
-        fun stopWorkout(context: Context) = sendWorkout(context, Intent(context, WearAppService::class.java).setAction(ACTION_WORKOUT_STOP))
+        /** Ends the workout; with [measureRecovery] the heart rate stays live for the recovery's two minutes. */
+        fun stopWorkout(context: Context, measureRecovery: Boolean = false) =
+            sendWorkout(context, Intent(context, WearAppService::class.java).setAction(ACTION_WORKOUT_STOP).putExtra(EXTRA_RECOVERY, measureRecovery))
 
         private fun sendWorkout(context: Context, intent: Intent) {
             runCatching { context.startForegroundService(intent) }

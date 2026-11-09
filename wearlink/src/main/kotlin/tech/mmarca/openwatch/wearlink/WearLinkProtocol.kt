@@ -44,7 +44,7 @@ import java.util.UUID
  * - `GET_PREF` → one `PREF <key> <value>` line per setting the watch holds,
  *   then `END <count> 0`. Only a watch announcing `pref` serves it.
  * - `SET_PREF <key> <value>` → `PREF_OK`, or `ERROR bad_request` for a key or
- *   value the watch does not take ([Preferences]).
+ *   value the watch does not take ([WearLinkPreferences]).
  * - `WO_SINCE <epochMillis> <limit>` → up to `limit` workouts, oldest first, each
  *   started after `epochMillis` (exclusive): its `WO` header, then its `WP`
  *   pauses and `WR` route points (see [WearLinkWorkout]), then one `END
@@ -177,51 +177,6 @@ object WearLinkProtocol {
     /** The watch takes `GET_PREF` and `SET_PREF`: the phone can show and change its settings. */
     const val CAP_PREFERENCES: String = "pref"
 
-    /**
-     * The settings the phone may read with `GET_PREF` and change with
-     * `SET_PREF`: the watch's own ([WearSettings] on the watch). Opaque
-     * tokens on the wire; the watch refuses an unknown key or value. The
-     * read-only keys say what the watch can offer.
-     */
-    object Preferences {
-        /** The heart rate outside bedtime mode. Values are `HeartRateInterval.wire` (`10`, `600`). */
-        const val HEART_RATE_DAY: String = "hr_day"
-
-        /** Where the heart rate comes from. [SENSOR] / [SAMSUNG]. */
-        const val HEART_RATE_SOURCE: String = "hr_source"
-
-        /** Where the night HRV windows' beats come from. [SENSOR] / [SAMSUNG]. */
-        const val HRV_SOURCE: String = "hrv_source"
-
-        /** How a sleep hold keeps the minutes whole. [LOCK] / [SYNCED]. */
-        const val SLEEP_HOLD: String = "sleep_hold"
-
-        /** Skin temperature at night from the Samsung platform. [OFF] / [ON]. */
-        const val SKIN_TEMPERATURE: String = "skin"
-
-        /** SpO2 spot measurements at night from the Samsung platform. [OFF] / [ON]. */
-        const val SPO2: String = "spo2"
-
-        /** The zones' maximum and resting heart rate from the profile, whole bpm; `0` for none. */
-        const val HEART_RATE_MAX: String = "hr_max"
-        const val HEART_RATE_REST: String = "hr_rest"
-
-        /** Read only: whether the watch has the Samsung Health Platform. [OFF] / [ON]. */
-        const val SAMSUNG_AVAILABLE: String = "samsung"
-
-        /** Read only: whether the watch holds the permission its skin temperature needs. [OFF] / [ON]. */
-        const val SKIN_GRANTED: String = "skin_granted"
-
-        /** Read only: whether the watch holds the permission its SpO2 needs. [OFF] / [ON]. */
-        const val SPO2_GRANTED: String = "spo2_granted"
-
-        const val SENSOR: String = "sensor"
-        const val SAMSUNG: String = "samsung"
-        const val LOCK: String = "lock"
-        const val SYNCED: String = "synced"
-        const val OFF: String = "0"
-        const val ON: String = "1"
-    }
     const val NO_CAPABILITIES: String = "-"
 
     /** The phone's opening line. */

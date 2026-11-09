@@ -286,7 +286,7 @@ interface WearOsNodePort {
     ): WearOsSkinPage?
 
     /**
-     * The watch's own settings (`WearLinkProtocol.Preferences`). Null when
+     * The watch's own settings (`WearLinkPreferences`). Null when
      * no bonded watch matches or the watch app is too old to serve them. Any
      * other failure throws [WearOsLinkFailure].
      */
