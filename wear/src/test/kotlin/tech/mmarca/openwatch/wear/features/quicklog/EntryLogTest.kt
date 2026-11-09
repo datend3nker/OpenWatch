@@ -25,6 +25,35 @@ class EntryLogTest {
     }
 
     @Test
+    fun encodeThenDecode_keepsTheMeasuredFlag() {
+        val entries = listOf(
+            LoggedEntry(EntryType.HEART_RATE, 1L, 64.0, measured = true),
+            LoggedEntry(EntryType.HEART_RATE, 2L, 70.0, measured = false),
+            LoggedEntry(EntryType.WEIGHT, 3L, 72.5, measured = true),
+        )
+        assertEquals(entries, decodeEntries(encodeEntries(entries)))
+    }
+
+    @Test
+    fun decode_linesWithoutFlag_guessFromTheType() {
+        val decoded = decodeEntries("HEART_RATE;1;64.0\nHRV;2;50.0;\nWEIGHT;3;72.5\nBLOOD_PRESSURE;4;120.0;80.0")
+        assertEquals(listOf(true, true, false, false), decoded.map { it.measured })
+        assertEquals(80.0, decoded[3].value2)
+    }
+
+    @Test
+    fun decode_emptyValue2WithFlag_isNull() {
+        assertNull(decodeEntries("WATER;1;250.0;;h").single().value2)
+    }
+
+    @Test
+    fun isManual_isFalseOnlyForMeasuredEntries() {
+        assertEquals(true, isManual(LoggedEntry(EntryType.WATER, 1L, 250.0)))
+        assertEquals(true, isManual(LoggedEntry(EntryType.HEART_RATE, 1L, 64.0)))
+        assertEquals(false, isManual(LoggedEntry(EntryType.HEART_RATE, 1L, 64.0, measured = true)))
+    }
+
+    @Test
     fun decode_dropsBrokenAndUnknownLines() {
         val raw = "WATER;1;250.0\nGHOST;2;1.0\nWEIGHT;x;70.0\nWEIGHT;3\nWEIGHT;4;72.5"
         assertEquals(

@@ -44,9 +44,10 @@ object WearLinkDaily {
     const val RESPIRATORY_RATE = "breath"
     const val BODY_TEMPERATURE = "temp"
     const val BLOOD_GLUCOSE = "glucose"
+    const val HEIGHT = "height"
     val ENTRY_TYPES: Set<String> = setOf(
         WATER, WEIGHT, BLOOD_PRESSURE, MINDFULNESS, HEART_RATE, HRV,
-        BODY_FAT, BLOOD_OXYGEN, RESPIRATORY_RATE, BODY_TEMPERATURE, BLOOD_GLUCOSE,
+        BODY_FAT, BLOOD_OXYGEN, RESPIRATORY_RATE, BODY_TEMPERATURE, BLOOD_GLUCOSE, HEIGHT,
     )
 
     private const val NO_VALUE = "-"

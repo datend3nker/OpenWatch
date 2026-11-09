@@ -10,6 +10,7 @@ import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material.icons.outlined.MonitorWeight
 import androidx.compose.material.icons.outlined.SelfImprovement
 import androidx.compose.material.icons.outlined.Speed
+import androidx.compose.material.icons.outlined.Straighten
 import androidx.compose.material.icons.outlined.WaterDrop
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
@@ -42,6 +43,7 @@ val EntryType.icon: ImageVector
         EntryType.RESPIRATORY_RATE -> Icons.Outlined.Air
         EntryType.BODY_TEMPERATURE -> Icons.Outlined.Thermostat
         EntryType.BLOOD_GLUCOSE -> Icons.Outlined.Opacity
+        EntryType.HEIGHT -> Icons.Outlined.Straighten
     }
 
 val EntryType.color: Color
@@ -57,6 +59,7 @@ val EntryType.color: Color
         EntryType.RESPIRATORY_RATE -> VitalsColor
         EntryType.BODY_TEMPERATURE -> ActiveCaloriesColor
         EntryType.BLOOD_GLUCOSE -> ActiveCaloriesColor
+        EntryType.HEIGHT -> WeightColor
     }
 
 /** The entry's value with its unit, e.g. "72.4 kg" or "121/79 mmHg". */
@@ -77,6 +80,7 @@ fun formatEntry(entry: LoggedEntry, unitSystem: UnitSystem): String = when (entr
     EntryType.RESPIRATORY_RATE,
     EntryType.BODY_TEMPERATURE,
     EntryType.BLOOD_GLUCOSE,
+    EntryType.HEIGHT,
     -> LogValueSpecs.getValue(entry.type).let { spec ->
         val display = spec.toDisplay(entry.value, imperial = unitSystem == UnitSystem.IMPERIAL)
         "${spec.format(display)} ${stringResource(spec.unit(unitSystem))}"

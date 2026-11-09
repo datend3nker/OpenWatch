@@ -7,6 +7,7 @@ import androidx.health.connect.client.records.BodyFatRecord
 import androidx.health.connect.client.records.BodyTemperatureRecord
 import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.HeartRateVariabilityRmssdRecord
+import androidx.health.connect.client.records.HeightRecord
 import androidx.health.connect.client.records.HydrationRecord
 import androidx.health.connect.client.records.MindfulnessSessionRecord
 import androidx.health.connect.client.records.OxygenSaturationRecord
@@ -16,6 +17,7 @@ import androidx.health.connect.client.records.WeightRecord
 import androidx.health.connect.client.records.metadata.Device
 import androidx.health.connect.client.records.metadata.Metadata
 import androidx.health.connect.client.units.BloodGlucose
+import androidx.health.connect.client.units.Length
 import androidx.health.connect.client.units.Mass
 import androidx.health.connect.client.units.Percentage
 import androidx.health.connect.client.units.Pressure
@@ -29,7 +31,7 @@ import tech.mmarca.openwatch.wearlink.WearLinkDaily
 /**
  * Maps the entries made on the watch (quick logs and spot measurements) to
  * Health Connect: water, weight, blood pressure, body fat, blood oxygen,
- * breathing rate, body temperature, blood glucose, a breathing session, and
+ * breathing rate, body temperature, blood glucose, height, a breathing session, and
  * a spot heart rate or HRV, each keyed `wearos_entry_<type>_<millis>`, so a
  * re-pull is the same record. A logged value is a manual entry, a spot
  * measurement an actively recorded one.
@@ -53,6 +55,7 @@ object WearOsEntryImport {
         WearLinkDaily.RESPIRATORY_RATE to HealthPermission.getWritePermission(RespiratoryRateRecord::class),
         WearLinkDaily.BODY_TEMPERATURE to HealthPermission.getWritePermission(BodyTemperatureRecord::class),
         WearLinkDaily.BLOOD_GLUCOSE to HealthPermission.getWritePermission(BloodGlucoseRecord::class),
+        WearLinkDaily.HEIGHT to HealthPermission.getWritePermission(HeightRecord::class),
     )
 
     /** The record of [entry], or null when Health Connect would refuse the value. */
@@ -98,6 +101,7 @@ object WearOsEntryImport {
             WearLinkDaily.BLOOD_GLUCOSE -> BloodGlucoseRecord(
                 time = at, zoneOffset = offset, level = BloodGlucose.millimolesPerLiter(entry.value), metadata = manual(id),
             )
+            WearLinkDaily.HEIGHT -> HeightRecord(time = at, zoneOffset = offset, height = Length.meters(entry.value / CM_PER_METRE), metadata = manual(id))
             else -> null
         }
     } catch (_: IllegalArgumentException) {
@@ -111,4 +115,5 @@ object WearOsEntryImport {
     private fun measured(id: String) = Metadata.activelyRecorded(device = Device(type = Device.TYPE_WATCH), clientRecordId = id)
 
     private const val SECONDS_PER_MINUTE = 60
+    private const val CM_PER_METRE = 100.0
 }

@@ -23,6 +23,8 @@ import tech.mmarca.openwatch.wear.features.quicklog.BreatheScreen
 import tech.mmarca.openwatch.wear.features.quicklog.EntryType
 import tech.mmarca.openwatch.wear.features.quicklog.LogValueScreen
 import tech.mmarca.openwatch.wear.features.quicklog.LoggedEntry
+import tech.mmarca.openwatch.wear.features.quicklog.QuickLogEditorScreen
+import tech.mmarca.openwatch.wear.features.quicklog.QuickLogItem
 import tech.mmarca.openwatch.wear.features.quicklog.QuickLogScreen
 import tech.mmarca.openwatch.wear.features.quicklog.WaterServingMl
 import tech.mmarca.openwatch.wear.features.quicklog.WeightEntryScreen
@@ -66,6 +68,12 @@ fun OpenWatchWearApp(
             fun updateTiles(updated: List<MetricTile>) {
                 chosenTiles = updated
                 tilePrefs.saveTiles(updated)
+            }
+            val quickLogPrefs = remember(context) { WearQuickLogPreferences(context) }
+            var chosenQuickLog by remember { mutableStateOf(quickLogPrefs.loadItems()) }
+            fun updateQuickLog(updated: List<QuickLogItem>) {
+                chosenQuickLog = updated
+                quickLogPrefs.saveItems(updated)
             }
             // A chosen tile whose sensor is missing stays chosen but is not shown.
             fun visibleTiles() = chosenTiles.filter { it in currentState.availableMetrics }
@@ -148,6 +156,18 @@ fun OpenWatchWearApp(
                         onLogBloodPressure = { navController.navigate(WearRoutes.LOG_BLOOD_PRESSURE) },
                         onLogValue = { navController.navigate(WearRoutes.logValue(it)) },
                         onBreathe = { navController.navigate(WearRoutes.BREATHE) },
+                        chosen = chosenQuickLog,
+                        onEditItems = { navController.navigate(WearRoutes.QUICK_LOG_EDITOR) },
+                    )
+                }
+                composable(WearRoutes.QUICK_LOG_EDITOR) {
+                    QuickLogEditorScreen(
+                        items = chosenQuickLog,
+                        onToggle = { item, checked ->
+                            updateQuickLog(if (checked) chosenQuickLog + item else chosenQuickLog - item)
+                        },
+                        onMove = { moved, target -> updateQuickLog(chosenQuickLog.withItemMoved(moved, target)) },
+                        onReset = { chosenQuickLog = quickLogPrefs.resetItems() },
                     )
                 }
                 composable(WearRoutes.LOG_WEIGHT) {

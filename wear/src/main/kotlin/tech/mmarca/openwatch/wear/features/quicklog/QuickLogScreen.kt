@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.MonitorWeight
 import androidx.compose.material.icons.outlined.SelfImprovement
 import androidx.compose.material.icons.outlined.Speed
@@ -23,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.foundation.lazy.TransformingLazyColumn
 import androidx.wear.compose.foundation.lazy.items
@@ -63,7 +65,8 @@ private const val RecentEntries = 6
 /**
  * Fast entries, the watch side of the phone's manual entry: one tap for a
  * glass of water, a stepper for weight and blood pressure, a guided breath.
- * The latest entries are listed underneath so a mistake is easy to spot.
+ * The latest entries made by hand are listed underneath so a mistake is easy
+ * to spot. [chosen] is which entries show, in order; the last button edits it.
  */
 @Composable
 fun QuickLogScreen(
@@ -73,6 +76,8 @@ fun QuickLogScreen(
     onLogBloodPressure: () -> Unit,
     onLogValue: (EntryType) -> Unit,
     onBreathe: () -> Unit,
+    chosen: List<QuickLogItem> = QuickLogItem.Defaults,
+    onEditItems: () -> Unit = {},
 ) {
     val listState = rememberTransformingLazyColumnState()
     val transformationSpec = rememberTransformationSpec()
@@ -96,78 +101,103 @@ fun QuickLogScreen(
                     Text(stringResource(R.string.quicklog_title))
                 }
             }
-            item {
-                QuickLogButton(
-                    label = stringResource(
-                        R.string.quicklog_add_water,
-                        formatMetricValue(MetricTile.HYDRATION, WaterServingMl, unitSystem),
-                        waterUnit,
-                    ),
-                    secondary = stringResource(
-                        R.string.quicklog_water_today,
-                        formatMetricValue(MetricTile.HYDRATION, waterToday, unitSystem),
-                        formatMetricValue(MetricTile.HYDRATION, state.preferences.waterGoalMl.toDouble(), unitSystem),
-                        waterUnit,
-                    ),
-                    icon = Icons.Outlined.WaterDrop,
-                    color = HydrationColor,
-                    onClick = {
-                        onAddWater()
-                        showSaved = true
-                    },
-                    modifier = Modifier.transformedHeight(this, transformationSpec),
-                    transformation = SurfaceTransformation(transformationSpec),
-                )
+            if (chosen.isEmpty()) {
+                item {
+                    Text(
+                        text = stringResource(R.string.quicklog_none_chosen),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
+                }
             }
-            item {
-                QuickLogButton(
-                    label = stringResource(R.string.metric_weight),
-                    secondary = lastWeight?.let { formatEntry(it, unitSystem) } ?: notLogged,
-                    icon = Icons.Outlined.MonitorWeight,
-                    color = WeightColor,
-                    onClick = onLogWeight,
-                    modifier = Modifier.transformedHeight(this, transformationSpec),
-                    transformation = SurfaceTransformation(transformationSpec),
-                )
+            // The user's choice and order; all items in the old order until they edit it.
+            items(chosen, key = { it.name }) { entry ->
+                val modifier = Modifier.transformedHeight(this, transformationSpec)
+                val transformation = SurfaceTransformation(transformationSpec)
+                when (entry) {
+                    QuickLogItem.WATER -> QuickLogButton(
+                        label = stringResource(
+                            R.string.quicklog_add_water,
+                            formatMetricValue(MetricTile.HYDRATION, WaterServingMl, unitSystem),
+                            waterUnit,
+                        ),
+                        secondary = stringResource(
+                            R.string.quicklog_water_today,
+                            formatMetricValue(MetricTile.HYDRATION, waterToday, unitSystem),
+                            formatMetricValue(MetricTile.HYDRATION, state.preferences.waterGoalMl.toDouble(), unitSystem),
+                            waterUnit,
+                        ),
+                        icon = Icons.Outlined.WaterDrop,
+                        color = HydrationColor,
+                        onClick = {
+                            onAddWater()
+                            showSaved = true
+                        },
+                        modifier = modifier,
+                        transformation = transformation,
+                    )
+                    QuickLogItem.WEIGHT -> QuickLogButton(
+                        label = stringResource(R.string.metric_weight),
+                        secondary = lastWeight?.let { formatEntry(it, unitSystem) } ?: notLogged,
+                        icon = Icons.Outlined.MonitorWeight,
+                        color = WeightColor,
+                        onClick = onLogWeight,
+                        modifier = modifier,
+                        transformation = transformation,
+                    )
+                    QuickLogItem.BLOOD_PRESSURE -> QuickLogButton(
+                        label = stringResource(R.string.quicklog_blood_pressure),
+                        secondary = lastPressure?.let { formatEntry(it, unitSystem) } ?: notLogged,
+                        icon = Icons.Outlined.Speed,
+                        color = VitalsColor,
+                        onClick = onLogBloodPressure,
+                        modifier = modifier,
+                        transformation = transformation,
+                    )
+                    QuickLogItem.BREATHE -> QuickLogButton(
+                        label = stringResource(R.string.breathe_title),
+                        secondary = stringResource(R.string.breathe_description),
+                        icon = Icons.Outlined.SelfImprovement,
+                        color = MindfulnessColor,
+                        onClick = onBreathe,
+                        modifier = modifier,
+                        transformation = transformation,
+                    )
+                    // The one-number entries.
+                    else -> {
+                        val type = entry.entryType
+                        QuickLogButton(
+                            label = stringResource(entry.label),
+                            secondary = state.entries.lastOrNull { it.type == type }?.let { formatEntry(it, unitSystem) } ?: notLogged,
+                            icon = type.icon,
+                            color = type.color,
+                            onClick = { onLogValue(type) },
+                            modifier = modifier,
+                            transformation = transformation,
+                        )
+                    }
+                }
             }
-            item {
-                QuickLogButton(
-                    label = stringResource(R.string.quicklog_blood_pressure),
-                    secondary = lastPressure?.let { formatEntry(it, unitSystem) } ?: notLogged,
-                    icon = Icons.Outlined.Speed,
-                    color = VitalsColor,
-                    onClick = onLogBloodPressure,
-                    modifier = Modifier.transformedHeight(this, transformationSpec),
-                    transformation = SurfaceTransformation(transformationSpec),
-                )
-            }
-            // The one-number entries, in the order the phone lists them.
-            items(LogValueButtons) { (type, spec) ->
-                QuickLogButton(
-                    label = stringResource(spec.label),
-                    secondary = state.entries.lastOrNull { it.type == type }?.let { formatEntry(it, unitSystem) } ?: notLogged,
-                    icon = type.icon,
-                    color = type.color,
-                    onClick = { onLogValue(type) },
-                    modifier = Modifier.transformedHeight(this, transformationSpec),
-                    transformation = SurfaceTransformation(transformationSpec),
-                )
-            }
-            item {
-                QuickLogButton(
-                    label = stringResource(R.string.breathe_title),
-                    secondary = stringResource(R.string.breathe_description),
-                    icon = Icons.Outlined.SelfImprovement,
-                    color = MindfulnessColor,
-                    onClick = onBreathe,
-                    modifier = Modifier.transformedHeight(this, transformationSpec),
-                    transformation = SurfaceTransformation(transformationSpec),
-                )
-            }
-            val recent = state.entries.takeLast(RecentEntries).asReversed()
+            val recent = state.entries.filter(::isManual).takeLast(RecentEntries).asReversed()
             if (recent.isNotEmpty()) {
                 item { ListSubHeader { Text(stringResource(R.string.quicklog_recent)) } }
                 items(recent) { entry -> RecentEntryRow(entry, unitSystem) }
+            }
+            item {
+                Button(
+                    onClick = onEditItems,
+                    label = { Text(stringResource(R.string.quicklog_edit)) },
+                    icon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
+                    colors = ButtonDefaults.outlinedButtonColors(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .transformedHeight(this, transformationSpec),
+                    transformation = SurfaceTransformation(transformationSpec),
+                )
             }
         }
     }
@@ -178,8 +208,6 @@ fun QuickLogScreen(
         curvedText = null,
     )
 }
-
-private val LogValueButtons: List<Pair<EntryType, LogValueSpec>> = LogValueSpecs.toList()
 
 @Composable
 private fun QuickLogButton(

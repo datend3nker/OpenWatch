@@ -122,7 +122,7 @@ class MeasureViewModel(
                     onEnd = { Haptics.play(application, hapticCueFor(it)) },
                     onResult = { measured, value ->
                         measured.entryType?.let { type ->
-                            entryLog.add(LoggedEntry(type, System.currentTimeMillis(), value))
+                            entryLog.add(LoggedEntry(type, System.currentTimeMillis(), value, measured = true))
                         }
                     },
                 )
