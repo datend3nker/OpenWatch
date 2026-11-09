@@ -2,16 +2,20 @@ package tech.mmarca.openwatch.devices.wearos
 
 import androidx.health.connect.client.records.RestingHeartRateRecord
 import androidx.health.connect.client.records.SleepSessionRecord
+import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
 import kotlinx.coroutines.CancellationException
 import tech.mmarca.openwatch.data.repository.ImportedRecordRepository
 import tech.mmarca.openwatch.data.repository.RecordWrite
 import tech.mmarca.openwatch.data.repository.insertWithOutcomes
+import tech.mmarca.openwatch.domain.insights.HeartRateZoneBasis
 import tech.mmarca.openwatch.domain.model.BleSensorDevice
+import tech.mmarca.openwatch.domain.preferences.BodyProfile
 import tech.mmarca.openwatch.healthconnect.HealthConnectGateway
 import tech.mmarca.openwatch.core.presentation.isPermissionFailure
 import tech.mmarca.openwatch.wearlink.WearLinkDaily
+import tech.mmarca.openwatch.wearlink.WearLinkProtocol.Preferences
 
 /**
  * The watch app's own screens, both ways: the entries made on the watch
@@ -28,6 +32,8 @@ internal class WearOsDayLinkSync(
     private val nodePort: WearOsNodePort,
     private val clock: () -> Instant,
     private val zone: () -> ZoneId,
+    /** The body profile, which OpenLink shares with OpenVitals: the zones' maximum and resting heart rate. */
+    private val profile: suspend () -> BodyProfile = { BodyProfile() },
 ) {
 
     /** Null when no bonded watch matches. A link failure throws. */
@@ -102,10 +108,36 @@ internal class WearOsDayLinkSync(
         }
         val pushed = retry.run { nodePort.pushDays(device.address, device.bluetoothName, summaries) }
         WearOsLog.log("days: ${if (pushed) summaries.size else 0} sent")
+        pushZones(device, retry, summaries.lastOrNull { it.restingBpm != null }?.restingBpm)
+    }
+
+    /**
+     * The zones' maximum and resting heart rate ([HeartRateZoneBasis]) as the
+     * watch's settings; `0` clears one the profile no longer gives. Never
+     * fails the sync.
+     */
+    private suspend fun pushZones(device: BleSensorDevice, retry: WearOsNightSeriesSync.Retry, nightResting: Int?) {
+        val basis = try {
+            val now = clock()
+            val observed = healthConnect.readMaxHeartRate(now.minus(OBSERVED_MAX_SPAN), now)?.toInt()
+            HeartRateZoneBasis.of(profile(), now.atZone(zone()).toLocalDate(), observed, nightResting)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            WearOsLog.log("zones: not read: ${error.javaClass.simpleName}")
+            return
+        }
+        for ((key, bpm) in listOf(Preferences.HEART_RATE_MAX to basis.maxBpm, Preferences.HEART_RATE_REST to basis.restingBpm)) {
+            retry.run { nodePort.setWatchSetting(device.address, device.bluetoothName, key, (bpm ?: 0).toString()) }
+        }
+        WearOsLog.log("zones: sent")
     }
 
     private companion object {
         const val DAYS = 7
         const val MAX_PAGES = 100
+
+        /** How far back the highest heart rate on record is looked for: a year of training. */
+        val OBSERVED_MAX_SPAN: Duration = Duration.ofDays(365)
     }
 }

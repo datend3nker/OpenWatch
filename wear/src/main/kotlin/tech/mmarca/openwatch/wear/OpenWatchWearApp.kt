@@ -113,7 +113,7 @@ fun OpenWatchWearApp(
                         metric = metric,
                         state = currentState.metrics[metric] ?: MetricUiState(),
                         unitSystem = currentState.preferences.unitSystem,
-                        maxHeartRate = currentState.preferences.maxHeartRate,
+                        zones = currentState.preferences.zones,
                         restingHeartRate = currentState.metrics[MetricTile.RESTING_HEART_RATE]?.current,
                         sleepStages = currentState.sleepStages,
                         onMeasure = measurement?.let { { navController.navigate(WearRoutes.measurement(it)) } },

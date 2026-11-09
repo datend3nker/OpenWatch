@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import tech.mmarca.openwatch.wear.features.metric.ZoneBasis
 import tech.mmarca.openwatch.wear.features.quicklog.EntryLog
 import tech.mmarca.openwatch.wear.features.quicklog.LoggedEntry
 import tech.mmarca.openwatch.wear.features.quicklog.withEntries
@@ -33,6 +34,7 @@ class WearAppViewModel(application: Application) : AndroidViewModel(application)
             initial.copy(
                 metrics = metrics,
                 sleepStages = readings.sleepStages,
+                preferences = initial.preferences.copy(zones = zoneBasis(metrics[MetricTile.RESTING_HEART_RATE]?.current)),
                 capabilities = capabilities,
                 // Until the probe answers, keep offering what was on offer before.
                 availableMetrics = if (capabilities.probed) capabilities.availableMetrics(metrics.keys) else initial.availableMetrics,
@@ -44,6 +46,15 @@ class WearAppViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun log(entry: LoggedEntry) = entryLog.add(entry)
+
+    /** The profile's maximum from the phone; the profile's resting rate, else the latest night's. */
+    private fun zoneBasis(latestResting: Double?): ZoneBasis {
+        val app = getApplication<Application>()
+        return ZoneBasis(
+            maxBpm = WearSettings.maxHeartRate(app) ?: ZoneBasis.Default.maxBpm,
+            restingBpm = WearSettings.restingHeartRate(app) ?: latestResting?.toInt(),
+        )
+    }
 
     private companion object {
         const val StopTimeoutMillis = 5_000L

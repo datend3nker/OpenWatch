@@ -36,6 +36,7 @@ import tech.mmarca.openwatch.devices.core.sync.DeviceSyncResult
 import tech.mmarca.openwatch.devices.core.sync.UnwrittenSeries
 import tech.mmarca.openwatch.data.repository.RecordWrite
 import tech.mmarca.openwatch.data.repository.insertWithOutcomes
+import tech.mmarca.openwatch.domain.preferences.BodyProfile
 import tech.mmarca.openwatch.domain.insights.sleepNightWindow
 import tech.mmarca.openwatch.domain.insights.WearSleepEstimator
 import tech.mmarca.openwatch.domain.model.BleSensorDevice
@@ -98,6 +99,8 @@ class WearOsWatchSyncService(
     private val zone: () -> ZoneId,
     /** Whether the user chose to write the watch's breathing rate; off by default, not yet checked against a reference. */
     private val writeRespiratoryRate: () -> Boolean = { false },
+    /** The body profile for the watch's heart rate zones. */
+    private val profile: suspend () -> BodyProfile = { BodyProfile() },
 ) : DeviceSyncPort {
 
     @Inject
@@ -116,6 +119,7 @@ class WearOsWatchSyncService(
         { bodyProfile.resolve().weightKg },
         Instant::now, ZoneId::systemDefault,
         { preferences.writeRespiratoryRate },
+        { bodyProfile.resolve() },
     )
 
     private val syncMutex = Mutex()
@@ -130,7 +134,7 @@ class WearOsWatchSyncService(
         writeRespiratoryRate = writeRespiratoryRate,
     )
 
-    private val dayLink = WearOsDayLinkSync(importRepository, healthConnect, cursors, nodePort, clock, zone)
+    private val dayLink = WearOsDayLinkSync(importRepository, healthConnect, cursors, nodePort, clock, zone, profile)
 
     private val workouts = WearOsWorkoutSync(
         importRepository = importRepository,

@@ -49,10 +49,7 @@ import java.util.UUID
  *   started after `epochMillis` (exclusive): its `WO` header, then its `WP`
  *   pauses and `WR` route points (see [WearLinkWorkout]), then one `END
  *   <count> <more>` that counts workouts. Only a watch announcing `wo` serves it.
- * - `PUT_DAY …` → `DAY_OK`: the phone's figures for one day ([WearLinkDaily]).
- *   Only a watch announcing `dy` serves it.
- * - `LG_SINCE <epochMillis> <limit>` → `LG` lines, as `HV_SINCE`: the entries
- *   made on the watch ([WatchEntry]). Only a watch announcing `lg` serves it.
+ * - `PUT_DAY …` → `DAY_OK` (`dy`), `LG_SINCE <epochMillis> <limit>` → `LG` lines (`lg`): see [WearLinkDaily].
  * - `PHONE_ACTIVE <epochMillis>` → `END 0 0`. The wearer unlocked the phone at
  *   that time: they are awake, so the watch ends a sleep hold it started by
  *   itself. Only a watch announcing `pa` serves it.
@@ -204,6 +201,10 @@ object WearLinkProtocol {
 
         /** SpO2 spot measurements at night from the Samsung platform. [OFF] / [ON]. */
         const val SPO2: String = "spo2"
+
+        /** The zones' maximum and resting heart rate from the profile, whole bpm; `0` for none. */
+        const val HEART_RATE_MAX: String = "hr_max"
+        const val HEART_RATE_REST: String = "hr_rest"
 
         /** Read only: whether the watch has the Samsung Health Platform. [OFF] / [ON]. */
         const val SAMSUNG_AVAILABLE: String = "samsung"
