@@ -47,6 +47,11 @@ class WatchAutoSyncWorker(
         }
         // A watch switched off keeps its schedule; the runs stop.
         if (!device.enabled) return Result.success()
+        // At night a run would wake the watch's radio and app for data the morning run takes as well.
+        if (WatchAutoSyncQuietHours.isQuiet(java.time.LocalTime.now())) {
+            WearOsLog.log("[AUTOSYNC] skipped: quiet hours")
+            return Result.success()
+        }
 
         // Null means something else holds the sync. The next tick is minutes away.
         val running = entryPoint.deviceSyncController().syncDevice(deviceId, silent = true)

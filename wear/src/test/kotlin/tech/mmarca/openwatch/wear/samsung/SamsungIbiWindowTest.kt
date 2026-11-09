@@ -58,12 +58,25 @@ class SamsungIbiWindowTest {
         val n = 300
         val alternating = IntArray(n) { if (it % 2 == 0) 1000 else 1040 }
         val clean = point(t0 + alternating.sum(), *alternating)
-        val result = HrvRmssd.ofIntervals(SamsungIbiWindow.intervals(listOf(clean), t0, t0 + alternating.sum()))
+        val result = HrvRmssd.ofIntervals(SamsungIbiWindow.intervals(listOf(clean), t0, t0 + alternating.sum()), WINDOW)
         assertNotNull(result)
         assertEquals(40.0, result!!.rmssdMillis, 1e-9)
         assertTrue(result.beatCount >= n - 1)
 
         val poor = point(t0 + alternating.sum(), *alternating, flagged = (0 until n).filter { it % 3 != 0 }.toSet())
-        assertNull(HrvRmssd.ofIntervals(SamsungIbiWindow.intervals(listOf(poor), t0, t0 + alternating.sum())))
+        assertNull(HrvRmssd.ofIntervals(SamsungIbiWindow.intervals(listOf(poor), t0, t0 + alternating.sum()), WINDOW))
+    }
+
+    @Test
+    fun `the platform's share of a night window passes at its own coverage only`() {
+        // 110 intervals of about a second: what the platform gave a five-minute window on 2026-11-08/09.
+        val partial = IntArray(110) { if (it % 2 == 0) 1100 else 1140 }
+        val intervals = SamsungIbiWindow.intervals(listOf(point(t0 + partial.sum(), *partial)), t0, t0 + partial.sum())
+        assertNull(HrvRmssd.ofIntervals(intervals, WINDOW))
+        assertNotNull(HrvRmssd.ofIntervals(intervals, WINDOW, minCoverage = 0.3))
+    }
+
+    private companion object {
+        const val WINDOW = 5.0 * 60 * 1000
     }
 }

@@ -33,8 +33,8 @@ data class HrvWindowResult(
  * RMSSD and SDNN), but no single paper fixes the correction thresholds
  * below. There is no universally agreed artefact-rejection method (every
  * source above says so); the specific numbers here (a quarter of the local
- * median, a 30% successive step, five-beat neighbourhood, minimum beat
- * counts) are this app's own choice, built in the spirit of Kubios'
+ * median, a 30% successive step, five-beat neighbourhood, the minimum pairs
+ * and coverage) are this app's own choice, built in the spirit of Kubios'
  * threshold correction but not copied from it, and not validated against an
  * ECG or chest-strap reference.
  */
@@ -59,10 +59,20 @@ object HrvRmssd {
     private const val MEDIAN_RADIUS = 5
 
     /**
-     * Fewer clean beats than this and the window is dropped (a five-minute window at rest holds 250 to
-     * 350). This app's own choice, not from a paper.
+     * Fewer clean successive pairs than this and the window is dropped. RMSSD from one minute of
+     * clean beats agrees well with five minutes (Nussinovitch et al., Ann Noninvasive Electrocardiol
+     * 16(2), 2011; Pecchia et al., Int J Sports Med 41(13), 2020); 60 pairs are about a minute at a
+     * sleeping heart's rate. The number is this app's own choice.
      */
-    const val MIN_CLEAN_BEATS = 100
+    const val MIN_CLEAN_PAIRS = 60
+
+    /**
+     * Share of the window the clean intervals must cover, so a value rests on the window and not on
+     * a lucky minute of it. Garmin is reported to ask 70 to 90 % of high-confidence beats per
+     * five-minute window; 60 % is this app's own, looser choice. A source that reports only part of
+     * the beats passes a lower share ([of], [ofIntervals]).
+     */
+    const val MIN_COVERAGE = 0.6
 
     /** Share of detected intervals that must be clean, else the signal was poor. This app's own choice. */
     const val MIN_CLEAN_SHARE = 0.6
@@ -75,13 +85,13 @@ object HrvRmssd {
     const val MAX_PLAUSIBLE_RMSSD_MILLIS = 200.0
 
     /**
-     * [beatMillis] are beat times in milliseconds, ascending. Null when too
-     * few beats are clean, or the result is not physiological. A shorter window than the night's
-     * five minutes passes a lower [minCleanBeats].
+     * [beatMillis] are beat times in milliseconds, ascending, from a window
+     * [windowMillis] long. Null when too few pairs are clean, they cover too
+     * little of the window, or the result is not physiological.
      */
-    fun of(beatMillis: DoubleArray, minCleanBeats: Int = MIN_CLEAN_BEATS): HrvWindowResult? {
+    fun of(beatMillis: DoubleArray, windowMillis: Double, minCoverage: Double = MIN_COVERAGE): HrvWindowResult? {
         if (beatMillis.size < 3) return null
-        return ofIntervals(DoubleArray(beatMillis.size - 1) { beatMillis[it + 1] - beatMillis[it] }, minCleanBeats)
+        return ofIntervals(DoubleArray(beatMillis.size - 1) { beatMillis[it + 1] - beatMillis[it] }, windowMillis, minCoverage)
     }
 
     /**
@@ -91,7 +101,7 @@ object HrvRmssd {
      * `NaN`: it is never clean, so no difference is taken across it, and it
      * still counts toward the share of clean intervals.
      */
-    fun ofIntervals(intervals: DoubleArray, minCleanBeats: Int = MIN_CLEAN_BEATS): HrvWindowResult? {
+    fun ofIntervals(intervals: DoubleArray, windowMillis: Double, minCoverage: Double = MIN_COVERAGE): HrvWindowResult? {
         if (intervals.size < 2) return null
         val good = cleanIntervals(intervals)
         var sumSquares = 0.0
@@ -107,7 +117,8 @@ object HrvRmssd {
             used[i + 1] = true
         }
         val beats = used.count { it }
-        if (pairs == 0 || beats < minCleanBeats || beats < MIN_CLEAN_SHARE * intervals.size) return null
+        val covered = intervals.indices.sumOf { if (used[it]) intervals[it] else 0.0 }
+        if (pairs < MIN_CLEAN_PAIRS || covered < minCoverage * windowMillis || beats < MIN_CLEAN_SHARE * intervals.size) return null
         val rmssd = sqrt(sumSquares / pairs)
         if (rmssd > MAX_PLAUSIBLE_RMSSD_MILLIS) return null
         return HrvWindowResult(rmssd, beats)

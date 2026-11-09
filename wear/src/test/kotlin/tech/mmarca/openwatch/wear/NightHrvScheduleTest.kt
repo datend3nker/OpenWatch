@@ -64,11 +64,11 @@ class NightHrvScheduleTest {
     }
 
     @Test
-    fun `the gap since the last window is kept, shorter after a spoiled one`() {
+    fun `a good window is followed at once, a spoiled one after a pause`() {
         val last = at(9)
         val rows = still(40)
-        assertFalse(NightHrvSchedule.mayStart(rows, last + 29 * 60_000L, NightHrvSchedule.nextStartAfter(last, spoiled = false)))
-        assertTrue(NightHrvSchedule.mayStart(rows, at(39), NightHrvSchedule.nextStartAfter(last, spoiled = false)))
+        assertFalse(NightHrvSchedule.mayStart(rows, last + 4 * 60_000L, NightHrvSchedule.nextStartAfter(last, spoiled = false)))
+        assertTrue(NightHrvSchedule.mayStart(rows, at(14), NightHrvSchedule.nextStartAfter(last, spoiled = false)))
         assertEquals(last + 10 * 60_000L, NightHrvSchedule.nextStartAfter(last, spoiled = true))
         assertTrue(NightHrvSchedule.mayStart(rows, at(25), NightHrvSchedule.nextStartAfter(last, spoiled = true)))
     }

@@ -26,8 +26,13 @@ object NightHrvSchedule {
     /** The newest closed row may be this old: a minute closes 90 s late, plus a tick. */
     private const val MAX_ROW_AGE_MILLIS = 4 * MINUTE_MILLIS
 
-    /** At most one window every 30 minutes. */
-    const val MIN_GAP_MILLIS = 30 * MINUTE_MILLIS
+    /**
+     * The next window may start as soon as the last one is over: every still
+     * stretch is measured whole, and the night's value is the mean of its
+     * windows (as Oura and Garmin take theirs), which the apps reading
+     * Health Connect form from one record per window.
+     */
+    const val MIN_GAP_MILLIS = NightHrv.WINDOW_MILLIS
 
     /** After a window the arm spoiled, the next try may come sooner. */
     const val RETRY_GAP_MILLIS = 10 * MINUTE_MILLIS

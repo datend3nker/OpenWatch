@@ -10,10 +10,10 @@ object NightHrv {
     /** How long one window listens. */
     const val WINDOW_MILLIS = 5L * 60 * 1000
 
-    /** Null when the signal had a gap, no rhythm, or too few clean beats. */
+    /** Null when the signal had a gap, no rhythm, or too few clean beats for the window. */
     fun analyze(timesMillis: DoubleArray, values: DoubleArray): HrvWindowResult? {
         val beats = PpgBeats.detect(timesMillis, values) ?: return null
-        return HrvRmssd.of(beats)
+        return HrvRmssd.of(beats, WINDOW_MILLIS.toDouble())
     }
 
     /** The breathing rate of the same window by both routes; see [RespiratoryRate]. */

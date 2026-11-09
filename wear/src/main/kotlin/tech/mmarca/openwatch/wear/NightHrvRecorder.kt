@@ -10,9 +10,9 @@ import tech.mmarca.openwatch.wear.samsung.SamsungIbiSource
 import tech.mmarca.openwatch.wearlink.WearLinkProtocol
 
 /**
- * Measures heart rate variability at night: a five-minute window while the
- * arm lies still, at most every 30 minutes, one [WearMetrics.HRV] row per
- * good window.
+ * Measures heart rate variability at night: five-minute windows one after
+ * another while the arm lies still, one [WearMetrics.HRV] row per good
+ * window.
  *
  * The rule for when to measure is `NightHrvSchedule` (pure); the beats come
  * from an [HrvWindowSource]: Samsung's raw PPG by default ([PpgWindowSource]),
@@ -93,7 +93,7 @@ internal class NightHrvRecorder(
         thread = worker
         handler = workerHandler
         workerHandler.post {
-            // A restart must not break the 30-minute gap.
+            // A restart must not start a window inside the last one.
             store.latest(WearMetrics.HRV)?.let { nextAllowedAt = NightHrvSchedule.nextStartAfter(it.epochMillis, spoiled = false) }
             workerHandler.postDelayed(tick, TICK_MILLIS)
         }
