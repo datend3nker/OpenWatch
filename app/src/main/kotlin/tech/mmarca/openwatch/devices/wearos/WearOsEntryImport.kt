@@ -1,17 +1,25 @@
 package tech.mmarca.openwatch.devices.wearos
 
 import androidx.health.connect.client.permission.HealthPermission
+import androidx.health.connect.client.records.BloodGlucoseRecord
 import androidx.health.connect.client.records.BloodPressureRecord
+import androidx.health.connect.client.records.BodyFatRecord
+import androidx.health.connect.client.records.BodyTemperatureRecord
 import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.HeartRateVariabilityRmssdRecord
 import androidx.health.connect.client.records.HydrationRecord
 import androidx.health.connect.client.records.MindfulnessSessionRecord
+import androidx.health.connect.client.records.OxygenSaturationRecord
 import androidx.health.connect.client.records.Record
+import androidx.health.connect.client.records.RespiratoryRateRecord
 import androidx.health.connect.client.records.WeightRecord
 import androidx.health.connect.client.records.metadata.Device
 import androidx.health.connect.client.records.metadata.Metadata
+import androidx.health.connect.client.units.BloodGlucose
 import androidx.health.connect.client.units.Mass
+import androidx.health.connect.client.units.Percentage
 import androidx.health.connect.client.units.Pressure
+import androidx.health.connect.client.units.Temperature
 import androidx.health.connect.client.units.Volume
 import java.time.Instant
 import java.time.ZoneId
@@ -20,8 +28,9 @@ import tech.mmarca.openwatch.wearlink.WearLinkDaily
 
 /**
  * Maps the entries made on the watch (quick logs and spot measurements) to
- * Health Connect: water, weight, blood pressure, a breathing session, and a
- * spot heart rate or HRV, each keyed `wearos_entry_<type>_<millis>`, so a
+ * Health Connect: water, weight, blood pressure, body fat, blood oxygen,
+ * breathing rate, body temperature, blood glucose, a breathing session, and
+ * a spot heart rate or HRV, each keyed `wearos_entry_<type>_<millis>`, so a
  * re-pull is the same record. A logged value is a manual entry, a spot
  * measurement an actively recorded one.
  *
@@ -39,6 +48,11 @@ object WearOsEntryImport {
         WearLinkDaily.MINDFULNESS to HealthPermission.getWritePermission(MindfulnessSessionRecord::class),
         WearLinkDaily.HEART_RATE to HealthPermission.getWritePermission(HeartRateRecord::class),
         WearLinkDaily.HRV to HealthPermission.getWritePermission(HeartRateVariabilityRmssdRecord::class),
+        WearLinkDaily.BODY_FAT to HealthPermission.getWritePermission(BodyFatRecord::class),
+        WearLinkDaily.BLOOD_OXYGEN to HealthPermission.getWritePermission(OxygenSaturationRecord::class),
+        WearLinkDaily.RESPIRATORY_RATE to HealthPermission.getWritePermission(RespiratoryRateRecord::class),
+        WearLinkDaily.BODY_TEMPERATURE to HealthPermission.getWritePermission(BodyTemperatureRecord::class),
+        WearLinkDaily.BLOOD_GLUCOSE to HealthPermission.getWritePermission(BloodGlucoseRecord::class),
     )
 
     /** The record of [entry], or null when Health Connect would refuse the value. */
@@ -74,6 +88,15 @@ object WearOsEntryImport {
             )
             WearLinkDaily.HRV -> HeartRateVariabilityRmssdRecord(
                 time = at, zoneOffset = offset, heartRateVariabilityMillis = entry.value, metadata = measured(id),
+            )
+            WearLinkDaily.BODY_FAT -> BodyFatRecord(time = at, zoneOffset = offset, percentage = Percentage(entry.value), metadata = manual(id))
+            WearLinkDaily.BLOOD_OXYGEN -> OxygenSaturationRecord(time = at, zoneOffset = offset, percentage = Percentage(entry.value), metadata = manual(id))
+            WearLinkDaily.RESPIRATORY_RATE -> RespiratoryRateRecord(time = at, zoneOffset = offset, rate = entry.value, metadata = manual(id))
+            WearLinkDaily.BODY_TEMPERATURE -> BodyTemperatureRecord(
+                time = at, zoneOffset = offset, temperature = Temperature.celsius(entry.value), metadata = manual(id),
+            )
+            WearLinkDaily.BLOOD_GLUCOSE -> BloodGlucoseRecord(
+                time = at, zoneOffset = offset, level = BloodGlucose.millimolesPerLiter(entry.value), metadata = manual(id),
             )
             else -> null
         }
