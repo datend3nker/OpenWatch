@@ -29,6 +29,10 @@ internal object WearSettings {
     private const val KEY_SPO2 = "spo2_at_night"
     private const val KEY_MAX_HEART_RATE = "max_heart_rate"
     private const val KEY_RESTING_HEART_RATE = "resting_heart_rate"
+    private const val KEY_WEIGHT_HG = "body_weight_hg"
+    private const val KEY_HEIGHT_CM = "body_height_cm"
+    private const val KEY_BIRTH_YEAR = "birth_year"
+    private const val KEY_SEX = "sex"
 
     fun heartRateDay(context: Context): HeartRateInterval =
         prefs(context).getString(KEY_HEART_RATE_DAY, null)?.let(HeartRateInterval::fromWire)
@@ -79,6 +83,8 @@ internal object WearSettings {
     /** The resting heart rate the user entered on the phone; null leaves the zones to the latest night's. */
     fun restingHeartRate(context: Context): Int? = prefs(context).getInt(KEY_RESTING_HEART_RATE, 0).takeIf { it > 0 }
 
+    private fun positive(context: Context, key: String): Int? = prefs(context).getInt(key, 0).takeIf { it > 0 }
+
     /** Every setting in one value, for the phone's `GET_PREF`. */
     fun read(context: Context): WatchPreferences = WatchPreferences(
         heartRateDay = heartRateDay(context),
@@ -89,6 +95,10 @@ internal object WearSettings {
         spo2AtNight = spo2AtNight(context),
         maxHeartRate = maxHeartRate(context),
         restingHeartRate = restingHeartRate(context),
+        weightHectograms = positive(context, KEY_WEIGHT_HG),
+        heightCm = positive(context, KEY_HEIGHT_CM),
+        birthYear = positive(context, KEY_BIRTH_YEAR),
+        female = when (prefs(context).getString(KEY_SEX, null)) { "f" -> true; "m" -> false; else -> null },
     )
 
     /** Stores every setting of [preferences], for the phone's `SET_PREF`. */
@@ -102,6 +112,10 @@ internal object WearSettings {
         prefs(context).edit()
             .putInt(KEY_MAX_HEART_RATE, preferences.maxHeartRate ?: 0)
             .putInt(KEY_RESTING_HEART_RATE, preferences.restingHeartRate ?: 0)
+            .putInt(KEY_WEIGHT_HG, preferences.weightHectograms ?: 0)
+            .putInt(KEY_HEIGHT_CM, preferences.heightCm ?: 0)
+            .putInt(KEY_BIRTH_YEAR, preferences.birthYear ?: 0)
+            .putString(KEY_SEX, when (preferences.female) { true -> "f"; false -> "m"; null -> null })
             .apply()
     }
 

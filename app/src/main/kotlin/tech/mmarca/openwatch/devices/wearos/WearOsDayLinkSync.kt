@@ -11,11 +11,12 @@ import tech.mmarca.openwatch.data.repository.RecordWrite
 import tech.mmarca.openwatch.data.repository.insertWithOutcomes
 import tech.mmarca.openwatch.domain.insights.HeartRateZoneBasis
 import tech.mmarca.openwatch.domain.model.BleSensorDevice
+import tech.mmarca.openwatch.domain.preferences.BiologicalSex
 import tech.mmarca.openwatch.domain.preferences.BodyProfile
 import tech.mmarca.openwatch.healthconnect.HealthConnectGateway
 import tech.mmarca.openwatch.core.presentation.isPermissionFailure
 import tech.mmarca.openwatch.wearlink.WearLinkDaily
-import tech.mmarca.openwatch.wearlink.WearLinkProtocol.Preferences
+import tech.mmarca.openwatch.wearlink.WearLinkPreferences as Preferences
 
 /**
  * The watch app's own screens, both ways: the entries made on the watch
@@ -127,10 +128,17 @@ internal class WearOsDayLinkSync(
             WearOsLog.log("zones: not read: ${error.javaClass.simpleName}")
             return
         }
-        for ((key, bpm) in listOf(Preferences.HEART_RATE_MAX to basis.maxBpm, Preferences.HEART_RATE_REST to basis.restingBpm)) {
-            retry.run { nodePort.setWatchSetting(device.address, device.bluetoothName, key, (bpm ?: 0).toString()) }
-        }
-        WearOsLog.log("zones: sent")
+        val body = profile()
+        val values = listOf(
+            Preferences.HEART_RATE_MAX to (basis.maxBpm ?: 0).toString(),
+            Preferences.HEART_RATE_REST to (basis.restingBpm ?: 0).toString(),
+            Preferences.BODY_WEIGHT to (body.weightKg?.let { Math.round(it * 10).toInt() } ?: 0).toString(),
+            Preferences.BODY_HEIGHT to (body.heightCm?.let { Math.round(it).toInt() } ?: 0).toString(),
+            Preferences.BIRTH_YEAR to (body.birthYear ?: 0).toString(),
+            Preferences.SEX to when (body.sex) { BiologicalSex.FEMALE -> "f"; BiologicalSex.MALE -> "m"; null -> "0" },
+        )
+        for ((key, value) in values) retry.run { nodePort.setWatchSetting(device.address, device.bluetoothName, key, value) }
+        WearOsLog.log("zones and profile: sent")
     }
 
     private companion object {

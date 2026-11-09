@@ -23,7 +23,7 @@ class WearPreferenceCodecTest {
         assertEquals(
             mapOf(
                 "hr_day" to "10", "hr_source" to "sensor", "hrv_source" to "sensor", "sleep_hold" to "lock",
-                "skin" to "0", "spo2" to "0", "hr_max" to "0", "hr_rest" to "0", "samsung" to "1", "skin_granted" to "1", "spo2_granted" to "0",
+                "skin" to "0", "spo2" to "0", "hr_max" to "0", "hr_rest" to "0", "body_hg" to "0", "body_cm" to "0", "birth_year" to "0", "sex" to "0", "samsung" to "1", "skin_granted" to "1", "spo2_granted" to "0",
             ),
             WearPreferenceCodec.encode(defaults, samsung),
         )

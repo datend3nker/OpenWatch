@@ -16,7 +16,7 @@ import tech.mmarca.openwatch.R
 import tech.mmarca.openwatch.core.presentation.ScreenError
 import tech.mmarca.openwatch.ui.components.OpenWatchCard
 import tech.mmarca.openwatch.ui.theme.Spacing
-import tech.mmarca.openwatch.wearlink.WearLinkProtocol.Preferences
+import tech.mmarca.openwatch.wearlink.WearLinkPreferences as Preferences
 
 /**
  * The watch's own settings, read from and written to the watch over the
