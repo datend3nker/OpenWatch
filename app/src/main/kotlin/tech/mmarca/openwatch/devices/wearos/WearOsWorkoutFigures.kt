@@ -26,7 +26,7 @@ internal class WearOsWorkoutFigures(
 
     suspend fun summarize(workout: WearOsWorkout): WorkoutMetrics.Summary? {
         val beats = ArrayList<WorkoutMetrics.Beat>()
-        healthConnect.forEachSyncRecordPage(HeartRateRecord::class, workout.start, workout.end.plusSeconds(1)) { page ->
+        healthConnect.forEachSyncRecordPage(HeartRateRecord::class, workout.start, workout.end.plus(RECOVERY_SPAN)) { page ->
             for (record in page.filterIsInstance<HeartRateRecord>()) {
                 for (sample in record.samples) beats += WorkoutMetrics.Beat(sample.time.toEpochMilli(), sample.beatsPerMinute.toInt())
             }
@@ -44,9 +44,12 @@ internal class WearOsWorkoutFigures(
             ageYears = body.ageYears(day),
             female = body.sex?.let { it == BiologicalSex.FEMALE },
         )
+        val end = workout.end.toEpochMilli()
+        val after = beats.count { it.epochMillis in (end + 1)..(end + RECOVERY_SPAN.toMillis()) }
+        val recovery = if (after >= WorkoutMetrics.MIN_RECOVERY_READINGS) WorkoutMetrics.recovery(beats, end).first else null
         return WorkoutMetrics.summarize(
             WearOsWorkoutMetrics.linkWorkout(workout), beats, zones, metricsBody, WorkoutSport.fromExerciseType(workout.exerciseType),
-        )
+        ).copy(recoveryBpm = recovery)
     }
 
     /** The latest night's resting heart rate before the workout, from any app. */
@@ -60,5 +63,8 @@ internal class WearOsWorkoutFigures(
 
     private companion object {
         val RESTING_LOOKBACK: Duration = Duration.ofDays(7)
+
+        /** The watch measures a recovery for two minutes after the stop. */
+        val RECOVERY_SPAN: Duration = Duration.ofSeconds(130)
     }
 }

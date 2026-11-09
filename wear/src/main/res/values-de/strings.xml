@@ -273,4 +273,15 @@
     <string name="quicklog_editor_reorder_hint">Eintrag lange drücken und ziehen, um ihn zu verschieben. Antippen entfernt ihn.</string>
     <string name="measure_spo2">Blutsauerstoff</string>
     <string name="measure_spo2_description">Etwa 15 Sekunden, Arm ruhig</string>
+    <string name="recovery_ask">Erholungspuls messen?</string>
+    <string name="recovery_instruction">Zwei Minuten langsam weitergehen.</string>
+    <string name="recovery_title">Erholung</string>
+    <string name="recovery_bpm">%1$d bpm</string>
+    <string name="summary_max_heart_rate">Max. Puls</string>
+    <string name="summary_trimp">Trainingslast (TRIMP)</string>
+    <string name="summary_active_energy">Aktive Energie</string>
+    <string name="summary_total_energy">Energie</string>
+    <string name="summary_split">Km %1$d</string>
+    <string name="recovery_one_minute">Erholung nach 1 min</string>
+    <string name="recovery_two_minutes">Erholung nach 2 min</string>
 </resources>
