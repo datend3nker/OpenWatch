@@ -137,7 +137,6 @@ object SampleData {
     val uiState = WearUiState(
         availableMetrics = capabilities.availableMetrics(),
         metrics = metrics,
-        recording = recording,
         settings = settings,
         capabilities = capabilities,
         sleepStages = sleepStages,

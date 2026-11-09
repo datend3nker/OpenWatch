@@ -136,7 +136,7 @@ private fun OverviewPage(
             Icon(state.activityType.icon, null, tint = WorkoutColor, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(4.dp))
             Text(
-                text = stringResource(if (state.paused) R.string.recording_paused else state.activityType.label),
+                text = stringResource(if (state.paused) R.string.recording_paused else state.title ?: state.activityType.label),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -146,6 +146,13 @@ private fun OverviewPage(
             style = MaterialTheme.typography.displayMedium.copy(fontFeatureSettings = "tnum"),
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (state.paused) Emphasis.disabled else 1f),
         )
+        if (state.waitingForFix) {
+            Text(
+                text = stringResource(R.string.workout_waiting_for_gps),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         if (WorkoutField.HEART_RATE in fields) {
             FieldRow(
                 icon = Icons.Outlined.Favorite,

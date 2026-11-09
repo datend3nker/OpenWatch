@@ -6,7 +6,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.wear.compose.material3.AppScaffold
@@ -26,9 +25,6 @@ import tech.mmarca.openwatch.wear.features.quicklog.LoggedEntry
 import tech.mmarca.openwatch.wear.features.quicklog.QuickLogScreen
 import tech.mmarca.openwatch.wear.features.quicklog.WaterServingMl
 import tech.mmarca.openwatch.wear.features.quicklog.WeightEntryScreen
-import tech.mmarca.openwatch.wear.features.recording.ActivityPickerScreen
-import tech.mmarca.openwatch.wear.features.recording.RecordingScreen
-import tech.mmarca.openwatch.wear.features.recording.WorkoutSummaryScreen
 import tech.mmarca.openwatch.wear.features.settings.SettingsScreen
 import tech.mmarca.openwatch.wear.ui.theme.OpenWatchWearTheme
 
@@ -38,8 +34,8 @@ private const val DefaultWeightKg = 70.0
 /**
  * The whole watch UI: theme, scaffold and navigation. It renders [state] and
  * hands entries to [onLog]; nothing here reads a sensor except through a
- * screen's own ViewModel. The picked activity and the pause flag live here
- * until a recorder owns them, and tile choices are persisted via
+ * screen's own ViewModel. A workout runs in the recorder's own screen
+ * ([onStartWorkout]), and tile choices are persisted via
  * [WearTilePreferences]. [deepLinkRoute] is a screen a tile asked for.
  */
 @Composable
@@ -65,8 +61,6 @@ fun OpenWatchWearApp(
             val context = LocalContext.current
             val tilePrefs = remember(context) { WearTilePreferences(context) }
             val navController = rememberSwipeDismissableNavController()
-            var activityType by rememberSaveable { mutableStateOf(state.recording.activityType) }
-            var paused by rememberSaveable { mutableStateOf(state.recording.paused) }
             var chosenTiles by remember { mutableStateOf(tilePrefs.loadTiles()) }
             fun updateTiles(updated: List<MetricTile>) {
                 chosenTiles = updated
@@ -74,8 +68,6 @@ fun OpenWatchWearApp(
             }
             // A chosen tile whose sensor is missing stays chosen but is not shown.
             fun visibleTiles() = chosenTiles.filter { it in currentState.availableMetrics }
-            fun recording() = currentState.recording.copy(activityType = activityType, paused = paused)
-            fun workoutFields() = currentState.capabilities.workouts[activityType].orEmpty()
             fun log(type: EntryType, value: Double, value2: Double? = null) =
                 onLog(LoggedEntry(type, System.currentTimeMillis(), value, value2))
 
@@ -182,41 +174,6 @@ fun OpenWatchWearApp(
                     BreatheScreen(
                         onFinished = { log(EntryType.MINDFULNESS, 1.0) },
                         onClose = { navController.popBackStack() },
-                    )
-                }
-                composable(WearRoutes.ACTIVITY_PICKER) {
-                    ActivityPickerScreen(
-                        capabilities = currentState.capabilities,
-                        onPick = { picked ->
-                            activityType = picked
-                            paused = false
-                            navController.navigate(WearRoutes.RECORDING) {
-                                // Stopping returns to the dashboard, not to the picker.
-                                popUpTo(WearRoutes.DASHBOARD)
-                            }
-                        },
-                    )
-                }
-                composable(WearRoutes.RECORDING) {
-                    RecordingScreen(
-                        state = recording(),
-                        fields = workoutFields(),
-                        unitSystem = currentState.preferences.unitSystem,
-                        maxHeartRate = currentState.preferences.maxHeartRate,
-                        onTogglePause = { paused = !paused },
-                        onStop = {
-                            navController.navigate(WearRoutes.WORKOUT_SUMMARY) {
-                                popUpTo(WearRoutes.DASHBOARD)
-                            }
-                        },
-                    )
-                }
-                composable(WearRoutes.WORKOUT_SUMMARY) {
-                    WorkoutSummaryScreen(
-                        state = recording(),
-                        fields = workoutFields(),
-                        unitSystem = currentState.preferences.unitSystem,
-                        onDone = { navController.popBackStack() },
                     )
                 }
                 composable(WearRoutes.SETTINGS) {

@@ -69,17 +69,7 @@
     <string name="workout_open">Training</string>
     <string name="workout_pick">Training starten</string>
     <string name="workout_back">Zurück</string>
-    <string name="workout_paused">Pausiert</string>
     <string name="workout_waiting_for_gps">Warte auf GPS …</string>
-    <string name="workout_pause">Pause</string>
-    <string name="workout_resume">Weiter</string>
-    <string name="workout_stop">Beenden</string>
-    <string name="workout_saved">Training gespeichert</string>
-    <string name="workout_done">Fertig</string>
-    <string name="workout_heart_rate">%1$d bpm</string>
-    <string name="workout_distance">%1$.2f km</string>
-    <string name="workout_steps">%1$d Schritte</string>
-    <string name="workout_ascent">%1$d m hoch</string>
     <string name="workout_sport_walking">Gehen</string>
     <string name="workout_sport_running">Laufen</string>
     <string name="workout_sport_hiking">Wandern</string>

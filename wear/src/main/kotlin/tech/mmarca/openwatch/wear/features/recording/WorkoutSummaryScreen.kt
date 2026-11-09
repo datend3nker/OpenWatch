@@ -52,7 +52,7 @@ fun WorkoutSummaryScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(state.activityType.icon, contentDescription = null, tint = WorkoutColor)
                         Text(
-                            text = stringResource(state.activityType.label),
+                            text = stringResource(state.title ?: state.activityType.label),
                             modifier = Modifier.padding(start = 6.dp),
                         )
                     }
