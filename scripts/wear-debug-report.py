@@ -77,10 +77,7 @@ def state_of(snap):
     if snap.get("sleepHold"):
         # "lock" is whether the lasting wake lock was really held; older lines only have the setting.
         lock = snap.get("lock", not snap.get("syncedHold"))
-        if lock:
-            parts.append("hold lock")
-        else:
-            parts.append("hold quiet" if snap.get("holdMode") == "QUIET" else "hold synced")
+        parts.append("hold lock" if lock else "hold synced")
     hr = snap.get("hrSec")
     parts.append("hr off" if not hr else ("hr 10s" if hr == 10 else "hr save"))
     if hr:
@@ -118,8 +115,8 @@ def drain(snaps):
 def wakeups(per):
     print("\n## 2. Sensor deliveries per hour (each batch is a processor wake-up for a wake-up sensor)\n")
     keys = ("hr.batches", "wake.cycles", "accel.events", "steps.batches", "baro.batches", "offbody.batches",
-            "clock.beats", "clock.alarms", "clock.motions", "samsung.deliveries")
-    labels = ("hr", "flushes", "accel/h", "steps", "baro", "offbody", "beats", "alarms", "motions", "samsung")
+            "clock.beats", "clock.alarms", "samsung.deliveries")
+    labels = ("hr", "flushes", "accel/h", "steps", "baro", "offbody", "beats", "alarms", "samsung")
     print(f"{'state':38s} " + " ".join(f"{label:>8s}" for label in labels))
     for key, (hours, _, _, counters) in sorted(per.items(), key=lambda kv: -kv[1][0]):
         if hours < 0.1:

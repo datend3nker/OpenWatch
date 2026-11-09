@@ -38,7 +38,6 @@
     <string name="settings_heart_rate_power_save_note">Etwa alle 10 Minuten außerhalb des Schlafenszeitmodus. Schlaf ohne Schlafenszeitmodus wird dann aus wenigen Werten erkannt.</string>
     <string name="settings_sleep_hold_wake_lock">Schlaf: Wake Lock</string>
     <string name="settings_sleep_hold_synced">Schlaf: gebündeltes Aufwecken</string>
-    <string name="settings_sleep_hold_quiet">Schlaf: ruhig, solange still</string>
     <string name="settings_heart_rate_source_sensor">Puls: Sensor</string>
     <string name="settings_heart_rate_source_samsung">Puls: Samsung-Plattform</string>
     <string name="settings_skin_temperature_off">Hauttemperatur: aus</string>

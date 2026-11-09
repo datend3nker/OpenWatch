@@ -47,12 +47,6 @@ class SleepMinuteRecorder(
     private val wakeSync: SensorWakeSync? = null,
     /** Whether a sleep hold may rest on the [WakeClock]'s dense beat instead of a lasting wake lock ([WearSettings.syncedSleepHold]). */
     private val syncedHold: () -> Boolean = { false },
-    /**
-     * How much longer than usual the heart rate may take to arrive: while the
-     * beat is stretched the hub holds it that long, and a minute closed
-     * before would count as one without heart rate.
-     */
-    private val extraCloseLagMillis: () -> Long = { 0L },
 ) : SensorEventListener2 {
 
     private val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
@@ -286,7 +280,7 @@ class SleepMinuteRecorder(
 
     private fun closeMinutes(now: Long) {
         if (wakeLock.isHeld) applyHold()
-        val closed = aggregator.close(now - extraCloseLagMillis())
+        val closed = aggregator.close(now)
         if (closed.isEmpty()) return
         feedAutoHold(closed)
         applyHold()
