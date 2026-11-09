@@ -12,7 +12,7 @@ class WearRoutesTest {
     fun tilesMayOpenLoggingAndMeasuring_butNothingElse() {
         assertTrue(WearRoutes.isDeepLinkable(WearRoutes.QUICK_LOG))
         assertTrue(WearRoutes.isDeepLinkable(WearRoutes.measurement(Measurement.HEART_RATE)))
-        assertFalse(WearRoutes.isDeepLinkable(WearRoutes.RECORDING))
+        assertFalse(WearRoutes.isDeepLinkable(WearRoutes.SETTINGS))
         assertFalse(WearRoutes.isDeepLinkable("measure/ECG"))
     }
 

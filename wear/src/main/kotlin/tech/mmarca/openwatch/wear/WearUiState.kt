@@ -1,5 +1,6 @@
 package tech.mmarca.openwatch.wear
 
+import androidx.annotation.StringRes
 import tech.mmarca.openwatch.wear.features.quicklog.LoggedEntry
 import tech.mmarca.openwatch.wear.features.recording.ActivityType
 import tech.mmarca.openwatch.wear.health.WearCapabilities
@@ -13,7 +14,6 @@ data class WearUiState(
     val availableMetrics: Set<MetricTile> = MetricTile.entries.toSet(),
     /** A metric without an entry renders as "no reading yet". */
     val metrics: Map<MetricTile, MetricUiState> = emptyMap(),
-    val recording: RecordingUiState = RecordingUiState(),
     val settings: SettingsUiState = SettingsUiState(),
     val preferences: DisplayPreferences = DisplayPreferences(),
     /** What the watch can measure; gates measurement buttons and workouts. */
@@ -51,6 +51,8 @@ data class DisplayPreferences(
 
 data class RecordingUiState(
     val activityType: ActivityType = ActivityType.WALK,
+    /** The sport's own name, when it is more precise than [activityType]'s. */
+    @param:StringRes val title: Int? = null,
     val elapsedSeconds: Long = 0,
     val heartRateBpm: Int? = null,
     val distanceMeters: Int? = null,
@@ -59,6 +61,8 @@ data class RecordingUiState(
     val speedMetersPerSecond: Double? = null,
     val averageHeartRateBpm: Int? = null,
     val paused: Boolean = false,
+    /** A route sport without a usable GPS fix yet. */
+    val waitingForFix: Boolean = false,
 )
 
 data class SettingsUiState(

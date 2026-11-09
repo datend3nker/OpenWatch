@@ -3,33 +3,33 @@ package tech.mmarca.openwatch.wear.workout
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
+import androidx.wear.compose.foundation.lazy.TransformingLazyColumn
+import androidx.wear.compose.foundation.lazy.items
+import androidx.wear.compose.foundation.lazy.rememberTransformingLazyColumnState
 import androidx.wear.compose.material3.Button
-import androidx.wear.compose.material3.MaterialTheme
+import androidx.wear.compose.material3.ButtonDefaults
+import androidx.wear.compose.material3.Icon
+import androidx.wear.compose.material3.ListHeader
+import androidx.wear.compose.material3.ScreenScaffold
 import androidx.wear.compose.material3.Text
+import tech.mmarca.openwatch.wear.DisplayPreferences
 import tech.mmarca.openwatch.wear.R
+import tech.mmarca.openwatch.wear.UnitSystem
 import tech.mmarca.openwatch.wear.WearAppService
 import tech.mmarca.openwatch.wear.WearPermissions
+import tech.mmarca.openwatch.wear.features.recording.RecordingScreen
+import tech.mmarca.openwatch.wear.features.recording.WorkoutSummaryScreen
+import tech.mmarca.openwatch.wear.ui.theme.WorkoutColor
 import tech.mmarca.openwatch.wearlink.WorkoutSport
 
 /**
@@ -51,86 +51,62 @@ internal fun WorkoutScreen(onClose: () -> Unit) {
         WearAppService.startWorkout(context, sport, gps = result[Manifest.permission.ACCESS_FINE_LOCATION] == true)
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        val snapshot = state.snapshot
-        val sport = state.sport
-        when {
-            state.running && sport != null && snapshot != null -> Running(sport, snapshot)
-            state.finished && sport != null && snapshot != null -> Summary(sport, snapshot) {
+    val snapshot = state.snapshot
+    val sport = state.sport
+    if (state.running && sport != null && snapshot != null) {
+        RecordingScreen(
+            state = snapshot.toRecordingState(sport, sportName(sport)),
+            fields = workoutFieldsOf(sport, WearPermissions.hasLocation(context)),
+            unitSystem = UnitSystem.METRIC,
+            maxHeartRate = DisplayPreferences().maxHeartRate,
+            onTogglePause = { if (snapshot.paused) WearAppService.resumeWorkout(context) else WearAppService.pauseWorkout(context) },
+            onStop = { WearAppService.stopWorkout(context) },
+        )
+        return
+    }
+    if (state.finished && sport != null && snapshot != null) {
+        WorkoutSummaryScreen(
+            state = snapshot.toRecordingState(sport, sportName(sport)),
+            fields = workoutFieldsOf(sport, WearPermissions.hasLocation(context)),
+            unitSystem = UnitSystem.METRIC,
+            onDone = {
                 WorkoutState.clearFinished()
                 onClose()
+            },
+        )
+        return
+    }
+
+    val listState = rememberTransformingLazyColumnState()
+    ScreenScaffold(scrollState = listState) { contentPadding ->
+        TransformingLazyColumn(state = listState, contentPadding = contentPadding) {
+            item { ListHeader { Text(stringResource(R.string.workout_pick)) } }
+            items(WorkoutSport.entries) { choice ->
+                Button(
+                    onClick = {
+                        if (choice.gps && !WearPermissions.hasLocation(context)) {
+                            pending = choice
+                            askLocation.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+                        } else {
+                            WearAppService.startWorkout(context, choice, gps = choice.gps)
+                        }
+                    },
+                    icon = { Icon(activityTypeOf(choice).icon, contentDescription = null, tint = WorkoutColor) },
+                    label = { Text(stringResource(sportName(choice))) },
+                    colors = ButtonDefaults.filledTonalButtonColors(),
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
-            else -> {
-                Text(stringResource(R.string.workout_pick), style = MaterialTheme.typography.titleMedium)
-                for (choice in WorkoutSport.entries) {
-                    Button(
-                        onClick = {
-                            if (choice.gps && !WearPermissions.hasLocation(context)) {
-                                pending = choice
-                                askLocation.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
-                            } else {
-                                WearAppService.startWorkout(context, choice, gps = choice.gps)
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                    ) { Text(stringResource(sportName(choice))) }
-                }
-                Button(onClick = onClose, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.workout_back)) }
+            item {
+                Button(
+                    onClick = onClose,
+                    label = { Text(stringResource(R.string.workout_back)) },
+                    colors = ButtonDefaults.outlinedButtonColors(),
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
         }
     }
-}
-
-@Composable
-private fun Running(sport: WorkoutSport, snapshot: WorkoutSnapshot) {
-    val context = LocalContext.current
-    Text(stringResource(sportName(sport)), style = MaterialTheme.typography.bodySmall)
-    Text(clock(snapshot.activeSeconds), style = MaterialTheme.typography.displaySmall)
-    if (snapshot.paused) Text(stringResource(R.string.workout_paused), color = MaterialTheme.colorScheme.tertiary)
-    Values(sport, snapshot)
-    if (snapshot.waitingForFix) Text(stringResource(R.string.workout_waiting_for_gps), style = MaterialTheme.typography.bodySmall)
-    Button(
-        onClick = { if (snapshot.paused) WearAppService.resumeWorkout(context) else WearAppService.pauseWorkout(context) },
-        modifier = Modifier.fillMaxWidth(),
-    ) { Text(stringResource(if (snapshot.paused) R.string.workout_resume else R.string.workout_pause)) }
-    Button(onClick = { WearAppService.stopWorkout(context) }, modifier = Modifier.fillMaxWidth()) {
-        Text(stringResource(R.string.workout_stop))
-    }
-}
-
-@Composable
-private fun Summary(sport: WorkoutSport, snapshot: WorkoutSnapshot, onDone: () -> Unit) {
-    Text(stringResource(R.string.workout_saved), style = MaterialTheme.typography.titleMedium)
-    Text(stringResource(sportName(sport)), style = MaterialTheme.typography.bodySmall)
-    Text(clock(snapshot.activeSeconds), style = MaterialTheme.typography.displaySmall)
-    Values(sport, snapshot)
-    Button(onClick = onDone, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.workout_done)) }
-}
-
-@Composable
-private fun Values(sport: WorkoutSport, snapshot: WorkoutSnapshot) {
-    val lines = buildList {
-        (snapshot.heartRateBpm ?: snapshot.averageHeartRateBpm)?.let { add(stringResource(R.string.workout_heart_rate, it)) }
-        snapshot.distanceMetres?.let { add(stringResource(R.string.workout_distance, it / 1000.0)) }
-        snapshot.steps?.takeIf { sport.steps }?.let { add(stringResource(R.string.workout_steps, it)) }
-        snapshot.ascentMetres?.takeIf { it > 0 }?.let { add(stringResource(R.string.workout_ascent, it)) }
-    }
-    for (line in lines) Text(line, textAlign = TextAlign.Center)
-}
-
-private fun clock(seconds: Long): String {
-    val h = seconds / 3600
-    val m = seconds % 3600 / 60
-    val s = seconds % 60
-    return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%02d:%02d".format(m, s)
 }
 
 internal fun sportName(sport: WorkoutSport): Int = when (sport) {
