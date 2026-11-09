@@ -23,6 +23,7 @@ val SleepColor = Color(0xFF6C5CD6)
 val WeightColor = Color(0xFFBE7A2C)
 val HydrationColor = Color(0xFF2E97C9)
 val MindfulnessColor = Color(0xFF8A6E9C)
+val SkinTemperatureColor = Color(0xFFD98A4E)
 
 /** Heart rate zones 1 to 5, light to hard. Not in the phone app yet. */
 val HeartZoneColors = listOf(

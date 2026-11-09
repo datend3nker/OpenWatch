@@ -261,4 +261,9 @@
     <string name="settings_units_imperial">Imperial</string>
     <string name="status_phone_refused">%1$s was refused: its key changed</string>
     <string name="action_forget_phone">Forget phone</string>
+    <string name="metric_skin_temperature">Skin temperature</string>
+    <string name="metric_respiratory_rate">Breathing rate</string>
+    <string name="unit_celsius">°C</string>
+    <string name="unit_fahrenheit">°F</string>
+    <string name="unit_breaths_per_minute">br/min</string>
 </resources>

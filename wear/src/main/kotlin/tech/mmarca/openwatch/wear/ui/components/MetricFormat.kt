@@ -14,6 +14,8 @@ private const val FeetPerMeter = 3.28084
 private const val PoundsPerKilogram = 2.20462
 private const val MillilitresPerFluidOunce = 29.5735
 private const val MinutesPerHour = 60
+private const val FahrenheitPerCelsius = 1.8
+private const val FahrenheitAtZeroCelsius = 32.0
 
 fun formatCount(value: Int): String = NumberFormat.getIntegerInstance().format(value)
 
@@ -32,6 +34,11 @@ fun formatMetricValue(metric: MetricTile, value: Double, unitSystem: UnitSystem)
             UnitSystem.IMPERIAL -> formatCount((value * FeetPerMeter).roundToInt())
         }
         MetricTile.SLEEP -> formatHoursMinutes(value)
+        MetricTile.SKIN_TEMPERATURE -> when (unitSystem) {
+            UnitSystem.METRIC -> formatOneDecimal(value)
+            UnitSystem.IMPERIAL -> formatOneDecimal(value * FahrenheitPerCelsius + FahrenheitAtZeroCelsius)
+        }
+        MetricTile.RESPIRATORY_RATE -> formatOneDecimal(value)
         MetricTile.WEIGHT -> when (unitSystem) {
             UnitSystem.METRIC -> formatOneDecimal(value)
             UnitSystem.IMPERIAL -> formatOneDecimal(value * PoundsPerKilogram)
@@ -75,6 +82,11 @@ fun metricUnitLabel(metric: MetricTile, unitSystem: UnitSystem): Int =
         MetricTile.RESTING_HEART_RATE -> R.string.unit_bpm
         MetricTile.HRV -> R.string.unit_ms
         MetricTile.SLEEP -> R.string.unit_hours
+        MetricTile.SKIN_TEMPERATURE -> when (unitSystem) {
+            UnitSystem.METRIC -> R.string.unit_celsius
+            UnitSystem.IMPERIAL -> R.string.unit_fahrenheit
+        }
+        MetricTile.RESPIRATORY_RATE -> R.string.unit_breaths_per_minute
         MetricTile.HYDRATION -> when (unitSystem) {
             UnitSystem.METRIC -> R.string.unit_ml
             UnitSystem.IMPERIAL -> R.string.unit_fl_oz
