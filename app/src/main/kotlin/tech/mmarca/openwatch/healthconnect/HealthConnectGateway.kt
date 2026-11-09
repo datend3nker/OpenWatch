@@ -12,10 +12,12 @@ import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
 import androidx.health.connect.client.records.DistanceRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
+import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.HeightRecord
 import androidx.health.connect.client.records.Record
 import androidx.health.connect.client.records.WeightRecord
 import androidx.health.connect.client.request.AggregateGroupByPeriodRequest
+import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -158,6 +160,16 @@ class HealthConnectGateway(
                 group.result[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories,
                 group.result[DistanceRecord.DISTANCE_TOTAL]?.inMeters,
             )
+        }
+    }
+
+    /** The highest heart rate Health Connect holds in `[start, end)`, from any app; null without the read grant or a sample. */
+    suspend fun readMaxHeartRate(start: Instant, end: Instant): Long? {
+        if (HealthPermission.getReadPermission(HeartRateRecord::class) !in grantedPermissions()) return null
+        return withContext(Dispatchers.IO) {
+            clientProvider().aggregate(
+                AggregateRequest(metrics = setOf(HeartRateRecord.BPM_MAX), timeRangeFilter = TimeRangeFilter.between(start, end)),
+            )[HeartRateRecord.BPM_MAX]
         }
     }
 

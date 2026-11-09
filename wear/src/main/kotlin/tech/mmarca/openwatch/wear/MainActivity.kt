@@ -69,7 +69,7 @@ class MainActivity : ComponentActivity() {
             val workout by WorkoutState.state.collectAsStateWithLifecycle()
             var workoutOpen by remember { mutableStateOf(false) }
             if (workoutOpen || workout.running || workout.finished) {
-                OpenWatchWearTheme { WorkoutScreen(onClose = { workoutOpen = false }) }
+                OpenWatchWearTheme { WorkoutScreen(zones = uiState.preferences.zones, onClose = { workoutOpen = false }) }
                 return@setContent
             }
             OpenWatchWearApp(

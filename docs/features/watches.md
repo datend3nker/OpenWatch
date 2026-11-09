@@ -232,6 +232,25 @@ either of the above: the live reading is the wrist's current number, and the
 minutes since the watch last closed a monitoring file have not been handed over
 yet. They arrive on the next sync.
 
+### Heart rate zones on the watch
+
+The watch's zones (the heart rate detail screen and a running workout) are the
+American College of Sports Medicine's five intensity classes: very light, light,
+moderate, vigorous and near-maximal (Garber et al., Med Sci Sports Exerc 2011;
+43(7):1334-1359, doi:10.1249/MSS.0b013e318213fefb, table 4). With a resting heart
+rate they are shares of the heart rate reserve (Karvonen): below 30, 30 to 39, 40
+to 59, 60 to 89 and from 90 percent. Without one, shares of the maximum: below 57,
+57 to 63, 64 to 76, 77 to 95 and from 96 percent.
+
+After each sync the phone sends the watch the maximum and the resting heart rate
+from the body profile, which OpenLink shares with OpenVitals. The maximum is the
+one entered; else the highest heart rate Health Connect holds for the last year,
+when it is at least 150 bpm and 60 above resting (OpenVitals' heuristic, no
+published source); else 208 - 0.7 x age (Tanaka et al., JACC 2001,
+doi:10.1016/S0735-1097(00)01054-8), 206 - 0.88 x age for women (Gulati et al.,
+Circulation 2010, doi:10.1161/CIRCULATIONAHA.110.939249). The resting rate is the
+one entered, else the latest night's. Without either the watch assumes 190 bpm.
+
 ## Watch Data Screen
 
 The Data action on a Garmin watch opens the watch-only measurements: the things the watch makes that Health Connect has no place for. Everything else goes to Health Connect and is not repeated here.

@@ -27,6 +27,7 @@ import tech.mmarca.openwatch.wear.R
 import tech.mmarca.openwatch.wear.UnitSystem
 import tech.mmarca.openwatch.wear.WearAppService
 import tech.mmarca.openwatch.wear.WearPermissions
+import tech.mmarca.openwatch.wear.features.metric.ZoneBasis
 import tech.mmarca.openwatch.wear.features.recording.RecordingScreen
 import tech.mmarca.openwatch.wear.features.recording.WorkoutSummaryScreen
 import tech.mmarca.openwatch.wear.ui.theme.WorkoutColor
@@ -41,7 +42,7 @@ import tech.mmarca.openwatch.wearlink.WorkoutSport
  * without a route when it is refused.
  */
 @Composable
-internal fun WorkoutScreen(onClose: () -> Unit) {
+internal fun WorkoutScreen(zones: ZoneBasis, onClose: () -> Unit) {
     val context = LocalContext.current
     val state by WorkoutState.state.collectAsState()
     var pending by remember { mutableStateOf<WorkoutSport?>(null) }
@@ -58,7 +59,7 @@ internal fun WorkoutScreen(onClose: () -> Unit) {
             state = snapshot.toRecordingState(sport, sportName(sport)),
             fields = workoutFieldsOf(sport, WearPermissions.hasLocation(context)),
             unitSystem = UnitSystem.METRIC,
-            maxHeartRate = DisplayPreferences().maxHeartRate,
+            zones = zones,
             onTogglePause = { if (snapshot.paused) WearAppService.resumeWorkout(context) else WearAppService.pauseWorkout(context) },
             onStop = { WearAppService.stopWorkout(context) },
         )

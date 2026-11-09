@@ -27,6 +27,8 @@ internal object WearSettings {
     private const val KEY_SYNCED_SLEEP_HOLD = "synced_sleep_hold"
     private const val KEY_SKIN_TEMPERATURE = "skin_temperature"
     private const val KEY_SPO2 = "spo2_at_night"
+    private const val KEY_MAX_HEART_RATE = "max_heart_rate"
+    private const val KEY_RESTING_HEART_RATE = "resting_heart_rate"
 
     fun heartRateDay(context: Context): HeartRateInterval =
         prefs(context).getString(KEY_HEART_RATE_DAY, null)?.let(HeartRateInterval::fromWire)
@@ -71,6 +73,12 @@ internal object WearSettings {
         prefs(context).edit().putBoolean(KEY_SPO2, on).apply()
     }
 
+    /** The maximum heart rate the phone sent for the zones; null for none. */
+    fun maxHeartRate(context: Context): Int? = prefs(context).getInt(KEY_MAX_HEART_RATE, 0).takeIf { it > 0 }
+
+    /** The resting heart rate the user entered on the phone; null leaves the zones to the latest night's. */
+    fun restingHeartRate(context: Context): Int? = prefs(context).getInt(KEY_RESTING_HEART_RATE, 0).takeIf { it > 0 }
+
     /** Every setting in one value, for the phone's `GET_PREF`. */
     fun read(context: Context): WatchPreferences = WatchPreferences(
         heartRateDay = heartRateDay(context),
@@ -79,6 +87,8 @@ internal object WearSettings {
         syncedSleepHold = syncedSleepHold(context),
         skinTemperature = skinTemperature(context),
         spo2AtNight = spo2AtNight(context),
+        maxHeartRate = maxHeartRate(context),
+        restingHeartRate = restingHeartRate(context),
     )
 
     /** Stores every setting of [preferences], for the phone's `SET_PREF`. */
@@ -89,6 +99,10 @@ internal object WearSettings {
         setSyncedSleepHold(context, preferences.syncedSleepHold)
         setSkinTemperature(context, preferences.skinTemperature)
         setSpo2AtNight(context, preferences.spo2AtNight)
+        prefs(context).edit()
+            .putInt(KEY_MAX_HEART_RATE, preferences.maxHeartRate ?: 0)
+            .putInt(KEY_RESTING_HEART_RATE, preferences.restingHeartRate ?: 0)
+            .apply()
     }
 
     private fun source(context: Context, key: String): Source {
