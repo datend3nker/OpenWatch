@@ -398,7 +398,7 @@ class WearAppService : Service() {
         val before = Triple(recorder.interval, recorder.source, clock.mode)
         // A synced hold takes the heart rate from the sensor: its batches are the beat.
         val beatHold = minuteRecorder.isSleepHolding && holdOnBeat()
-        recorder.setPlan(wanted, if (beatHold) WearSettings.Source.RAW_SENSOR else WearSettings.heartRateSource(this))
+        recorder.setPlan(wanted, if (beatHold) WearSettings.Source.RAW_SENSOR else WearSettings.heartRateSource(this), workout = active)
         reconcileClock()
         // Skin temperature and SpO2 come only from the Samsung platform, at night, each switched on by itself.
         val night = granted && heartRateWanted && minuteRecorder.isSleepHolding
