@@ -156,6 +156,7 @@
     <string name="action_save">Save</string>
     <string name="detail_today">Today</string>
     <string name="detail_week">Last 7 days</string>
+    <string name="detail_recent_entries">Latest entries</string>
     <string name="detail_no_data">No data yet</string>
     <string name="stat_low">Low</string>
     <string name="stat_average">Average</string>
