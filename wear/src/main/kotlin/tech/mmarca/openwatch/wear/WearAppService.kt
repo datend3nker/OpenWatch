@@ -285,24 +285,27 @@ class WearAppService : Service() {
         }
     }
 
-    /**
-     * The one notification of the foreground service. While a workout runs it
-     * carries the ongoing activity, which is the pill on the watch face. The
-     * same notification is posted again when the workout starts, pauses,
-     * resumes or ends; there is never a second one.
-     */
-    private fun buildNotification(): Notification {
-        val workoutState = WorkoutState.state.value
-        val key = workoutState.pillKey()
-        val builder = NotificationCompat.Builder(this, if (key != null) WORKOUT_CHANNEL_ID else CHANNEL_ID)
+    /** The foreground service's notification: the phone link. It never carries the pill. */
+    private fun buildNotification(): Notification =
+        NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher_monochrome)
             .setContentTitle(getString(R.string.app_name))
             .setContentText(getString(R.string.link_notification_text))
             .setOngoing(true)
-        if (key != null) {
-            builder.setCategory(NotificationCompat.CATEGORY_WORKOUT)
-            applyWorkoutPill(builder, key, workoutState.snapshot?.activeSeconds ?: 0)
-        }
+            .build()
+
+    /**
+     * The workout's own notification, which carries the ongoing activity: the
+     * pill on the watch face. Its own id, so cancelling it at the end takes the
+     * pill away while the link's notification stays.
+     */
+    private fun buildWorkoutNotification(key: WorkoutPillKey, activeSeconds: Long): Notification {
+        val builder = NotificationCompat.Builder(this, WORKOUT_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_launcher_monochrome)
+            .setContentTitle(getString(sportName(key.sport)))
+            .setOngoing(true)
+            .setCategory(NotificationCompat.CATEGORY_WORKOUT)
+        applyWorkoutPill(builder, key, activeSeconds)
         return builder.build()
     }
 
@@ -323,7 +326,7 @@ class WearAppService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         builder.setContentIntent(open)
-        OngoingActivity.Builder(applicationContext, NOTIFICATION_ID, builder)
+        OngoingActivity.Builder(applicationContext, WORKOUT_NOTIFICATION_ID, builder)
             .setStaticIcon(R.drawable.ic_launcher_monochrome)
             .setStatus(status.build())
             .setTouchIntent(open)
@@ -331,10 +334,16 @@ class WearAppService : Service() {
             .apply(applicationContext)
     }
 
-    /** Posts the notification again, on the main thread, when the pill must change. */
+    /** Shows, updates or removes the pill; on the main thread, when a workout starts, pauses, resumes or ends. */
     private fun refreshNotification() {
-        if (!isForeground) return
-        getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, buildNotification())
+        val manager = getSystemService(NotificationManager::class.java)
+        val state = WorkoutState.state.value
+        val key = state.pillKey()
+        if (key == null) {
+            manager.cancel(WORKOUT_NOTIFICATION_ID)
+        } else {
+            manager.notify(WORKOUT_NOTIFICATION_ID, buildWorkoutNotification(key, state.snapshot?.activeSeconds ?: 0))
+        }
     }
 
     /** Starts each recorder whose grant is in and whose sensor the watch has; the rest wait for a later call. */
@@ -504,6 +513,8 @@ class WearAppService : Service() {
 
     override fun onDestroy() {
         serviceScope.cancel()
+        // A pill must not outlive the service that records the workout.
+        getSystemService(NotificationManager::class.java).cancel(WORKOUT_NOTIFICATION_ID)
         if (isForeground) {
             unregisterReceiver(bluetoothReceiver)
             wornMonitor.stop()
@@ -532,6 +543,8 @@ class WearAppService : Service() {
         private const val CHANNEL_ID = "phone_link"
         private const val WORKOUT_CHANNEL_ID = "workout"
         private const val NOTIFICATION_ID = 1
+        // 2 is WearPhoneRequests.NOTIFICATION_ID.
+        private const val WORKOUT_NOTIFICATION_ID = 3
         private const val ACTION_TOGGLE_PPG_LOG = "tech.mmarca.openwatch.wear.TOGGLE_PPG_LOG"
         const val ACTION_CLOCK_BEAT = "tech.mmarca.openwatch.wear.CLOCK_BEAT"
         private const val ACTION_SETTINGS_CHANGED = "tech.mmarca.openwatch.wear.SETTINGS_CHANGED"
