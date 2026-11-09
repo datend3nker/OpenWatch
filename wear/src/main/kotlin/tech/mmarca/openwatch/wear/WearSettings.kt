@@ -20,30 +20,11 @@ internal object WearSettings {
 
     enum class Source { RAW_SENSOR, SAMSUNG_PLATFORM }
 
-    /**
-     * How a sleep hold keeps the night recorded:
-     * - [LOCK]: a lasting wake lock, every minute whole; the costliest.
-     * - [SYNCED]: the [WakeClock]'s dense beat, every 40 seconds, and a flush
-     *   of every sensor at each; every minute whole, the processor sleeps in
-     *   between.
-     * - [QUIET]: as [SYNCED] while the wearer moves; while still, the beat
-     *   stretches to [WakeClock.QUIET_PERIOD_MILLIS] and minutes between two
-     *   beats keep only the accelerometer's last 48 seconds (flagged sparse).
-     *   A wake-up motion sensor brings the dense beat back at once.
-     *
-     * The two beat modes take the heart rate from the sensor while sleep is
-     * held, whatever [heartRateSource] says: its batches are the beat, and a
-     * second light source would only add cost. Without a beat (no heart rate
-     * grant) they fall back to the lock.
-     */
-    enum class SleepHoldMode { LOCK, SYNCED, QUIET }
-
     private const val PREFS = "wear_settings"
     private const val KEY_HEART_RATE_DAY = "heart_rate_day"
     private const val KEY_HEART_RATE_SOURCE = "heart_rate_source"
     private const val KEY_HRV_SOURCE = "hrv_source"
     private const val KEY_SYNCED_SLEEP_HOLD = "synced_sleep_hold"
-    private const val KEY_SLEEP_HOLD = "sleep_hold"
     private const val KEY_SKIN_TEMPERATURE = "skin_temperature"
     private const val KEY_SPO2 = "spo2_at_night"
 
@@ -63,15 +44,17 @@ internal object WearSettings {
 
     fun setHrvSource(context: Context, source: Source) = setSource(context, KEY_HRV_SOURCE, source)
 
-    /** The [SleepHoldMode]; a watch that stored only the older on/off switch keeps its choice. */
-    fun sleepHold(context: Context): SleepHoldMode {
-        val prefs = prefs(context)
-        prefs.getString(KEY_SLEEP_HOLD, null)?.let { stored -> SleepHoldMode.entries.firstOrNull { it.name == stored }?.let { return it } }
-        return if (prefs.getBoolean(KEY_SYNCED_SLEEP_HOLD, false)) SleepHoldMode.SYNCED else SleepHoldMode.LOCK
-    }
+    /**
+     * How a sleep hold keeps every minute whole: false (the default) with a
+     * lasting wake lock, true with the [WakeClock]'s dense beat and a flush
+     * of every sensor at each ([SensorWakeSync]), which lets the processor
+     * sleep in between. The second is the one to measure; it falls back to
+     * the lock while there is no dense beat (no heart rate grant).
+     */
+    fun syncedSleepHold(context: Context): Boolean = prefs(context).getBoolean(KEY_SYNCED_SLEEP_HOLD, false)
 
-    fun setSleepHold(context: Context, mode: SleepHoldMode) {
-        prefs(context).edit().putString(KEY_SLEEP_HOLD, mode.name).remove(KEY_SYNCED_SLEEP_HOLD).apply()
+    fun setSyncedSleepHold(context: Context, synced: Boolean) {
+        prefs(context).edit().putBoolean(KEY_SYNCED_SLEEP_HOLD, synced).apply()
     }
 
     /** Skin temperature at night from the Samsung platform, the only source. Off by default. */
@@ -93,7 +76,7 @@ internal object WearSettings {
         heartRateDay = heartRateDay(context),
         heartRateSource = heartRateSource(context),
         hrvSource = hrvSource(context),
-        sleepHold = sleepHold(context),
+        syncedSleepHold = syncedSleepHold(context),
         skinTemperature = skinTemperature(context),
         spo2AtNight = spo2AtNight(context),
     )
@@ -103,7 +86,7 @@ internal object WearSettings {
         setHeartRateDay(context, preferences.heartRateDay)
         setHeartRateSource(context, preferences.heartRateSource)
         setHrvSource(context, preferences.hrvSource)
-        setSleepHold(context, preferences.sleepHold)
+        setSyncedSleepHold(context, preferences.syncedSleepHold)
         setSkinTemperature(context, preferences.skinTemperature)
         setSpo2AtNight(context, preferences.spo2AtNight)
     }

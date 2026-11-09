@@ -46,4 +46,12 @@ class WearOsSkinTemperatureImportTest {
         assertEquals("wearos_skin_${t0.toEpochMilli()}", record.metadata.clientRecordId)
         assertEquals(t0.plusSeconds(60L * 60), record.endTime)
     }
+
+    @Test
+    fun `a whole night of minutes is one valid record`() {
+        val run = WearOsSkinTemperatureImport.runs(minutes(0, 9 * 60) { 33.0 + (it % 20) / 10.0 }).single()
+        val record = WearOsSkinTemperatureImport.record(run, 34.35, ZoneOffset.ofHours(1), version = 5)
+        assertTrue(record != null)
+        assertEquals(9 * 60, record!!.deltas.size)
+    }
 }

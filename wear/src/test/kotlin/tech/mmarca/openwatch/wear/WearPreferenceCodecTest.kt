@@ -11,7 +11,7 @@ class WearPreferenceCodecTest {
         heartRateDay = HeartRateInterval.EVERY_10_SECONDS,
         heartRateSource = WearSettings.Source.RAW_SENSOR,
         hrvSource = WearSettings.Source.RAW_SENSOR,
-        sleepHold = WearSettings.SleepHoldMode.LOCK,
+        syncedSleepHold = false,
         skinTemperature = false,
         spo2AtNight = false,
     )
@@ -47,13 +47,5 @@ class WearPreferenceCodecTest {
         assertNull(WearPreferenceCodec.apply(defaults, pixel, "hr_source", "samsung"))
         assertNull(WearPreferenceCodec.apply(defaults, pixel, "skin", "1"))
         assertEquals(defaults, WearPreferenceCodec.apply(defaults, pixel, "skin", "0"))
-    }
-
-    @Test
-    fun `a quiet night goes out as synced and survives the phone setting synced`() {
-        val quiet = defaults.copy(sleepHold = WearSettings.SleepHoldMode.QUIET)
-        assertEquals("synced", WearPreferenceCodec.encode(quiet, samsung)["sleep_hold"])
-        assertEquals(WearSettings.SleepHoldMode.QUIET, WearPreferenceCodec.apply(quiet, samsung, "sleep_hold", "synced")!!.sleepHold)
-        assertEquals(WearSettings.SleepHoldMode.LOCK, WearPreferenceCodec.apply(quiet, samsung, "sleep_hold", "lock")!!.sleepHold)
     }
 }

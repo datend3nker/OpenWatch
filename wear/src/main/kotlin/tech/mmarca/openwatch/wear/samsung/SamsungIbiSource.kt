@@ -68,7 +68,7 @@ internal class SamsungIbiSource(private val feed: SamsungHeartRateFeed) : HrvWin
             val intervals = SamsungIbiWindow.intervals(points, startedAt, endMillis)
             val hadError = failed
             lastWindowFailed = hadError || points.isEmpty()
-            val result = if (hadError) null else HrvRmssd.ofIntervals(intervals)
+            val result = if (hadError) null else HrvRmssd.ofIntervals(intervals, MIN_CLEAN_BEATS)
             val (times, values) = SamsungIbiWindow.timedIntervals(points, startedAt, endMillis)
             val breathing = if (hadError) null else RespiratoryRate.fromIntervalSeries(times, values)
             DebugProtocol.event(
@@ -107,6 +107,15 @@ internal class SamsungIbiSource(private val feed: SamsungHeartRateFeed) : HrvWin
 
     private companion object {
         val FLUSH_TOKEN = Any()
+
+        /**
+         * Clean beats a window needs from the platform. The platform reports
+         * an interval for only part of the beats: on the night of 2026-11-08/09
+         * (42 to 56 bpm, 210 to 280 beats a window) it gave 100 to 111 a
+         * window, so [HrvRmssd.MIN_CLEAN_BEATS] dropped 14 of 15. 60 clean
+         * beats still give some 50 successive pairs. This app's own choice.
+         */
+        const val MIN_CLEAN_BEATS = 60
 
         /** The platform's batches came up to ten minutes late; past this the points in hand are used. */
         const val BATCH_WAIT_MILLIS = 12L * 60 * 1000

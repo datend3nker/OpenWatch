@@ -37,7 +37,6 @@
     <string name="settings_heart_rate_power_save_note">About every 10 minutes outside bedtime mode. Sleep without bedtime mode is then detected from sparse readings.</string>
     <string name="settings_sleep_hold_wake_lock">Sleep: wake lock</string>
     <string name="settings_sleep_hold_synced">Sleep: synced wake-ups</string>
-    <string name="settings_sleep_hold_quiet">Sleep: quiet when still</string>
     <string name="settings_heart_rate_source_sensor">Heart rate: sensor</string>
     <string name="settings_heart_rate_source_samsung">Heart rate: Samsung platform</string>
     <string name="settings_skin_temperature_off">Skin temperature: off</string>
