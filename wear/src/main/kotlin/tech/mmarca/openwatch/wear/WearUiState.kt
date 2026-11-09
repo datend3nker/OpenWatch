@@ -1,6 +1,7 @@
 package tech.mmarca.openwatch.wear
 
 import androidx.annotation.StringRes
+import tech.mmarca.openwatch.wear.features.metric.DefaultZoneBasis
 import tech.mmarca.openwatch.wear.features.metric.ZoneBasis
 import tech.mmarca.openwatch.wear.features.quicklog.LoggedEntry
 import tech.mmarca.openwatch.wear.features.recording.ActivityType
@@ -45,7 +46,7 @@ data class MetricUiState(
 data class DisplayPreferences(
     val unitSystem: UnitSystem = UnitSystem.METRIC,
     /** What the heart rate zones rest on: the phone sends the profile's maximum, the resting rate is the latest night's unless the profile has one. */
-    val zones: ZoneBasis = ZoneBasis.Default,
+    val zones: ZoneBasis = DefaultZoneBasis,
     /** Daily water goal in millilitres. */
     val waterGoalMl: Int = 2_000,
 )
