@@ -14,6 +14,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import tech.mmarca.openwatch.wear.features.quicklog.EntryLog
+import tech.mmarca.openwatch.wear.haptics.Haptics
+import tech.mmarca.openwatch.wear.haptics.hapticCueFor
 import tech.mmarca.openwatch.wear.features.quicklog.EntryType
 import tech.mmarca.openwatch.wear.features.quicklog.LoggedEntry
 
@@ -46,6 +48,8 @@ class MeasureViewModel(
     private val measurement: Measurement,
     private val events: (Measurement) -> Flow<MeasureEvent>,
     private val onResult: (Measurement, Double) -> Unit,
+    /** Called once when a run ends in a result or a failure; the app buzzes the wrist here. */
+    private val onEnd: (MeasureUiState) -> Unit = {},
     private val now: () -> Long = System::currentTimeMillis,
 ) : ViewModel() {
 
@@ -77,6 +81,7 @@ class MeasureViewModel(
                             ticker.cancel()
                             _state.value = MeasureUiState.Done(event.value, event.secondary)
                             onResult(measurement, event.value)
+                            onEnd(_state.value)
                         }
                     }
                     if (_state.value is MeasureUiState.Running) _state.value = running
@@ -85,10 +90,13 @@ class MeasureViewModel(
                 throw e
             } catch (e: MeasureException) {
                 _state.value = MeasureUiState.Failed(e.error)
+                onEnd(_state.value)
             } catch (e: SecurityException) {
                 _state.value = MeasureUiState.Failed(MeasureError.PERMISSION_DENIED)
+                onEnd(_state.value)
             } catch (e: Exception) {
                 _state.value = MeasureUiState.Failed(MeasureError.FAILED)
+                onEnd(_state.value)
             } finally {
                 ticker.cancel()
             }
@@ -111,6 +119,7 @@ class MeasureViewModel(
                 MeasureViewModel(
                     measurement = measurement,
                     events = runner::run,
+                    onEnd = { Haptics.play(application, hapticCueFor(it)) },
                     onResult = { measured, value ->
                         measured.entryType?.let { type ->
                             entryLog.add(LoggedEntry(type, System.currentTimeMillis(), value))
