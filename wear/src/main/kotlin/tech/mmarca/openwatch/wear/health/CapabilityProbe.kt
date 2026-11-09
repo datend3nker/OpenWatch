@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.hardware.Sensor
 import android.hardware.SensorManager
 import tech.mmarca.openwatch.wear.MetricTile
+import tech.mmarca.openwatch.wear.PpgRawLogger
 import tech.mmarca.openwatch.wear.features.measure.Measurement
 import tech.mmarca.openwatch.wear.features.recording.ActivityType
 import tech.mmarca.openwatch.wear.features.recording.WorkoutField
@@ -14,6 +15,8 @@ data class WatchSensors(
     val heartRate: Boolean,
     /** Single beats (`TYPE_HEART_BEAT`), for the HRV measurement. */
     val heartBeat: Boolean,
+    /** Samsung's raw pulse signal, from which a still wrist gives HRV on a watch with no single beats. */
+    val rawPpg: Boolean = false,
     val stepCounter: Boolean,
     val barometer: Boolean,
     val gps: Boolean,
@@ -34,6 +37,7 @@ class CapabilityProbe(private val context: Context) {
             WatchSensors(
                 heartRate = has(Sensor.TYPE_HEART_RATE),
                 heartBeat = has(Sensor.TYPE_HEART_BEAT),
+                rawPpg = sensors?.getSensorList(Sensor.TYPE_ALL).orEmpty().any { it.stringType == PpgRawLogger.SENSOR_TYPE },
                 stepCounter = has(Sensor.TYPE_STEP_COUNTER),
                 barometer = has(Sensor.TYPE_PRESSURE),
                 gps = context.packageManager.hasSystemFeature(PackageManager.FEATURE_LOCATION_GPS),
@@ -59,7 +63,7 @@ fun capabilitiesOf(sensors: WatchSensors): WearCapabilities {
     }
     val measurements = buildSet {
         if (sensors.heartRate) add(Measurement.HEART_RATE)
-        if (sensors.heartBeat) add(Measurement.HRV)
+        if (sensors.heartBeat || sensors.rawPpg) add(Measurement.HRV)
         if (sensors.barometer) add(Measurement.AIR_PRESSURE)
     }
     val workouts = ActivityType.entries
