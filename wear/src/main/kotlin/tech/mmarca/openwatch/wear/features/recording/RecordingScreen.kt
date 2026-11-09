@@ -1,5 +1,6 @@
 package tech.mmarca.openwatch.wear.features.recording
 
+import tech.mmarca.openwatch.wear.features.metric.DefaultZoneBasis
 import tech.mmarca.openwatch.wear.features.metric.ZoneBasis
 import android.text.format.DateUtils
 import androidx.compose.foundation.layout.Arrangement
@@ -310,7 +311,7 @@ private fun RecordingScreenPreview() {
                 state = SampleData.recording,
                 fields = SampleData.capabilities.workouts.getValue(ActivityType.RUN),
                 unitSystem = UnitSystem.METRIC,
-                zones = ZoneBasis.Default,
+                zones = DefaultZoneBasis,
                 onTogglePause = {},
                 onStop = {},
             )
@@ -327,7 +328,7 @@ private fun RecordingScreenPausedPreview() {
                 state = SampleData.recording.copy(paused = true),
                 fields = SampleData.capabilities.workouts.getValue(ActivityType.WORKOUT),
                 unitSystem = UnitSystem.IMPERIAL,
-                zones = ZoneBasis.Default,
+                zones = DefaultZoneBasis,
                 onTogglePause = {},
                 onStop = {},
             )

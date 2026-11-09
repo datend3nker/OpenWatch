@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import tech.mmarca.openwatch.wear.features.metric.DefaultZoneBasis
 import tech.mmarca.openwatch.wear.features.metric.ZoneBasis
 import tech.mmarca.openwatch.wear.features.quicklog.EntryLog
 import tech.mmarca.openwatch.wear.features.quicklog.LoggedEntry
@@ -51,7 +52,7 @@ class WearAppViewModel(application: Application) : AndroidViewModel(application)
     private fun zoneBasis(latestResting: Double?): ZoneBasis {
         val app = getApplication<Application>()
         return ZoneBasis(
-            maxBpm = WearSettings.maxHeartRate(app) ?: ZoneBasis.Default.maxBpm,
+            maxBpm = WearSettings.maxHeartRate(app) ?: DefaultZoneBasis.maxBpm,
             restingBpm = WearSettings.restingHeartRate(app) ?: latestResting?.toInt(),
         )
     }

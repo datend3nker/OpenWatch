@@ -75,7 +75,7 @@ fun MetricDetailScreen(
     metric: MetricTile,
     state: MetricUiState,
     unitSystem: UnitSystem,
-    zones: ZoneBasis = ZoneBasis.Default,
+    zones: ZoneBasis = DefaultZoneBasis,
     restingHeartRate: Double? = null,
     sleepStages: Map<SleepStage, Double> = emptyMap(),
     /** Starts a spot measurement of this metric; null when the watch cannot measure it. */
