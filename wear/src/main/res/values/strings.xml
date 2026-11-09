@@ -273,4 +273,15 @@
     <string name="unit_inch">in</string>
     <string name="measure_spo2">Blood oxygen</string>
     <string name="measure_spo2_description">About 15 seconds, arm still</string>
+    <string name="recovery_ask">Measure heart rate recovery?</string>
+    <string name="recovery_instruction">Keep walking slowly for two minutes.</string>
+    <string name="recovery_title">Recovery</string>
+    <string name="recovery_bpm">%1$d bpm</string>
+    <string name="summary_max_heart_rate">Max heart rate</string>
+    <string name="summary_trimp">Training load (TRIMP)</string>
+    <string name="summary_active_energy">Active energy</string>
+    <string name="summary_total_energy">Energy</string>
+    <string name="summary_split">Km %1$d</string>
+    <string name="recovery_one_minute">Recovery after 1 min</string>
+    <string name="recovery_two_minutes">Recovery after 2 min</string>
 </resources>

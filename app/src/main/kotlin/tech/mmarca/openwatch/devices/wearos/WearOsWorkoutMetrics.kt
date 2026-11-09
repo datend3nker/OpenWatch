@@ -60,7 +60,7 @@ object WearOsWorkoutMetrics {
         .filter { !it.startTime.isBefore(workout.start) && !it.endTime.isAfter(workout.end) && it.startTime.isBefore(it.endTime) }
 
     /** One line of plain figures for the session's notes; null with nothing to say. */
-    fun notes(summary: WorkoutMetrics.Summary, recoveryBpm: Int? = null): String? {
+    fun notes(summary: WorkoutMetrics.Summary, recoveryBpm: Int? = summary.recoveryBpm): String? {
         val parts = buildList {
             if (summary.averageBpm != null && summary.maxBpm != null) add("Heart rate avg ${summary.averageBpm}, max ${summary.maxBpm} bpm")
             if (summary.zoneSeconds.any { it > 0 }) add("Zones (min) " + summary.zoneSeconds.joinToString("/") { (it / 60).toString() })

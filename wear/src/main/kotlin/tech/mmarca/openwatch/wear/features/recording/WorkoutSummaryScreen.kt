@@ -39,6 +39,8 @@ fun WorkoutSummaryScreen(
     fields: Set<WorkoutField>,
     unitSystem: UnitSystem,
     onDone: () -> Unit,
+    /** More figures, label and value with its unit, below the recorded ones. */
+    extras: List<Pair<String, String>> = emptyList(),
 ) {
     val listState = rememberTransformingLazyColumnState()
 
@@ -108,6 +110,10 @@ fun WorkoutSummaryScreen(
                         unit = stringResource(metricUnitLabel(MetricTile.ELEVATION, unitSystem)),
                     )
                 }
+            }
+            items(extras.size) { index ->
+                val (label, value) = extras[index]
+                SummaryRow(label = label, value = value)
             }
         }
     }

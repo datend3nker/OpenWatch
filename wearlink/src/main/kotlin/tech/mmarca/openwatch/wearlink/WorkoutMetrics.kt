@@ -45,6 +45,8 @@ object WorkoutMetrics {
         val paceSecondsPerKm: Double?,
         /** ml/kg/min; null for a sport or a session it does not apply to. */
         val vo2Max: Double?,
+        /** The heart rate's fall one minute after the stop ([recovery]); null when it was not measured. */
+        val recoveryBpm: Int? = null,
     )
 
     /** Readings further apart than this are a gap, not a reading that lasted. */
@@ -272,6 +274,9 @@ object WorkoutMetrics {
         val two = around(stopMillis + 2 * MINUTE_MILLIS)?.let { (end - it).toInt() }
         return one to two
     }
+
+    /** Readings in the two minutes after a stop that show a recovery was measured (one a second), not the day's 10 s grid. */
+    const val MIN_RECOVERY_READINGS: Int = 60
 
     private val VO2_SPORTS = setOf(WorkoutSport.WALKING, WorkoutSport.RUNNING, WorkoutSport.HIKING)
     private const val KJ_PER_KCAL = 4.184
