@@ -67,9 +67,8 @@ class MainActivity : ComponentActivity() {
             }
             // A running or just finished workout takes the screen.
             val workout by WorkoutState.state.collectAsStateWithLifecycle()
-            var workoutOpen by remember { mutableStateOf(false) }
-            if (workoutOpen || workout.running || workout.finished) {
-                OpenWatchWearTheme { WorkoutScreen(zones = uiState.preferences.zones, onClose = { workoutOpen = false }) }
+            if (workout.running || workout.finished) {
+                OpenWatchWearTheme { WorkoutScreen(zones = uiState.preferences.zones, onClose = {}) }
                 return@setContent
             }
             OpenWatchWearApp(
@@ -77,8 +76,8 @@ class MainActivity : ComponentActivity() {
                 onLog = viewModel::log,
                 deepLinkRoute = pendingRoute,
                 onDeepLinkHandled = { pendingRoute = null },
-                onStartWorkout = { workoutOpen = true },
-                statusScreen = { StatusScreen(onOpenWorkout = { workoutOpen = true }) },
+                workoutScreen = { onClose -> WorkoutScreen(zones = uiState.preferences.zones, onClose = onClose) },
+                statusScreen = { StatusScreen() },
                 phoneScreen = { PhoneRoute() },
                 sensorScreen = { onOpenDetails -> SensorAccessRoute(onOpenDetails) },
             )
@@ -99,9 +98,8 @@ class MainActivity : ComponentActivity() {
 
     /** What the watch records, whether the phone can reach it, and which phones may. */
     @Composable
-    private fun StatusScreen(onOpenWorkout: () -> Unit) {
+    private fun StatusScreen() {
         WatchStatusScreen(
-            onOpenWorkout = onOpenWorkout,
             permissionsVersion = permissionsVersion,
             hasHeartRate = { WearPermissions.hasHeartRate(this) },
             hasBluetooth = { WearPermissions.hasBluetooth(this) },

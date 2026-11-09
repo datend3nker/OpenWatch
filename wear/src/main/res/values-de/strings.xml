@@ -66,7 +66,6 @@
     <string name="tile_floors_no_sensor">kein Barometer</string>
     <string name="tile_read_failed">Daten der Uhr nicht lesbar</string>
     <string name="tile_not_granted">in der Uhr-App erlauben</string>
-    <string name="workout_open">Training</string>
     <string name="workout_pick">Training starten</string>
     <string name="workout_back">Zurück</string>
     <string name="workout_waiting_for_gps">Warte auf GPS …</string>
@@ -272,4 +271,6 @@
     <string name="quicklog_editor_active_header">Angezeigte Einträge</string>
     <string name="quicklog_editor_available_header">Einträge hinzufügen</string>
     <string name="quicklog_editor_reorder_hint">Eintrag lange drücken und ziehen, um ihn zu verschieben. Antippen entfernt ihn.</string>
+    <string name="measure_spo2">Blutsauerstoff</string>
+    <string name="measure_spo2_description">Etwa 15 Sekunden, Arm ruhig</string>
 </resources>

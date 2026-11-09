@@ -15,6 +15,7 @@ fun measurementUnit(measurement: Measurement): Int = when (measurement) {
     Measurement.HEART_RATE -> R.string.unit_bpm
     Measurement.HRV -> R.string.unit_ms
     Measurement.AIR_PRESSURE -> R.string.unit_hpa
+    Measurement.SPO2 -> R.string.unit_percent
 }
 
 /** The altitude that goes with a pressure reading, in the unit system's length unit. */

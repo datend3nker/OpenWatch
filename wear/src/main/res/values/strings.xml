@@ -51,7 +51,6 @@
     <string name="tile_heart_rate_label">Heart rate</string>
     <string name="tile_heart_rate_description">Your latest heart rate and its curve today, as the watch app recorded them</string>
     <string name="tile_heart_rate_caption_now">bpm · just now</string>
-    <string name="workout_open">Workout</string>
     <string name="workout_pick">Start a workout</string>
     <string name="workout_back">Back</string>
     <string name="workout_waiting_for_gps">Waiting for GPS…</string>
@@ -272,4 +271,6 @@
     <string name="metric_height">Height</string>
     <string name="unit_cm">cm</string>
     <string name="unit_inch">in</string>
+    <string name="measure_spo2">Blood oxygen</string>
+    <string name="measure_spo2_description">About 15 seconds, arm still</string>
 </resources>

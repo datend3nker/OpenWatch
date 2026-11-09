@@ -90,8 +90,11 @@ fun MeasurementRoute(
                 state = state,
                 unitSystem = unitSystem,
                 onStart = {
-                    if (measurement.needsHeartRatePermission && !WearPermissions.hasHeartRate(context)) {
-                        permissionLauncher.launch(WearPermissions.heartRate)
+                    val missing = measurement.permission()?.takeIf {
+                        context.checkSelfPermission(it) != android.content.pm.PackageManager.PERMISSION_GRANTED
+                    }
+                    if (missing != null) {
+                        permissionLauncher.launch(missing)
                     } else {
                         viewModel.start()
                     }
@@ -204,7 +207,7 @@ private fun MeasurementBody(
                         unit = stringResource(measurementUnit(measurement)),
                         valueStyle = MaterialTheme.typography.displayMedium,
                     )
-                    state.secondary?.let { altitude ->
+                    state.secondary?.takeIf { measurement == Measurement.AIR_PRESSURE }?.let { altitude ->
                         val (value, unit) = formatAltitude(altitude, unitSystem)
                         Body(stringResource(R.string.measure_altitude, value, stringResource(unit)))
                     }
