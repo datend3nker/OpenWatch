@@ -108,6 +108,7 @@ fun OpenWatchWearApp(
                         restingHeartRate = currentState.metrics[MetricTile.RESTING_HEART_RATE]?.current,
                         sleepStages = currentState.sleepStages,
                         onMeasure = measurement?.let { { navController.navigate(WearRoutes.measurement(it)) } },
+                        entries = currentState.entries,
                     )
                 }
                 composable(WearRoutes.TILE_EDITOR) {
