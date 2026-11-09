@@ -110,7 +110,7 @@ class WearAppService : Service() {
         super.onCreate()
         DebugProtocol.init(this)
         store = MetricStore(this)
-        samsungFeed = SamsungHeartRateFeed(this)
+        samsungFeed = SamsungHeartRateFeed.shared(this)
         wakeSync = SensorWakeSync(this)
         workout = WorkoutRecorder(this, store) {
             // The location type is held only while a workout reads the GPS; the heart rate runs at the full rate.
