@@ -94,7 +94,7 @@ class WearAppService : Service() {
         store = MetricStore(this)
         samsungFeed = SamsungHeartRateFeed(this)
         wakeSync = SensorWakeSync(this)
-        clock = WakeClock(this, wakeSync)
+        clock = WakeClock(this, wakeSync, onBatchLatency = { recorder.setBatchLatency(it) })
         workout = WorkoutRecorder(this, store) {
             // The location type is held only while a workout reads the GPS; the heart rate runs at the full rate.
             if (isForeground) startInForeground()
@@ -112,8 +112,9 @@ class WearAppService : Service() {
             // The heart rate runs at full rate while sleep is held; the plan reads it.
             onSleepHoldChange = { mainHandler.post { reconcileRecorders() } },
             wakeSync = wakeSync,
-            // A synced hold rests on the dense beat; without one it keeps the lasting lock.
-            syncedHold = { WearSettings.syncedSleepHold(this) && clock.isDense },
+            // A synced or quiet hold rests on the beat; without one it keeps the lasting lock.
+            syncedHold = { WearSettings.sleepHold(this) != WearSettings.SleepHoldMode.LOCK && clock.restsOnBeat },
+            extraCloseLagMillis = { clock.batchLatencyMillis - WakeClock.DENSE_PERIOD_MILLIS },
         )
         recorder = HeartRateRecorder(
             this,
@@ -309,25 +310,32 @@ class WearAppService : Service() {
         } else {
             HeartRateInterval.OFF
         }
-        val before = Triple(recorder.interval, recorder.source, clock.isDense)
-        recorder.setPlan(wanted, WearSettings.heartRateSource(this))
+        val before = Triple(recorder.interval, recorder.source, clock.mode)
+        // A hold on the beat takes the heart rate from the sensor: its batches are the beat.
+        val beatHold = minuteRecorder.isSleepHolding && WearSettings.sleepHold(this) != WearSettings.SleepHoldMode.LOCK
+        recorder.setPlan(wanted, if (beatHold) WearSettings.Source.RAW_SENSOR else WearSettings.heartRateSource(this))
         reconcileClock()
         // Skin temperature and SpO2 come only from the Samsung platform, at night, each switched on by itself.
         val night = granted && heartRateWanted && minuteRecorder.isSleepHolding
         skinRecorder.setEnabled(night && WearSettings.skinTemperature(this) && WearPermissions.hasSkinTemperature(this))
         spo2Recorder.setEnabled(granted && WearSettings.spo2AtNight(this) && WearPermissions.hasOxygenSaturation(this))
-        if (before != Triple(recorder.interval, recorder.source, clock.isDense)) debugSnapshots.write("plan")
+        if (before != Triple(recorder.interval, recorder.source, clock.mode)) debugSnapshots.write("plan")
     }
 
     /**
-     * The [WakeClock]'s mode: dense while the heart rate's batches beat
-     * anyway, or while a synced sleep hold needs every minute whole without
-     * a lasting lock; sparse otherwise. Main thread.
+     * The [WakeClock]'s mode: quiet for a quiet sleep hold, dense while the
+     * heart rate's batches beat anyway or a synced hold needs every minute
+     * whole without a lasting lock, sparse otherwise. Main thread.
      */
     private fun reconcileClock() {
         val dense = isHeartRateDense()
-        val syncedNight = minuteRecorder.isSleepHolding && WearSettings.syncedSleepHold(this)
-        clock.setMode(if (dense || syncedNight) WakeClock.Mode.DENSE else WakeClock.Mode.SPARSE, externalDense = dense)
+        val hold = if (minuteRecorder.isSleepHolding) WearSettings.sleepHold(this) else WearSettings.SleepHoldMode.LOCK
+        val mode = when {
+            hold == WearSettings.SleepHoldMode.QUIET -> WakeClock.Mode.QUIET
+            dense || hold == WearSettings.SleepHoldMode.SYNCED -> WakeClock.Mode.DENSE
+            else -> WakeClock.Mode.SPARSE
+        }
+        clock.setMode(mode, externalDense = dense)
     }
 
     private fun abilities() = WatchAbilities(
@@ -367,10 +375,12 @@ class WearAppService : Service() {
         "bedtime" to bedtimeMonitor.isBedtime,
         "hold" to WearLinkState.state.value.bedtimeHold.name,
         "sleepHold" to minuteRecorder.isSleepHolding,
-        "syncedHold" to WearSettings.syncedSleepHold(this),
+        "syncedHold" to (WearSettings.sleepHold(this) != WearSettings.SleepHoldMode.LOCK),
+        "holdMode" to WearSettings.sleepHold(this).name,
         "lock" to minuteRecorder.holdsLastingLock,
         "clock" to clock.mode.name,
         "clockDense" to clock.isDense,
+        "beatSec" to clock.batchLatencyMillis / 1000,
         "skin" to skinRecorder.isRunning,
         "spo2" to spo2Recorder.isRunning,
         "workout" to workout.isActive,

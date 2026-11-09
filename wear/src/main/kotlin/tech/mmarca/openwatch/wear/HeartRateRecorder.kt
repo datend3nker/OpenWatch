@@ -3,7 +3,7 @@ package tech.mmarca.openwatch.wear
 import android.content.Context
 import android.hardware.Sensor
 import android.hardware.SensorEvent
-import android.hardware.SensorEventListener
+import android.hardware.SensorEventListener2
 import android.hardware.SensorManager
 import android.os.Handler
 import android.os.HandlerThread
@@ -55,7 +55,7 @@ internal class HeartRateRecorder(
     private val onSample: (epochMillis: Long, bpm: Int) -> Unit = { _, _ -> },
     /** False when the sensor reported no contact, an unreliable reading or 0 bpm. */
     private val onContact: (epochMillis: Long, contact: Boolean) -> Unit = { _, _ -> },
-) : SensorEventListener, SamsungHeartRateFeed.Subscriber {
+) : SensorEventListener2, SamsungHeartRateFeed.Subscriber {
 
     private val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
     private val wakeLock = (context.getSystemService(Context.POWER_SERVICE) as PowerManager)
@@ -88,6 +88,15 @@ internal class HeartRateRecorder(
     private val noDataTask = Runnable { fallBack("no_data") }
 
     private var sensor: Sensor? = null
+
+    /** How long the hub may hold readings at the continuous interval; [setBatchLatency] changes it. */
+    @Volatile
+    private var batchLatencyMicros = MAX_REPORT_LATENCY_MICROS
+    private var relatchPending = false
+
+    // Samples kept since the last write: one transaction per batch, not one per sample.
+    private val pendingSamples = ArrayList<WearLinkProtocol.HeartRateSample>()
+    private val commitTask = Runnable { commit() }
     private var lastStoredAt = 0L
     private var lastPrunedAt = 0L
     private var subscribedAt = 0L
@@ -179,7 +188,7 @@ internal class HeartRateRecorder(
     /** Registration for the continuous interval: one reading a second, batched. */
     private fun registerBatched(found: Sensor, workerHandler: Handler): Boolean =
         try {
-            sensorManager.registerListener(this, found, SAMPLING_PERIOD_MICROS, MAX_REPORT_LATENCY_MICROS, workerHandler)
+            sensorManager.registerListener(this, found, SAMPLING_PERIOD_MICROS, batchLatencyMicros, workerHandler)
         } catch (e: SecurityException) {
             // The grant was revoked between the check and the registration.
             Log.e(TAG, "Heart rate sensor refused", e)
@@ -189,8 +198,10 @@ internal class HeartRateRecorder(
     fun stop() {
         val worker = thread ?: return
         val workerHandler = handler
-        // Pending timers would reopen the sensor after this returns.
+        // Pending timers would reopen the sensor after this returns; the kept samples are still written.
         workerHandler?.removeCallbacksAndMessages(null)
+        workerHandler?.post(commitTask)
+        relatchPending = false
         sensorManager.unregisterListener(this)
         samsungFeed.unsubscribe(this)
         if (wakeLock.isHeld) wakeLock.release()
@@ -201,6 +212,42 @@ internal class HeartRateRecorder(
         sensor = null
         interval = HeartRateInterval.OFF
         Log.i(TAG, "Stopped recording heart rate")
+    }
+
+    /**
+     * Sets how long the hub may hold readings at the continuous interval
+     * from the sensor: the beat's period while sleep is held quietly
+     * ([WakeClock]). Takes effect by registering again once the buffer is
+     * flushed, so no reading is lost. Any thread.
+     */
+    fun setBatchLatency(millis: Long) {
+        val micros = (millis * 1000).toInt()
+        val workerHandler = handler
+        if (workerHandler == null) {
+            batchLatencyMicros = micros
+            return
+        }
+        workerHandler.post {
+            if (micros == batchLatencyMicros) return@post
+            batchLatencyMicros = micros
+            if (interval != HeartRateInterval.EVERY_10_SECONDS || source != WearSettings.Source.RAW_SENSOR) return@post
+            relatchPending = true
+            if (!sensorManager.flush(this)) relatch()
+            DebugProtocol.event("HeartRate", "latency", "sec" to millis / 1000)
+        }
+    }
+
+    override fun onFlushCompleted(sensor: Sensor) {
+        if (relatchPending) relatch()
+    }
+
+    /** Registers the batched sensor again with [batchLatencyMicros]. Recorder thread. */
+    private fun relatch() {
+        relatchPending = false
+        val workerHandler = handler ?: return
+        val found = sensor ?: return
+        sensorManager.unregisterListener(this)
+        if (!registerBatched(found, workerHandler)) Log.w(TAG, "Heart rate listener not registered again")
     }
 
     /**
@@ -320,11 +367,22 @@ internal class HeartRateRecorder(
     private fun keep(at: Long, bpm: Int) {
         if (at - lastStoredAt < MIN_SAMPLE_GAP_MILLIS) return
         lastStoredAt = at
-        store.put(WearMetrics.HEART_RATE, WearLinkProtocol.HeartRateSample(at, bpm))
+        pendingSamples += WearLinkProtocol.HeartRateSample(at, bpm)
+        // Posted behind the rest of the batch, so the whole batch is one write.
+        if (pendingSamples.size == 1) handler?.post(commitTask)
         onSample(at, bpm)
         windowValues++
         DebugProtocol.count("hr.stored")
         DebugProtocol.max("hr.lagMs.max", System.currentTimeMillis() - at)
+    }
+
+    /** Writes the kept samples in one transaction. Recorder thread. */
+    private fun commit() {
+        if (pendingSamples.isEmpty()) return
+        val batch = pendingSamples.toList()
+        pendingSamples.clear()
+        store.putAll(WearMetrics.HEART_RATE, batch)
+        val at = batch.last().epochMillis
         if (at - lastPrunedAt > PRUNE_EVERY_MILLIS) {
             lastPrunedAt = at
             store.prune(WearMetrics.HEART_RATE, at)
