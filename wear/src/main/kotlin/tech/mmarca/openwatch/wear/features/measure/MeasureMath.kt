@@ -1,12 +1,11 @@
 package tech.mmarca.openwatch.wear.features.measure
 
-import kotlin.math.abs
-import kotlin.math.sqrt
+import tech.mmarca.openwatch.wear.HrvRmssd
 
 /** Readings a heart rate measurement needs before it settles. */
 internal const val HeartRateReadingsNeeded = 8
 
-/** RR intervals an HRV reading needs; fewer means too short or too noisy. */
+/** Clean intervals the live HRV figure needs before it shows; fewer means too short or too noisy. */
 internal const val HrvIntervalsNeeded = 30
 
 /**
@@ -25,17 +24,17 @@ internal fun rrIntervalsMillis(beatTimestampsNanos: List<Long>): List<Double> =
     beatTimestampsNanos.zipWithNext { a, b -> (b - a) / 1_000_000.0 }
 
 /**
- * RMSSD in milliseconds, after dropping intervals no heart produces (outside
- * 300 to 2000 ms, 30 to 200 bpm) and ectopic beats that differ from the
- * previous kept interval by more than 20 %. Null when too few remain.
+ * RMSSD in milliseconds from beat timestamps in nanoseconds, by the same
+ * rules as the night windows ([HrvRmssd]): intervals no heart produces and
+ * ectopic ones are judged against their local median, and only neighbouring
+ * intervals form a pair, so a removed beat never joins its two sides.
+ * Null when fewer than [minCleanBeats] clean intervals remain.
  */
-internal fun rmssd(rrMillis: List<Double>): Double? {
-    val clean = mutableListOf<Double>()
-    rrMillis.filter { it in 300.0..2000.0 }.forEach { rr ->
-        val previous = clean.lastOrNull()
-        if (previous == null || abs(rr - previous) <= previous * 0.2) clean += rr
-    }
-    if (clean.size < HrvIntervalsNeeded) return null
-    val squaredDiffs = clean.zipWithNext { a, b -> (b - a) * (b - a) }
-    return sqrt(squaredDiffs.average())
-}
+internal fun rmssd(beatTimestampsNanos: List<Long>, minCleanBeats: Int): Double? =
+    HrvRmssd.of(DoubleArray(beatTimestampsNanos.size) { beatTimestampsNanos[it] / 1_000_000.0 }, minCleanBeats)?.rmssdMillis
+
+/**
+ * Clean intervals a 3-minute reading needs: the night window's 100 is for five
+ * minutes, and three minutes at rest hold about 60 percent of that.
+ */
+internal const val HrvBeatsNeededForReading = 60

@@ -85,7 +85,7 @@ class MeasurementRunner(private val context: Context) {
                 }
             }
         }
-        val value = rmssd(rrIntervalsMillis(beats)) ?: throw MeasureException(MeasureError.NO_SIGNAL)
+        val value = rmssd(beats, HrvBeatsNeededForReading) ?: throw MeasureException(MeasureError.NO_SIGNAL)
         emit(MeasureEvent.Result(value))
     }
 
