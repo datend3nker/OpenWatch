@@ -54,7 +54,7 @@ abstract class MetricTileService : TileService() {
     internal abstract val titleRes: Int
 
     /** Today's tile from [store], read on the IO dispatcher. */
-    internal abstract fun read(day: TileDay, chart: TileChart, store: MetricStore): MetricTile
+    internal abstract fun read(day: TileDay, chart: TileChart, store: MetricStore): MetricTileContent
 
     override fun onTileRequest(requestParams: TileRequest): ListenableFuture<Tile> =
         SuspendToFutureAdapter.launchFuture(scope.coroutineContext) {
@@ -93,13 +93,13 @@ abstract class MetricTileService : TileService() {
     internal fun formatCount(count: Long): String = NumberFormat.getIntegerInstance().format(count)
 
     /** A tile without a value: a dash, [reason] as the caption, no curve. */
-    internal fun unavailable(reason: String): MetricTile {
+    internal fun unavailable(reason: String): MetricTileContent {
         val title = getString(titleRes)
-        return MetricTile(title, TILE_NO_VALUE, reason, accent, "$title: $reason", chart = null)
+        return MetricTileContent(title, TILE_NO_VALUE, reason, accent, "$title: $reason", chart = null)
     }
 
     /** Today's tile, or a dash when the store cannot be read, rather than the system's error tile. */
-    private fun readToday(device: DeviceParameters): MetricTile {
+    private fun readToday(device: DeviceParameters): MetricTileContent {
         val density = device.screenDensity
         val chartHeightDp = (device.screenHeightDp * CHART_HEIGHT_SHARE).coerceIn(MIN_CHART_HEIGHT_DP, MAX_CHART_HEIGHT_DP)
         val chart = TileChart(
