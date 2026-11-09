@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">OpenWatch Wear</string>
+    <string name="workout_channel_name">Laufendes Training</string>
     <string name="link_channel_name">Telefonverbindung</string>
     <string name="link_notification_text">Zeichnet Puls und Schlaf auf · erreichbar für OpenWatch auf deinem Telefon</string>
     <string name="status_heart_rate_not_granted">Pulszugriff ist aus</string>
