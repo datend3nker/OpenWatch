@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
@@ -17,7 +18,23 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
+import androidx.core.app.NotificationCompat
+import androidx.wear.ongoing.OngoingActivity
+import androidx.wear.ongoing.Status
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
+import tech.mmarca.openwatch.wear.workout.WorkoutPillKey
+import tech.mmarca.openwatch.wear.workout.WorkoutState
+import tech.mmarca.openwatch.wear.workout.pillKey
+import tech.mmarca.openwatch.wear.workout.sportName
+import tech.mmarca.openwatch.wear.workout.stopwatchBaseMillis
 import tech.mmarca.openwatch.wear.samsung.SamsungHeartRateFeed
 import tech.mmarca.openwatch.wear.workout.MetricStoreWorkoutRows
 import tech.mmarca.openwatch.wear.workout.WorkoutRecorder
@@ -63,6 +80,7 @@ class WearAppService : Service() {
     private lateinit var trust: WearTrustStore
     private lateinit var link: WearLinkServerHost
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     /** False while [WornMonitor] says the watch is off the wrist. Main thread only. */
     private var heartRateWanted = true
@@ -101,6 +119,10 @@ class WearAppService : Service() {
             reconcileRecorders()
         }
         Thread({ workout.recoverInterrupted() }, "WorkoutRecover").start()
+        // A start, pause, resume or end changes the pill; the ticking of the clock does not.
+        serviceScope.launch {
+            WorkoutState.state.map { it.pillKey() }.distinctUntilChanged().collect { mainHandler.post(::refreshNotification) }
+        }
         // Off the main thread: a week of heart rate is tens of thousands of rows.
         Thread({ LegacyStoreImport.run(this, store) }, "LegacyStoreImport").start()
         ppgLogger = PpgRawLogger(this)
@@ -237,12 +259,11 @@ class WearAppService : Service() {
         manager.createNotificationChannel(
             NotificationChannel(CHANNEL_ID, getString(R.string.link_channel_name), NotificationManager.IMPORTANCE_MIN),
         )
-        val notification = Notification.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher_monochrome)
-            .setContentTitle(getString(R.string.app_name))
-            .setContentText(getString(R.string.link_notification_text))
-            .setOngoing(true)
-            .build()
+        // The watch face pill needs a channel that is not MIN; it is used only while a workout runs.
+        manager.createNotificationChannel(
+            NotificationChannel(WORKOUT_CHANNEL_ID, getString(R.string.workout_channel_name), NotificationManager.IMPORTANCE_LOW),
+        )
+        val notification = buildNotification()
         var types = ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
         val sensing = WearPermissions.hasHeartRate(this) || WearPermissions.hasActivityRecognition(this)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && sensing) {
@@ -259,6 +280,58 @@ class WearAppService : Service() {
             Log.e(TAG, "Cannot run the phone link in the foreground", e)
             false
         }
+    }
+
+    /**
+     * The one notification of the foreground service. While a workout runs it
+     * carries the ongoing activity, which is the pill on the watch face. The
+     * same notification is posted again when the workout starts, pauses,
+     * resumes or ends; there is never a second one.
+     */
+    private fun buildNotification(): Notification {
+        val workoutState = WorkoutState.state.value
+        val key = workoutState.pillKey()
+        val builder = NotificationCompat.Builder(this, if (key != null) WORKOUT_CHANNEL_ID else CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_launcher_monochrome)
+            .setContentTitle(getString(R.string.app_name))
+            .setContentText(getString(R.string.link_notification_text))
+            .setOngoing(true)
+        if (key != null) {
+            builder.setCategory(NotificationCompat.CATEGORY_WORKOUT)
+            applyWorkoutPill(builder, key, workoutState.snapshot?.activeSeconds ?: 0)
+        }
+        return builder.build()
+    }
+
+    /** Adds the ongoing activity: sport and stopwatch, or sport and "Paused". A tap opens the workout screen. */
+    private fun applyWorkoutPill(builder: NotificationCompat.Builder, key: WorkoutPillKey, activeSeconds: Long) {
+        val base = stopwatchBaseMillis(key, activeSeconds, SystemClock.elapsedRealtime())
+        val status = Status.Builder().addPart("sport", Status.TextPart(getString(sportName(key.sport))))
+        if (base == null) {
+            status.addTemplate("#sport# · #state#").addPart("state", Status.TextPart(getString(R.string.recording_paused)))
+        } else {
+            status.addTemplate("#sport# · #time#").addPart("time", Status.StopwatchPart(base))
+        }
+        // MainActivity shows the workout screen by itself while a workout runs.
+        val open = PendingIntent.getActivity(
+            this,
+            0,
+            Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        builder.setContentIntent(open)
+        OngoingActivity.Builder(applicationContext, NOTIFICATION_ID, builder)
+            .setStaticIcon(R.drawable.ic_launcher_monochrome)
+            .setStatus(status.build())
+            .setTouchIntent(open)
+            .build()
+            .apply(applicationContext)
+    }
+
+    /** Posts the notification again, on the main thread, when the pill must change. */
+    private fun refreshNotification() {
+        if (!isForeground) return
+        getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, buildNotification())
     }
 
     /** Starts each recorder whose grant is in and whose sensor the watch has; the rest wait for a later call. */
@@ -427,6 +500,7 @@ class WearAppService : Service() {
     }
 
     override fun onDestroy() {
+        serviceScope.cancel()
         if (isForeground) {
             unregisterReceiver(bluetoothReceiver)
             wornMonitor.stop()
@@ -453,6 +527,7 @@ class WearAppService : Service() {
     companion object {
         private const val TAG = "WearAppService"
         private const val CHANNEL_ID = "phone_link"
+        private const val WORKOUT_CHANNEL_ID = "workout"
         private const val NOTIFICATION_ID = 1
         private const val ACTION_TOGGLE_PPG_LOG = "tech.mmarca.openwatch.wear.TOGGLE_PPG_LOG"
         const val ACTION_CLOCK_BEAT = "tech.mmarca.openwatch.wear.CLOCK_BEAT"

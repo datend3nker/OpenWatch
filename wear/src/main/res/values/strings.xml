@@ -1,5 +1,6 @@
 <resources>
     <string name="app_name">OpenWatch Wear</string>
+    <string name="workout_channel_name">Running workout</string>
     <string name="link_channel_name">Phone link</string>
     <string name="link_notification_text">Recording heart rate and sleep · reachable by OpenWatch on your phone</string>
     <string name="status_heart_rate_not_granted">Heart rate access is off</string>

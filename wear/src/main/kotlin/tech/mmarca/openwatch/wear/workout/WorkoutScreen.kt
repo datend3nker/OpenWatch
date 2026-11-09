@@ -133,7 +133,7 @@ private fun clock(seconds: Long): String {
     return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%02d:%02d".format(m, s)
 }
 
-private fun sportName(sport: WorkoutSport): Int = when (sport) {
+internal fun sportName(sport: WorkoutSport): Int = when (sport) {
     WorkoutSport.WALKING -> R.string.workout_sport_walking
     WorkoutSport.RUNNING -> R.string.workout_sport_running
     WorkoutSport.HIKING -> R.string.workout_sport_hiking
