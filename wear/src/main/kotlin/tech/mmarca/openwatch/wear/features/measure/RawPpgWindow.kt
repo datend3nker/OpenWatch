@@ -8,6 +8,7 @@ import android.hardware.SensorManager
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.PowerManager
+import android.util.Log
 import kotlin.math.sqrt
 import kotlinx.coroutines.delay
 import tech.mmarca.openwatch.wear.HrvWindowResult
@@ -22,8 +23,11 @@ import tech.mmarca.openwatch.wear.SensorTime
  * accelerometer decides ([Stillness]).
  *
  * The sensor is registered unbatched under a partial wake lock for the window, as the night
- * recorder does, because the batched sensor's gaps lose beats. Whether it can run beside the
- * normal heart rate sensor is not verified on a watch.
+ * recorder does, because the batched sensor's gaps lose beats. The normal heart rate sensor is
+ * registered too, without reading it: the raw sensor probably only gets light from the LEDs
+ * while that one runs (the research on the raw signal was done with heart rate tracking on, and
+ * in power save it is mostly off). That is a guess; the log line at the end tells how many raw
+ * readings came.
  */
 internal class RawPpgWindow(private val context: Context) {
 
@@ -44,6 +48,7 @@ internal class RawPpgWindow(private val context: Context) {
                 val at = SensorTime.epochMillisOf(event.timestamp)
                 // The cached reading handed to a new listener carries the time the sensor last ran.
                 if (at < startedAt - STALE_MILLIS) return
+                if (event.sensor.type == Sensor.TYPE_HEART_RATE) return
                 if (event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
                     val (x, y, z) = event.values.map { it.toDouble() }
                     motion.add(at, sqrt(x * x + y * y + z * z))
@@ -59,6 +64,9 @@ internal class RawPpgWindow(private val context: Context) {
             .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, WAKE_LOCK_TAG)
         try {
             wakeLock.acquire(durationMillis + WAKE_LOCK_SLACK_MILLIS)
+            // Keeps the LEDs on. Its readings are not used.
+            manager.getDefaultSensor(Sensor.TYPE_HEART_RATE)
+                ?.let { manager.registerListener(listener, it, SensorManager.SENSOR_DELAY_FASTEST, 0, handler) }
             if (!manager.registerListener(listener, ppg, ppg.minDelay.coerceAtLeast(1), 0, handler)) return null
             accelerometer?.let { manager.registerListener(listener, it, SensorManager.SENSOR_DELAY_NORMAL, 0, handler) }
             delay(durationMillis)
@@ -68,6 +76,7 @@ internal class RawPpgWindow(private val context: Context) {
             thread.quitSafely()
         }
         val (pulseTimes, pulseValues) = pulse.snapshot()
+        Log.i(TAG, "Spot HRV window: ${pulseTimes.size} raw readings in ${durationMillis / MILLIS_PER_SECOND} s")
         val (motionTimes, motionMagnitudes) = motion.snapshot()
         val moved = accelerometer != null && Stillness.moved(motionTimes.map { it.toLong() }.toLongArray(), motionMagnitudes)
         return Outcome(NightHrv.analyze(pulseTimes, pulseValues), moved)
@@ -97,7 +106,9 @@ internal class RawPpgWindow(private val context: Context) {
     }
 
     private companion object {
-        const val WAKE_LOCK_TAG = "OpenVitals:spotHrv"
+        const val TAG = "RawPpgWindow"
+        const val MILLIS_PER_SECOND = 1_000L
+        const val WAKE_LOCK_TAG = "OpenWatch:spotHrv"
         const val WAKE_LOCK_SLACK_MILLIS = 60_000L
         const val STALE_MILLIS = 1_000L
         const val NANOS_PER_MILLI = 1_000_000.0

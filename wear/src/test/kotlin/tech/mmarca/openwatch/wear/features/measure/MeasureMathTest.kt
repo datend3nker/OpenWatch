@@ -25,21 +25,34 @@ class MeasureMathTest {
         assertEquals(listOf(800.0, 850.0), rrIntervalsMillis(beats))
     }
 
+    /** Beat timestamps in nanoseconds from intervals in milliseconds. */
+    private fun beatsOf(intervals: List<Double>): List<Long> =
+        intervals.runningFold(0.0) { t, rr -> t + rr }.map { (it * 1_000_000).toLong() }
+
+    private fun alternating(count: Int) = List(count) { if (it % 2 == 0) 800.0 else 840.0 }
+
     @Test
     fun rmssd_ofAlternatingIntervals_isTheirDifference() {
-        val rr = List(HrvIntervalsNeeded + 1) { if (it % 2 == 0) 800.0 else 840.0 }
-        assertEquals(40.0, rmssd(rr)!!, 1e-9)
+        assertEquals(40.0, rmssd(beatsOf(alternating(HrvIntervalsNeeded + 1)), HrvIntervalsNeeded)!!, 1e-6)
     }
 
     @Test
-    fun rmssd_dropsImpossibleAndEctopicIntervals() {
-        val steady = List(HrvIntervalsNeeded + 1) { if (it % 2 == 0) 800.0 else 840.0 }
-        val noisy = steady.take(10) + 250.0 + 1_400.0 + steady.drop(10)
-        assertEquals(40.0, rmssd(noisy)!!, 1e-9)
+    fun rmssd_dropsAnOutlierThatComesFirst() {
+        // 1900 ms is inside the allowed range; it must not make every later 800 ms beat look ectopic.
+        val rr = listOf(1_900.0) + alternating(60)
+        assertEquals(40.0, rmssd(beatsOf(rr), HrvIntervalsNeeded)!!, 1e-6)
+    }
+
+    @Test
+    fun rmssd_doesNotJoinTheTwoSidesOfARemovedBeat() {
+        // One missed beat gives a 1600 ms interval; the pair across it must not count as a step.
+        // 39 steps of 40 ms before it, 39 steps of 0 ms after it; the 840 to 760 jump across it would add 80.
+        val rr = alternating(40) + 1_600.0 + List(40) { 760.0 }
+        assertEquals(40.0 / Math.sqrt(2.0), rmssd(beatsOf(rr), HrvIntervalsNeeded)!!, 0.01)
     }
 
     @Test
     fun rmssd_withTooFewBeats_isNull() {
-        assertNull(rmssd(List(HrvIntervalsNeeded - 1) { 800.0 }))
+        assertNull(rmssd(beatsOf(alternating(HrvIntervalsNeeded - 5)), HrvIntervalsNeeded))
     }
 }
