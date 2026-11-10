@@ -463,9 +463,6 @@
     <string name="watch_settings_unreachable">Часы не ответили. Они рядом и приложение OpenWatch на них запущено?</string>
     <string name="watch_settings_read">Прочитать с часов</string>
     <string name="watch_settings_power_save">Пульс в экономном режиме</string>
-    <string name="watch_settings_power_save_body">Примерно каждые 10 минут вне режима сна. В режиме сна измерение всегда каждые 10 секунд.</string>
-    <string name="watch_settings_synced">Совмещённые пробуждения во сне</string>
-    <string name="watch_settings_synced_body">Сохраняет каждую минуту сна за счёт пробуждений датчика пульса вместо постоянной блокировки сна. Работает только с пульсом от датчика.</string>
     <string name="watch_settings_samsung_note">Платформа Samsung: нужен режим разработчика Health Platform на часах. Без него платформа запрашивает Samsung об этом приложении. Источник Samsung при сбое переключается на датчик.</string>
     <string name="watch_settings_hr_samsung">Пульс от платформы Samsung</string>
     <string name="watch_settings_hrv_samsung">ВСР от платформы Samsung</string>

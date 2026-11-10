@@ -453,9 +453,6 @@
     <string name="watch_settings_unreachable">手表没有响应。它在附近吗？OpenWatch 应用在运行吗？</string>
     <string name="watch_settings_read">从手表读取</string>
     <string name="watch_settings_power_save">省电心率</string>
-    <string name="watch_settings_power_save_body">睡眠模式之外约每 10 分钟一次。睡眠模式始终每 10 秒测量一次。</string>
-    <string name="watch_settings_synced">睡眠时合并唤醒</string>
-    <string name="watch_settings_synced_body">通过心率传感器的唤醒而非持续唤醒锁保留每一分钟睡眠。仅适用于传感器心率。</string>
     <string name="watch_settings_samsung_note">Samsung 平台：需要在手表上开启 Health Platform 开发者模式。否则平台会向 Samsung 查询此应用。失败的 Samsung 来源会切换回传感器。</string>
     <string name="watch_settings_hr_samsung">来自 Samsung 平台的心率</string>
     <string name="watch_settings_hrv_samsung">来自 Samsung 平台的 HRV</string>

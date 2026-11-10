@@ -463,9 +463,6 @@
     <string name="watch_settings_unreachable">Zegarek nie odpowiedział. Czy jest w pobliżu i działa na nim aplikacja OpenWatch?</string>
     <string name="watch_settings_read">Odczytaj z zegarka</string>
     <string name="watch_settings_power_save">Tętno w trybie oszczędzania</string>
-    <string name="watch_settings_power_save_body">Mniej więcej co 10 minut poza trybem snu. Tryb snu zawsze mierzy co 10 sekund.</string>
-    <string name="watch_settings_synced">Zsynchronizowane wybudzenia podczas snu</string>
-    <string name="watch_settings_synced_body">Zachowuje każdą minutę snu dzięki wybudzeniom czujnika tętna zamiast stałej blokady uśpienia. Działa tylko z tętnem z czujnika.</string>
     <string name="watch_settings_samsung_note">Platforma Samsung: wymaga trybu dewelopera Health Platform na zegarku. Bez niego platforma pyta Samsung o tę aplikację. Źródło Samsung, które zawiedzie, wraca do czujnika.</string>
     <string name="watch_settings_hr_samsung">Tętno z platformy Samsung</string>
     <string name="watch_settings_hrv_samsung">HRV z platformy Samsung</string>

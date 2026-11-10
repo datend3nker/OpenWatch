@@ -458,9 +458,6 @@
     <string name="watch_settings_unreachable">La montre n\'a pas répondu. Est-elle à proximité et son application OpenWatch est-elle lancée ?</string>
     <string name="watch_settings_read">Lire depuis la montre</string>
     <string name="watch_settings_power_save">Fréquence cardiaque en mode économie</string>
-    <string name="watch_settings_power_save_body">Environ toutes les 10 minutes hors du mode coucher. Le mode coucher mesure toujours toutes les 10 secondes.</string>
-    <string name="watch_settings_synced">Réveils groupés pendant le sommeil</string>
-    <string name="watch_settings_synced_body">Conserve chaque minute de sommeil grâce aux réveils du capteur cardiaque au lieu d\'un verrou de réveil permanent. Fonctionne seulement avec la fréquence cardiaque du capteur.</string>
     <string name="watch_settings_samsung_note">Plateforme Samsung : nécessite le mode développeur de Health Platform sur la montre. Sans lui, la plateforme interroge Samsung au sujet de cette application. Une source Samsung qui échoue repasse au capteur.</string>
     <string name="watch_settings_hr_samsung">Fréquence cardiaque de la plateforme Samsung</string>
     <string name="watch_settings_hrv_samsung">VFC de la plateforme Samsung</string>

@@ -8,7 +8,6 @@ internal data class WatchPreferences(
     val heartRateDay: HeartRateInterval,
     val heartRateSource: WearSettings.Source,
     val hrvSource: WearSettings.Source,
-    val syncedSleepHold: Boolean,
     val skinTemperature: Boolean,
     val spo2AtNight: Boolean,
     /** The zones' maximum and resting heart rate from the phone; null for none. */
@@ -34,7 +33,6 @@ internal object WearPreferenceCodec {
         Preferences.HEART_RATE_DAY to preferences.heartRateDay.wire,
         Preferences.HEART_RATE_SOURCE to source(preferences.heartRateSource),
         Preferences.HRV_SOURCE to source(preferences.hrvSource),
-        Preferences.SLEEP_HOLD to if (preferences.syncedSleepHold) Preferences.SYNCED else Preferences.LOCK,
         Preferences.SKIN_TEMPERATURE to flag(preferences.skinTemperature),
         Preferences.SPO2 to flag(preferences.spo2AtNight),
         Preferences.HEART_RATE_MAX to (preferences.maxHeartRate ?: 0).toString(),
@@ -59,11 +57,6 @@ internal object WearPreferenceCodec {
             ?.let { preferences.copy(heartRateDay = it) }
         Preferences.HEART_RATE_SOURCE -> source(value, abilities)?.let { preferences.copy(heartRateSource = it) }
         Preferences.HRV_SOURCE -> source(value, abilities)?.let { preferences.copy(hrvSource = it) }
-        Preferences.SLEEP_HOLD -> when (value) {
-            Preferences.LOCK -> preferences.copy(syncedSleepHold = false)
-            Preferences.SYNCED -> preferences.copy(syncedSleepHold = true)
-            else -> null
-        }
         Preferences.SKIN_TEMPERATURE -> flag(value)?.takeIf { !it || abilities.samsung }?.let { preferences.copy(skinTemperature = it) }
         Preferences.SPO2 -> flag(value)?.takeIf { !it || abilities.samsung }?.let { preferences.copy(spo2AtNight = it) }
         Preferences.HEART_RATE_MAX -> bpm(value, MAX_HEART_RATE_RANGE)?.let { preferences.copy(maxHeartRate = it.takeIf { bpm -> bpm > 0 }) }

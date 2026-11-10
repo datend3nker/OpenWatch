@@ -25,7 +25,6 @@ internal object WearSettings {
     private const val KEY_HEART_RATE_DAY = "heart_rate_day"
     private const val KEY_HEART_RATE_SOURCE = "heart_rate_source"
     private const val KEY_HRV_SOURCE = "hrv_source"
-    private const val KEY_SYNCED_SLEEP_HOLD = "synced_sleep_hold"
     private const val KEY_SKIN_TEMPERATURE = "skin_temperature"
     private const val KEY_SPO2 = "spo2_at_night"
     private const val KEY_MAX_HEART_RATE = "max_heart_rate"
@@ -52,17 +51,13 @@ internal object WearSettings {
     fun setHrvSource(context: Context, source: Source) = setSource(context, KEY_HRV_SOURCE, source)
 
     /**
-     * How a sleep hold keeps every minute whole: false (the default) with a
-     * lasting wake lock, true with the [WakeClock]'s dense beat and a flush
-     * of every sensor at each ([SensorWakeSync]), which lets the processor
-     * sleep in between. The second is the one to measure; it falls back to
-     * the lock while there is no dense beat (no heart rate grant).
+     * Whether a sleep hold rests on the heart rate's wake-ups ([SensorWakeSync])
+     * instead of a lasting wake lock: only in power save. On a Galaxy Watch7 the
+     * hub held the batches up to 107 s in Doze, and the night of 2026-11-09/10
+     * kept 12 % of the accelerometer's readings (8.9 against 10.6 mAh an hour),
+     * so it is a way to save power, not a way to keep every minute whole.
      */
-    fun syncedSleepHold(context: Context): Boolean = prefs(context).getBoolean(KEY_SYNCED_SLEEP_HOLD, false)
-
-    fun setSyncedSleepHold(context: Context, synced: Boolean) {
-        prefs(context).edit().putBoolean(KEY_SYNCED_SLEEP_HOLD, synced).apply()
-    }
+    fun syncedSleepHold(context: Context): Boolean = heartRateDay(context) == HeartRateInterval.POWER_SAVE
 
     /** Skin temperature at night from the Samsung platform, the only source. Off by default. */
     fun skinTemperature(context: Context): Boolean = prefs(context).getBoolean(KEY_SKIN_TEMPERATURE, false)
@@ -91,7 +86,6 @@ internal object WearSettings {
         heartRateDay = heartRateDay(context),
         heartRateSource = heartRateSource(context),
         hrvSource = hrvSource(context),
-        syncedSleepHold = syncedSleepHold(context),
         skinTemperature = skinTemperature(context),
         spo2AtNight = spo2AtNight(context),
         maxHeartRate = maxHeartRate(context),
@@ -107,7 +101,6 @@ internal object WearSettings {
         setHeartRateDay(context, preferences.heartRateDay)
         setHeartRateSource(context, preferences.heartRateSource)
         setHrvSource(context, preferences.hrvSource)
-        setSyncedSleepHold(context, preferences.syncedSleepHold)
         setSkinTemperature(context, preferences.skinTemperature)
         setSpo2AtNight(context, preferences.spo2AtNight)
         prefs(context).edit()

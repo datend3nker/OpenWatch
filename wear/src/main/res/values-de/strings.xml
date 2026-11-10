@@ -286,4 +286,10 @@
     <string name="recovery_two_minutes">Erholung nach 2 min</string>
     <string name="settings_recording">Aufzeichnung</string>
     <string name="settings_recording_description">Stromsparen, Schlaf, Quellen</string>
+    <string name="settings_power_save_off_explained">Aus: Puls alle 10 s, jede Schlafminute vollständig (die Uhr bleibt im Schlaf wach). Kein Datenverlust; nachts etwa 9–11 mAh pro Stunde.</string>
+    <string name="settings_power_save_on_explained">An: Puls tagsüber etwa alle 10 Minuten, nachts wacht die Uhr nur mit den Pulsbündeln auf. Spart Strom; tagsüber fehlt der meiste Puls, nachts der Großteil der Bewegungsdaten, die Schlafphasen werden gröber.</string>
+    <string name="settings_heart_rate_source_explained">Sensor: der eigene Puls der Uhr, live. Samsung: der Wert der Plattform, bei aus­geschaltetem Display bis zu 10 Minuten verzögert. Im Training und im Schlaf-Hold wird immer der Sensor genutzt.</string>
+    <string name="settings_hrv_source_explained">Sensor: HRV aus dem rohen Pulssignal, jeder Schlag. Samsung: die Schlagabstände der Plattform; derzeit gehen davon etwa 60 % verloren (Issue #25), daher seltener ein Wert.</string>
+    <string name="settings_skin_explained">Hauttemperatur am Handgelenk im Schlaf, ein Wert pro Minute von der Samsung-Plattform. Wenig Strom, sonst keine Änderung.</string>
+    <string name="settings_spo2_explained">Blutsauerstoff höchstens einmal pro Stunde im Schlaf, etwa 15 s Rotlicht. Wenige mAh pro Nacht; entfällt, wenn sich der Arm bewegt.</string>
 </resources>

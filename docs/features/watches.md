@@ -84,7 +84,7 @@ Verified on 2026-10-07 with a Galaxy Watch8 (Wear OS on Android 16) and a Graphe
 While sleep is held, the watch can measure more than the minutes:
 
 - **Heart rate variability (HRV)**: five-minute windows one after another once the arm was still for ten minutes, each written as RMSSD to Health Connect; apps that read Health Connect take the night's value as their mean. A window counts only with a minute of clean beats that cover most of it. The beats come from the raw pulse signal by default, or from the Samsung platform's own beat intervals.
-- **Breathing rate**: from the same windows, written only when you switch on *Breathing rate from the watch (experimental)* in the phone's settings; it is not yet checked against a reference.
+- **Breathing rate**: from the same windows, written unless you switch off *Breathing rate from the watch (experimental)* in the phone's settings; it is not yet checked against a reference.
 - **SpO2** (Samsung watches): a spot measurement once an hour while the arm is still, written as oxygen saturation.
 - **Skin temperature** (Samsung watches): one value a minute, written per night as the difference from your own usual night.
 
@@ -427,7 +427,7 @@ See [Privacy](../../PRIVACY.md) and [Permissions](../app/permissions.md) for the
 - Verified end to end against one Garmin model. Other recent models are expected to work, but are untested.
 - Older single-link transport watches cannot sync.
 - The Connected and Not connected labels reflect whether the watch is switched on in OpenWatch, not whether a Bluetooth link is open right now.
-- Wear OS watches sync heart rate, steps, floors, an estimated sleep session per night and per nap, the night's resting heart rate, and, from the night measurements, HRV, the breathing rate (opt-in), SpO2 and skin temperature, by hand or on the automatic schedule. Workouts recorded on the watch are written as sessions with their route. Notification forwarding, find and sending a point are Garmin-only.
+- Wear OS watches sync heart rate, steps, floors, an estimated sleep session per night and per nap, the night's resting heart rate, and, from the night measurements, HRV, the breathing rate (on by default, can be switched off), SpO2 and skin temperature, by hand or on the automatic schedule. Workouts recorded on the watch are written as sessions with their route. Notification forwarding, find and sending a point are Garmin-only.
 - Music controls are confirmed on one Garmin model. A volume change made on the phone reaches the watch only with the next player change.
 - Sending the alarm list has not yet been confirmed on a watch. Whether an empty list clears the watch's alarms is unknown.
 - Sending a point has not yet been confirmed on a watch. Only one point is sent at a time, and points already on the watch cannot be listed, edited, or removed from the phone.

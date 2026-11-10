@@ -492,9 +492,6 @@
     <string name="watch_settings_unreachable">Die Uhr hat nicht geantwortet. Ist sie in der Nähe und läuft ihre OpenWatch-App?</string>
     <string name="watch_settings_read">Von der Uhr lesen</string>
     <string name="watch_settings_power_save">Puls im Sparmodus</string>
-    <string name="watch_settings_power_save_body">Etwa alle 10 Minuten außerhalb des Schlafenszeitmodus. Im Schlafenszeitmodus wird immer alle 10 Sekunden gemessen.</string>
-    <string name="watch_settings_synced">Gebündeltes Aufwecken im Schlaf</string>
-    <string name="watch_settings_synced_body">Hält jede Schlafminute vollständig über das Aufwecken durch den Pulssensor statt über einen dauerhaften Wake Lock. Funktioniert nur mit dem Puls vom Sensor.</string>
     <string name="watch_settings_samsung_note">Samsung-Plattform: braucht den Entwicklermodus der Health Platform auf der Uhr. Ohne ihn fragt die Plattform bei Samsung nach dieser App. Eine Samsung-Quelle, die ausfällt, wechselt zum Sensor.</string>
     <string name="watch_settings_hr_samsung">Puls von der Samsung-Plattform</string>
     <string name="watch_settings_hrv_samsung">HRV von der Samsung-Plattform</string>
@@ -504,4 +501,9 @@
     <string name="settings_watch_wearos_needs_workout_write">Trainings nicht geschrieben: Erlaube OpenWatch, Trainings, Routen und Distanz in Health Connect zu schreiben, und synchronisiere dann erneut.</string>
     <string name="settings_sleep_beside_others_title">Schlaf der Uhr neben anderen Apps schreiben</string>
     <string name="settings_sleep_beside_others_body">Schreibt die Nacht, auch wenn Samsung Health oder eine andere App schon eine geschrieben hat. Welche Nacht Apps zeigen, entscheidet dann die Datenquellen-Priorität in Health Connect. Aus: Die Nacht der anderen App gewinnt.</string>
+    <string name="watch_settings_power_save_explained">Aus: Puls alle 10 s und jede Schlafminute vollständig (die Uhr bleibt im Schlaf wach); kein Datenverlust, nachts etwa 9–11 mAh pro Stunde. An: Puls tagsüber etwa alle 10 Minuten, nachts wacht die Uhr nur mit den Pulsbündeln auf; spart Strom, aber tagsüber fehlt der meiste Puls und nachts der Großteil der Bewegungsdaten, die Schlafphasen werden gröber.</string>
+    <string name="watch_settings_hr_source_explained">Aus: der eigene Sensor der Uhr, live. An: der Wert der Plattform, bei ausgeschaltetem Display bis zu 10 Minuten verzögert. Training und Schlaf-Hold nutzen immer den Sensor.</string>
+    <string name="watch_settings_hrv_source_explained">Aus: HRV aus dem rohen Pulssignal, jeder Schlag. An: die Schlagabstände der Plattform; derzeit gehen davon etwa 60 % verloren, daher seltener ein Wert.</string>
+    <string name="watch_settings_skin_explained">Hauttemperatur am Handgelenk im Schlaf, ein Wert pro Minute. Wenig Strom, sonst keine Änderung.</string>
+    <string name="watch_settings_spo2_explained">Blutsauerstoff höchstens einmal pro Stunde im Schlaf, etwa 15 s Rotlicht. Wenige mAh pro Nacht; entfällt, wenn sich der Arm bewegt.</string>
 </resources>

@@ -453,9 +453,6 @@
     <string name="watch_settings_unreachable">L\'orologio non ha risposto. È vicino e la sua app OpenWatch è in esecuzione?</string>
     <string name="watch_settings_read">Leggi dall\'orologio</string>
     <string name="watch_settings_power_save">Frequenza cardiaca a risparmio</string>
-    <string name="watch_settings_power_save_body">Circa ogni 10 minuti fuori dalla modalità notte. La modalità notte misura sempre ogni 10 secondi.</string>
-    <string name="watch_settings_synced">Risvegli sincronizzati durante il sonno</string>
-    <string name="watch_settings_synced_body">Conserva ogni minuto di sonno con i risvegli del sensore cardiaco invece di un wake lock permanente. Funziona solo con la frequenza cardiaca dal sensore.</string>
     <string name="watch_settings_samsung_note">Piattaforma Samsung: richiede la modalità sviluppatore di Health Platform sull\'orologio. Senza, la piattaforma chiede a Samsung di questa app. Una fonte Samsung che fallisce torna al sensore.</string>
     <string name="watch_settings_hr_samsung">Frequenza cardiaca dalla piattaforma Samsung</string>
     <string name="watch_settings_hrv_samsung">HRV dalla piattaforma Samsung</string>

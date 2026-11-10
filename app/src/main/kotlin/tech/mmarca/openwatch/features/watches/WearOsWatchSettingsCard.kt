@@ -63,16 +63,10 @@ internal fun WearOsWatchSettingsCard(
             fun on(key: String) = settings[key] == Preferences.ON
             SettingSwitch(
                 title = stringResource(R.string.watch_settings_power_save),
-                body = stringResource(R.string.watch_settings_power_save_body),
+                body = stringResource(R.string.watch_settings_power_save_explained),
                 checked = settings[Preferences.HEART_RATE_DAY] == "600",
                 enabled = !busy,
             ) { onSet(Preferences.HEART_RATE_DAY, if (it) "600" else "10") }
-            SettingSwitch(
-                title = stringResource(R.string.watch_settings_synced),
-                body = stringResource(R.string.watch_settings_synced_body),
-                checked = settings[Preferences.SLEEP_HOLD] == Preferences.SYNCED,
-                enabled = !busy,
-            ) { onSet(Preferences.SLEEP_HOLD, if (it) Preferences.SYNCED else Preferences.LOCK) }
             if (on(Preferences.SAMSUNG_AVAILABLE)) {
                 Text(
                     text = stringResource(R.string.watch_settings_samsung_note),
@@ -82,25 +76,33 @@ internal fun WearOsWatchSettingsCard(
                 )
                 SettingSwitch(
                     title = stringResource(R.string.watch_settings_hr_samsung),
-                    body = null,
+                    body = stringResource(R.string.watch_settings_hr_source_explained),
                     checked = settings[Preferences.HEART_RATE_SOURCE] == Preferences.SAMSUNG,
                     enabled = !busy,
                 ) { onSet(Preferences.HEART_RATE_SOURCE, if (it) Preferences.SAMSUNG else Preferences.SENSOR) }
                 SettingSwitch(
                     title = stringResource(R.string.watch_settings_hrv_samsung),
-                    body = null,
+                    body = stringResource(R.string.watch_settings_hrv_source_explained),
                     checked = settings[Preferences.HRV_SOURCE] == Preferences.SAMSUNG,
                     enabled = !busy,
                 ) { onSet(Preferences.HRV_SOURCE, if (it) Preferences.SAMSUNG else Preferences.SENSOR) }
                 SettingSwitch(
                     title = stringResource(R.string.watch_settings_skin),
-                    body = stringResource(R.string.watch_settings_allow_on_watch).takeIf { on(Preferences.SKIN_TEMPERATURE) && !on(Preferences.SKIN_GRANTED) },
+                    body = if (on(Preferences.SKIN_TEMPERATURE) && !on(Preferences.SKIN_GRANTED)) {
+                        stringResource(R.string.watch_settings_allow_on_watch)
+                    } else {
+                        stringResource(R.string.watch_settings_skin_explained)
+                    },
                     checked = on(Preferences.SKIN_TEMPERATURE),
                     enabled = !busy,
                 ) { onSet(Preferences.SKIN_TEMPERATURE, if (it) Preferences.ON else Preferences.OFF) }
                 SettingSwitch(
                     title = stringResource(R.string.watch_settings_spo2),
-                    body = stringResource(R.string.watch_settings_allow_on_watch).takeIf { on(Preferences.SPO2) && !on(Preferences.SPO2_GRANTED) },
+                    body = if (on(Preferences.SPO2) && !on(Preferences.SPO2_GRANTED)) {
+                        stringResource(R.string.watch_settings_allow_on_watch)
+                    } else {
+                        stringResource(R.string.watch_settings_spo2_explained)
+                    },
                     checked = on(Preferences.SPO2),
                     enabled = !busy,
                 ) { onSet(Preferences.SPO2, if (it) Preferences.ON else Preferences.OFF) }
