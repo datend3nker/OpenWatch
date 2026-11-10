@@ -43,6 +43,7 @@ class MetricStore(context: Context, name: String? = DB_NAME) : SQLiteOpenHelper(
     /** Stores one value; one already at its time stays or is replaced as [WearMetric.onSameTime] says. */
     fun <T> put(metric: WearMetric<T>, value: T) {
         put(writableDatabase, metric, value)
+        notifyChanged()
     }
 
     /** Stores several values in one transaction. */
@@ -55,6 +56,7 @@ class MetricStore(context: Context, name: String? = DB_NAME) : SQLiteOpenHelper(
         } finally {
             db.endTransaction()
         }
+        notifyChanged()
     }
 
     /** Stores [values] and sets the state [key] to [state], in one transaction. */
@@ -72,6 +74,7 @@ class MetricStore(context: Context, name: String? = DB_NAME) : SQLiteOpenHelper(
         } finally {
             db.endTransaction()
         }
+        notifyChanged()
     }
 
     /** The state stored under [key], or null when there is none. */
@@ -160,6 +163,18 @@ class MetricStore(context: Context, name: String? = DB_NAME) : SQLiteOpenHelper(
     }
 
     companion object {
+        private val changes = kotlinx.coroutines.flow.MutableSharedFlow<Unit>(
+            extraBufferCapacity = 1,
+            onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST,
+        )
+
+        /** Fires after any store of this process wrote rows: the service's and the screens' share it. */
+        val updates: kotlinx.coroutines.flow.SharedFlow<Unit> = changes
+
+        private fun notifyChanged() {
+            changes.tryEmit(Unit)
+        }
+
         const val DB_NAME = "metrics.db"
         private const val DB_VERSION = 2
         const val TABLE = "rows"

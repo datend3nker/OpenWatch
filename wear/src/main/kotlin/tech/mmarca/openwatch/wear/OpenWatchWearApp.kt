@@ -1,5 +1,8 @@
 package tech.mmarca.openwatch.wear
 
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.catch
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import tech.mmarca.openwatch.wear.features.settings.RecordingSettingsScreen
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -18,6 +21,7 @@ import tech.mmarca.openwatch.wear.features.dashboard.TileEditorScreen
 import tech.mmarca.openwatch.wear.features.measure.MeasureListScreen
 import tech.mmarca.openwatch.wear.features.measure.Measurement
 import tech.mmarca.openwatch.wear.features.measure.MeasurementRoute
+import tech.mmarca.openwatch.wear.features.measure.MeasurementRunner
 import tech.mmarca.openwatch.wear.features.metric.MetricDetailScreen
 import tech.mmarca.openwatch.wear.features.quicklog.BloodPressureEntryScreen
 import tech.mmarca.openwatch.wear.features.quicklog.BreatheScreen
@@ -110,9 +114,18 @@ fun OpenWatchWearApp(
                 composable(WearRoutes.METRIC) { entry ->
                     val metric = MetricTile.valueOf(checkNotNull(entry.arguments?.getString(WearRoutes.METRIC_ARG)))
                     val measurement = metric.spotMeasurement?.takeIf { it in currentState.capabilities.measurements }
+                    val recorded = currentState.metrics[metric] ?: MetricUiState()
+                    // While the heart rate screen is open, its value is the sensor's live one.
+                    val live by remember(metric, measurement) {
+                        if (metric == MetricTile.HEART_RATE && measurement != null) {
+                            MeasurementRunner(context).liveHeartRate().catch { }
+                        } else {
+                            emptyFlow()
+                        }
+                    }.collectAsStateWithLifecycle(null)
                     MetricDetailScreen(
                         metric = metric,
-                        state = currentState.metrics[metric] ?: MetricUiState(),
+                        state = live?.let { recorded.copy(current = it) } ?: recorded,
                         unitSystem = currentState.preferences.unitSystem,
                         zones = currentState.preferences.zones,
                         restingHeartRate = currentState.metrics[MetricTile.RESTING_HEART_RATE]?.current,

@@ -57,6 +57,18 @@ class StepRecorder(
     /** True while the heart rate's wake-ups bring the readings; false asks for the waking counter. */
     private var heartRateRunning = true
 
+    /** True when the watch UI is active; flushes steps in real time without batching latency. */
+    @Volatile
+    private var isInteractive = false
+
+    fun setInteractive(interactive: Boolean) {
+        if (interactive == isInteractive) return
+        isInteractive = interactive
+        val workerHandler = handler ?: return
+        sensorManager.unregisterListener(this)
+        if (!register(workerHandler)) Log.w(TAG, "Step listener re-registration failed")
+    }
+
     /** Switches between the two variants of the counter. A running recorder registers again. */
     fun setHeartRateRunning(running: Boolean) {
         if (running == heartRateRunning) return
@@ -73,12 +85,14 @@ class StepRecorder(
 
     private fun register(workerHandler: Handler): Boolean {
         val sensor = sensor() ?: return false
+        val latencyMicros = if (isInteractive) 0 else MAX_REPORT_LATENCY_MICROS
+        val delayMode = if (isInteractive) SensorManager.SENSOR_DELAY_UI else SensorManager.SENSOR_DELAY_NORMAL
         val registered = try {
             sensorManager.registerListener(
                 this,
                 sensor,
-                SensorManager.SENSOR_DELAY_NORMAL,
-                MAX_REPORT_LATENCY_MICROS,
+                delayMode,
+                latencyMicros,
                 workerHandler,
             )
         } catch (e: SecurityException) {
@@ -86,7 +100,7 @@ class StepRecorder(
             Log.e(TAG, "Step counter refused", e)
             false
         }
-        if (registered) Log.i(TAG, "Recording steps from ${sensor.name}${if (sensor.isWakeUpSensor) " (waking)" else ""}")
+        if (registered) Log.i(TAG, "Recording steps from ${sensor.name}${if (sensor.isWakeUpSensor) " (waking)" else ""} (interactive=$isInteractive)")
         return registered
     }
 
@@ -134,7 +148,9 @@ class StepRecorder(
         val counter = counter ?: return
         val total = event.values.firstOrNull()?.toLong() ?: return
         counter.onTotal(SensorTime.epochMillisOf(event.timestamp), total)
-        if (!flushPending) {
+        if (isInteractive) {
+            flush()
+        } else if (!flushPending) {
             flushPending = true
             handler?.postDelayed(::flush, FLUSH_DELAY_MILLIS)
         }

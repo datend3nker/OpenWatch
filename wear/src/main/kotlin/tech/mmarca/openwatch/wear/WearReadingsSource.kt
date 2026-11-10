@@ -1,5 +1,8 @@
 package tech.mmarca.openwatch.wear
 
+import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.conflate
 import java.time.Clock
 import java.time.LocalDate
 import java.time.ZoneId
@@ -29,12 +32,20 @@ internal class WearReadingsSource(
     /** The tiles' values and the last night's stages. */
     data class Readings(val metrics: Map<MetricTile, MetricUiState>, val sleepStages: Map<SleepStage, Double>)
 
-    /** The tiles' values now, read again every [REFRESH_MILLIS] while someone collects. */
-    fun metrics(): Flow<Readings> = flow {
-        while (true) {
-            emit(load())
-            delay(REFRESH_MILLIS)
-        }
+    /** The tiles' values now, read again every [REFRESH_MILLIS] and soon after new rows, while someone collects. */
+    fun metrics(): Flow<Readings> = merge(
+        flow {
+            while (true) {
+                emit(Unit)
+                delay(REFRESH_MILLIS)
+            }
+        },
+        // New rows, such as steps while the app is open: read again, but at most every MIN_REFRESH_MILLIS.
+        MetricStore.updates,
+    ).conflate().map {
+        val readings = load()
+        delay(MIN_REFRESH_MILLIS)
+        readings
     }.flowOn(Dispatchers.IO)
 
     internal fun load(): Readings {
@@ -80,6 +91,7 @@ internal class WearReadingsSource(
         const val QUARTER_HOUR_MILLIS = 15 * 60_000L
         const val DAYS = 7
         const val REFRESH_MILLIS = 30_000L
+        const val MIN_REFRESH_MILLIS = 2_000L
 
         /** Above a day's most: a sample every ten seconds is 8 640, and a workout keeps one a second. */
         const val ROW_LIMIT = 30_000

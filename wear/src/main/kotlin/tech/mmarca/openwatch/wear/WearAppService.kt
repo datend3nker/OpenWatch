@@ -228,6 +228,10 @@ class WearAppService : Service() {
             }
             ACTION_WORKOUT_PAUSE -> { workout.pause(); return START_STICKY }
             ACTION_WORKOUT_RESUME -> { workout.resume(); return START_STICKY }
+            ACTION_SET_INTERACTIVE -> {
+                stepRecorder.setInteractive(intent.getBooleanExtra(EXTRA_INTERACTIVE, false))
+                return START_STICKY
+            }
             ACTION_WORKOUT_STOP -> { workout.stop(intent.getBooleanExtra(EXTRA_RECOVERY, false)); return START_STICKY }
             ACTION_SETTINGS_CHANGED -> {
                 recorder.resetFallBack()
@@ -509,6 +513,18 @@ class WearAppService : Service() {
         // 2 is WearPhoneRequests.NOTIFICATION_ID.
         private const val WORKOUT_NOTIFICATION_ID = 3
         private const val ACTION_TOGGLE_PPG_LOG = "tech.mmarca.openwatch.wear.TOGGLE_PPG_LOG"
+        private const val ACTION_SET_INTERACTIVE = "tech.mmarca.openwatch.wear.SET_INTERACTIVE"
+        private const val EXTRA_INTERACTIVE = "interactive"
+
+        /** The app is on screen: the step counter delivers at once, so the steps update live. */
+        fun setInteractive(context: Context, interactive: Boolean) {
+            if (!WearPermissions.hasBluetooth(context)) return
+            runCatching {
+                context.startForegroundService(
+                    Intent(context, WearAppService::class.java).setAction(ACTION_SET_INTERACTIVE).putExtra(EXTRA_INTERACTIVE, interactive),
+                )
+            }.onFailure { Log.e(TAG, "Cannot set interactive mode", it) }
+        }
         const val ACTION_HEART_RATE_ALARM = "tech.mmarca.openwatch.wear.HEART_RATE_ALARM"
         private const val ACTION_SETTINGS_CHANGED = "tech.mmarca.openwatch.wear.SETTINGS_CHANGED"
         private const val ACTION_WORKOUT_START = "tech.mmarca.openwatch.wear.WORKOUT_START"
