@@ -72,6 +72,10 @@ class MeasurementRunner(private val context: Context) {
         emit(MeasureEvent.Result(value))
     }
 
+    /** Every usable heart rate while collected, with no end and no result; the sensor stops with the collector. */
+    fun liveHeartRate(): Flow<Double> =
+        sensorHeartRate().mapNotNull { (it as? HeartRateSample.Reading)?.bpm?.takeIf { bpm -> bpm > 0 } }
+
     private fun hrv(): Flow<MeasureEvent> =
         if (WearSettings.hrvSource(context) == WearSettings.Source.SAMSUNG_PLATFORM && SamsungHeartRateFeed.shared(context).isAvailable) {
             samsungHrv()

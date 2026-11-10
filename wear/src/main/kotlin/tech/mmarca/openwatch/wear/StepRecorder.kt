@@ -52,14 +52,28 @@ class StepRecorder(
     /** False on a watch without a step counter: then nothing will ever start. */
     val hasSensor: Boolean = hasStepCounter(context)
 
+    /** True when the watch UI is active; flushes steps in real time without batching latency. */
+    @Volatile
+    private var isInteractive = false
+
+    fun setInteractive(interactive: Boolean) {
+        if (interactive == isInteractive) return
+        isInteractive = interactive
+        val workerHandler = handler ?: return
+        sensorManager.unregisterListener(this)
+        if (!register(workerHandler)) Log.w(TAG, "Step listener re-registration failed")
+    }
+
     private fun register(workerHandler: Handler): Boolean {
         val sensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER) ?: return false
+        val latencyMicros = if (isInteractive) 0 else MAX_REPORT_LATENCY_MICROS
+        val delayMode = if (isInteractive) SensorManager.SENSOR_DELAY_UI else SensorManager.SENSOR_DELAY_NORMAL
         val registered = try {
             sensorManager.registerListener(
                 this,
                 sensor,
-                SensorManager.SENSOR_DELAY_NORMAL,
-                MAX_REPORT_LATENCY_MICROS,
+                delayMode,
+                latencyMicros,
                 workerHandler,
             )
         } catch (e: SecurityException) {
@@ -67,7 +81,7 @@ class StepRecorder(
             Log.e(TAG, "Step counter refused", e)
             false
         }
-        if (registered) Log.i(TAG, "Recording steps from ${sensor.name}")
+        if (registered) Log.i(TAG, "Recording steps from ${sensor.name} (interactive=$isInteractive)")
         return registered
     }
 
@@ -115,7 +129,9 @@ class StepRecorder(
         val counter = counter ?: return
         val total = event.values.firstOrNull()?.toLong() ?: return
         counter.onTotal(SensorTime.epochMillisOf(event.timestamp), total)
-        if (!flushPending) {
+        if (isInteractive) {
+            flush()
+        } else if (!flushPending) {
             flushPending = true
             handler?.postDelayed(::flush, FLUSH_DELAY_MILLIS)
         }

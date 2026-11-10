@@ -94,6 +94,12 @@ class MainActivity : ComponentActivity() {
         // Also catches a grant made in the system settings.
         permissionsVersion++
         WearAppService.startIfPermitted(this)
+        WearAppService.setInteractive(this, true)
+    }
+
+    override fun onPause() {
+        WearAppService.setInteractive(this, false)
+        super.onPause()
     }
 
     /** What the watch records, whether the phone can reach it, and which phones may. */
