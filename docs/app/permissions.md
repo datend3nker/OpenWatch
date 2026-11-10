@@ -53,7 +53,12 @@ and `REQUEST_OBSERVE_COMPANION_DEVICE_PRESENCE`: install-time grants with no pro
 own. The user's consent is the system "Allow OpenWatch to access <device>?" dialog. The
 association keeps the app alive while a watch is in range, so a file sync that runs for
 minutes is not killed; for the scale, it is what lets Android wake the app for the two seconds
-a weigh-in is on the air. Declining is supported: the watch is bonded and syncs regardless.
+a weigh-in is on the air. For a Garmin watch, declining is supported: the watch is bonded and
+syncs regardless. A Wear OS watch is added only with the association, because OpenWatch may
+start a foreground service from the background only for an associated device, and a workout
+another app starts on the watch needs one. A Wear OS watch added before this rule, or whose
+association the user removed in Android's settings, shows a "Link watch" button on its device
+screen.
 
 ## Notification Access
 
@@ -70,6 +75,12 @@ behind a per-watch toggle that is off by default.
 
 `FOREGROUND_SERVICE` and `FOREGROUND_SERVICE_CONNECTED_DEVICE`, for the scale's 45-second
 listening service. `WAKE_LOCK` and `POST_NOTIFICATIONS` go with it.
+
+## Overlay Protection
+
+`HIDE_OVERLAY_WINDOWS`, a normal permission with no prompt. While the Connected apps screen
+shows, OpenWatch hides other apps' overlays (API 31 and newer) and drops touches that pass
+through another app's window, so no app can draw over Allow or a capability switch.
 
 ## Removed Network Permissions
 

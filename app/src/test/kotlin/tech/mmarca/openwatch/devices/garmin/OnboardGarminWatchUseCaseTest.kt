@@ -46,6 +46,8 @@ private class FakePairing : WatchPairingPort {
     override suspend fun disassociateCompanion(address: String) {
         calls.add("disassociate:$address")
     }
+
+    override fun isCompanionAssociated(address: String): Boolean = false
 }
 
 /** Answers with a canned GATT verdict; never opens a connection. */

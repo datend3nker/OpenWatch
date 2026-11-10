@@ -31,6 +31,7 @@ When opening a paired Wear OS watch on its device screen from the home screen:
 - **App answers**: the phone pings the watch over RFCOMM, giving up after 8 seconds. No answer means the watch is off or out of range, or the watch app is not running; a bond alone is never shown as connected.
 - **Permission**: without Nearby devices on the phone, the card shows a grant callout instead of a status.
 - **Check again**: the "Validate Wear OS App" button re-runs the check.
+- **Companion link**: a Wear OS watch is added only when the user allows Android's association dialog; declined, the add sheet stays open with the reason. A watch without the association, added before this rule or with the association removed in Android's settings, shows "Link watch" on its status card.
 
 The UUID and the protocol words come from the shared `:wearlink` module on both sides.
 
@@ -424,7 +425,7 @@ Notification text is read on the device, held in memory only while it is needed,
 
 Calendar events follow the same rule: read only while answering a watch that asked, held in memory only, sent only to the watch, never stored. Weather comes from a weather app on the phone and goes only to the watch; OpenWatch itself never talks to a weather service. What the phone is playing is read only while music controls are on for a paired watch, goes only to that watch, and is never stored.
 
-See [Privacy](../../PRIVACY.md) and [Permissions](../app/permissions.md) for the full boundary, including why the companion association is asked for and why it is optional.
+See [Privacy](../../PRIVACY.md) and [Permissions](../app/permissions.md) for the full boundary, including why the companion association is asked for, why it is optional for a Garmin watch and why a Wear OS watch needs it.
 
 ## Known Limitations
 

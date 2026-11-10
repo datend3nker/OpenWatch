@@ -50,6 +50,8 @@ internal fun WearOsStatusCard(
     onGrantBluetooth: () -> Unit,
     /** The heart rate the watch streams while this screen is open; null while none arrives. */
     liveHeartRateBpm: Int? = null,
+    /** Set while the watch has no companion association: the card asks for it. */
+    onAssociate: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     if (error == ScreenError.PermissionDenied) {
@@ -143,6 +145,14 @@ internal fun WearOsStatusCard(
                 ) {
                     Text(stringResource(R.string.settings_sensors_open_bluetooth))
                 }
+            }
+
+            if (onAssociate != null) {
+                InlineGrantPrompt(
+                    message = stringResource(R.string.settings_watch_wearos_companion_missing),
+                    actionLabel = stringResource(R.string.settings_watch_wearos_companion_link),
+                    onGrant = onAssociate,
+                )
             }
 
             error.resolve()?.let { message ->

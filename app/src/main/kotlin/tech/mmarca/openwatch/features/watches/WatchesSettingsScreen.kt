@@ -347,6 +347,13 @@ private fun AddWatchDialog(
                             color = MaterialTheme.colorScheme.error,
                         )
                     }
+                    if (state.companionRequired) {
+                        Text(
+                            text = stringResource(R.string.settings_watch_wearos_companion_required),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
                 }
             }
         },

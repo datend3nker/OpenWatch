@@ -22,6 +22,7 @@ import tech.mmarca.openwatch.devices.garmin.GarminTransportVariant
 import tech.mmarca.openwatch.devices.garmin.OnboardGarminWatchUseCase
 import tech.mmarca.openwatch.devices.core.pairing.WatchBondResult
 import tech.mmarca.openwatch.devices.wearos.OnboardWearOsWatchUseCase
+import tech.mmarca.openwatch.devices.wearos.WearOsOnboardOutcome
 import tech.mmarca.openwatch.domain.model.BleDeviceKind
 import tech.mmarca.openwatch.domain.model.BleDiscoveredDevice
 import tech.mmarca.openwatch.domain.model.BleSensorDevice
@@ -48,6 +49,8 @@ data class WatchesUiState(
     val onboardStep: GarminOnboardStep? = null,
     val onboardNotice: WatchOnboardNotice? = null,
     val errorMessage: String? = null,
+    /** The last WearOS onboarding ended without the companion association; nothing was added. */
+    val companionRequired: Boolean = false,
     /** Android's own permissions for watch pairing and background sync. */
     val osPermissions: OsPermissionCatalog = OsPermissionCatalog(),
     /** Shown instead of the scan while permissions are outstanding. */
@@ -161,6 +164,7 @@ class WatchesViewModel @Inject constructor(
                 selectedClassification = null,
                 addDisplayName = "",
                 errorMessage = null,
+                companionRequired = false,
                 // Describes the last onboarding; cleared when a new flow starts.
                 onboardNotice = null,
             )
@@ -176,6 +180,7 @@ class WatchesViewModel @Inject constructor(
                 selectedDevice = null,
                 selectedClassification = null,
                 errorMessage = null,
+                companionRequired = false,
             )
         }
     }
@@ -223,26 +228,26 @@ class WatchesViewModel @Inject constructor(
         val displayName = state.addDisplayName.trim()
             .ifBlank { selected.name ?: selected.address }
 
-        // WearOS: no bond, no GFDI probe, just the optional association.
+        // WearOS: no bond, no GFDI probe, only the association, which is required.
         if (state.addingIntegration == DeviceIntegration.WEAROS) {
             localState.update {
-                it.copy(isOnboarding = true, errorMessage = null, onboardNotice = null)
+                it.copy(isOnboarding = true, errorMessage = null, companionRequired = false, onboardNotice = null)
             }
             viewModelScope.launch {
-                val outcome = onboardWearOsWatch(selected, displayName = displayName)
-                localState.update {
-                    it.copy(
-                        isOnboarding = false,
-                        onboardStep = null,
-                        onboardNotice = if (outcome.associated) {
-                            null
-                        } else {
-                            WatchOnboardNotice.NO_COMPANION
-                        },
-                    )
+                when (onboardWearOsWatch(selected, displayName = displayName)) {
+                    is WearOsOnboardOutcome.Succeeded -> {
+                        localState.update { it.copy(isOnboarding = false, onboardStep = null) }
+                        closeAddFlow()
+                        onDone(true)
+                    }
+                    // The sheet stays open, so the user can try again and allow the request.
+                    WearOsOnboardOutcome.NotAssociated -> {
+                        localState.update {
+                            it.copy(isOnboarding = false, onboardStep = null, companionRequired = true)
+                        }
+                        onDone(false)
+                    }
                 }
-                closeAddFlow()
-                onDone(true)
             }
             return
         }

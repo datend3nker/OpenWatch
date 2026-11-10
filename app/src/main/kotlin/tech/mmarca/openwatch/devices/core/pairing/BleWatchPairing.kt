@@ -85,6 +85,8 @@ class BleWatchPairing @Inject constructor(
         companionPairing.disassociate(address)
     }
 
+    override fun isCompanionAssociated(address: String): Boolean = companionPairing.isAssociated(address)
+
     private fun adapter(): BluetoothAdapter? =
         (context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager)?.adapter
 

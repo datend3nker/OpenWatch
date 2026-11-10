@@ -41,6 +41,10 @@ private class FakePairing : WatchPairingPort {
         seenDisassociateAddress = address
     }
 
+    var associated = false
+
+    override fun isCompanionAssociated(address: String): Boolean = associated
+
     // A WearOS watch never bonds: these must never be called.
     override suspend fun bond(address: String): WatchBondResult =
         error("WearOS onboarding must not bond")
@@ -75,7 +79,7 @@ class OnboardWearOsWatchUseCaseTest {
     fun `registers a (watch, wearos) device, no bond`() = runTest {
         val outcome = useCase(watch(), displayName = "My Watch")
 
-        assertTrue(outcome.associated)
+        assertTrue(outcome is WearOsOnboardOutcome.Succeeded)
         assertEquals("A8:D1:62:BE:3A:3B", pairing.seenAssociateAddress)
         // The address may be the Classic bond's; a BLE-only dialog would search forever.
         assertEquals(CompanionFilter.BLE_OR_CLASSIC, pairing.seenAssociateFilter)
@@ -88,23 +92,39 @@ class OnboardWearOsWatchUseCaseTest {
     }
 
     @Test
-    fun `a declined association still onboards the watch`() = runTest {
+    fun `a declined association registers nothing`() = runTest {
         pairing.associateResult = false
 
         val outcome = useCase(watch(), displayName = "My Watch")
 
-        assertFalse(outcome.associated)
-        assertTrue(repo.devices.single().isWearosWatch)
+        assertEquals(WearOsOnboardOutcome.NotAssociated, outcome)
+        assertTrue(repo.devices.isEmpty())
     }
 
     @Test
-    fun `a thrown association is swallowed - the watch still registers`() = runTest {
+    fun `a thrown association counts as declined - nothing registers`() = runTest {
         pairing.associateError = IllegalStateException("no companion service")
 
         val outcome = useCase(watch(), displayName = "My Watch")
 
-        assertFalse(outcome.associated)
-        assertTrue(repo.devices.single().isWearosWatch)
+        assertEquals(WearOsOnboardOutcome.NotAssociated, outcome)
+        assertTrue(repo.devices.isEmpty())
+    }
+
+    @Test
+    fun `associate asks again for a watch registered without the association`() = runTest {
+        assertTrue(useCase.associate("A8:D1:62:BE:3A:3B", "My Watch"))
+        assertEquals(CompanionFilter.BLE_OR_CLASSIC, pairing.seenAssociateFilter)
+
+        pairing.associateError = IllegalStateException("no companion service")
+        assertFalse(useCase.associate("A8:D1:62:BE:3A:3B", "My Watch"))
+    }
+
+    @Test
+    fun `isAssociated reads the platform`() {
+        assertFalse(useCase.isAssociated("A8:D1:62:BE:3A:3B"))
+        pairing.associated = true
+        assertTrue(useCase.isAssociated("A8:D1:62:BE:3A:3B"))
     }
 
     @Test

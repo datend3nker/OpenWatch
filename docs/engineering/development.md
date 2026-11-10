@@ -227,9 +227,10 @@ By hand, once, outside the repository:
 
 ## Release Checklist
 
-The procedure, written out step by step, is `.claude/skills/release/SKILL.md`. In short:
+The procedure, written out step by step, is `.claude/skills/release/SKILL.md`. It is
+OpenVitals' procedure, and the two skills are kept alike. In short:
 
-1. Write the documents first: `CHANGELOG.md`, `docs/releases/X.Y.Z.md` (it becomes the tag
+1. Write the documents first: `CHANGELOG.md` (six language sections), `docs/releases/X.Y.Z.md` (it becomes the tag
    message and the release notes), the README, and one Play changelog per locale under
    `fastlane/metadata/android/<locale>/changelogs/<versionCode>.txt`, named by the phone's
    code (the watch has none), 490 characters or fewer.
@@ -241,6 +242,9 @@ The procedure, written out step by step, is `.claude/skills/release/SKILL.md`. I
 4. The tag's run builds, publishes the prerelease and waits. Approve it (Actions, the run,
    Review deployments). If the run is gone, run the workflow by hand from the tag with target
    `production`.
+5. The companion repositories: the docs site ports the release notes page
+   (`scripts/app-docs.json` there) and the landing page's OpenWatch copy follows a headline
+   feature.
 
 CI has no device, so it never runs the instrumented tests. To run them, connect a phone or
 emulator: `ANDROID_SERIAL=<serial> ./gradlew verifyAndroidTest`.

@@ -24,6 +24,12 @@ travels over Bluetooth between the device and the phone. Open source under AGPL-
   as it happens, with the app open or closed, decoded from the scale's own broadcast with the
   key from your Xiaomi account. Weight and heart rate as measured; body fat, lean mass and
   body water estimated on the phone.
+- **OpenVitals and other apps on the phone**, over
+  [OpenLink](https://github.com/Hale-MTU/OpenLink): the body profile kept the same in both
+  apps, the paired watches and the scale with battery and last sync, a sync on request, and a
+  watch's live heart rate while the other app records an activity. OpenVitals connects
+  without a prompt; any other app waits for your answer on the Connected apps screen, where
+  each thing an app may do has its own switch.
 
 The device code, its screens and its tests came from OpenVitals 2.16.0 unchanged where the
 seams allowed; [docs/features/watches.md](docs/features/watches.md) describes the behaviour.
@@ -59,8 +65,7 @@ built yourself is installed over Wi-Fi adb:
 Both apps share the `applicationId` `tech.mmarca.openwatch`, so one Google Play listing
 carries both form factors, and one release ships both. A nightly build is published every
 night to the `nightly` GitHub prerelease and to Play open testing; a tagged version gets its
-own GitHub release and goes to open testing, then to production once approved. Until Google
-has approved the app, every Play upload goes to internal testing instead. The GitHub
+own GitHub release and goes to open testing, then to production once approved. The GitHub
 release holds the signed phone APK, a signed debug APK, the signed watch APK and both app
 bundles, for a sideload or a Play upload by hand. The pipeline, its secrets and the release
 procedure are in [docs/engineering/development.md](docs/engineering/development.md); the

@@ -3,6 +3,7 @@ package tech.mmarca.openwatch
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
+import android.view.MotionEvent
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -105,6 +106,19 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    /**
+     * Set while a screen that gives another app trust shows (Connected apps): a touch that
+     * reached this window through another app's window above it is dropped, so an overlay
+     * cannot steer a tap. The check `View.filterTouchesWhenObscured` makes, done here because
+     * Compose's view does not make it.
+     */
+    var dropObscuredTouches: Boolean = false
+
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        if (dropObscuredTouches && event.flags and MotionEvent.FLAG_WINDOW_IS_OBSCURED != 0) return true
+        return super.dispatchTouchEvent(event)
     }
 
     override fun onDestroy() {

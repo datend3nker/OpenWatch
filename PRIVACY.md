@@ -4,9 +4,9 @@ Last updated: November 9, 2026
 
 OpenWatch is a local-first Android app that pairs a Garmin or Wear OS watch and a Xiaomi body composition scale with your phone and writes what they record to Health Connect.
 
-This policy applies to the OpenWatch phone app and the OpenWatch Wear OS app, both published under the package name `tech.mmarca.openwatch`.
+This policy applies to the OpenWatch phone app and the OpenWatch Wear OS app, both published under the package name `tech.mmarca.openwatch` by Mittetulundusühing Hale (MTÜ Hale), a non-profit association registered in Estonia, registry code 80677610.
 
-Privacy contact: manuel@mmarca.tech
+Privacy contact: hello@hale.ngo
 
 ## Summary
 
@@ -124,4 +124,4 @@ This privacy policy may be updated when OpenWatch changes how it accesses, uses,
 
 For privacy questions, contact:
 
-manuel@mmarca.tech
+hello@hale.ngo

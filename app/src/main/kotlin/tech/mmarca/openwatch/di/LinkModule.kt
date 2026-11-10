@@ -15,7 +15,7 @@ import tech.mmarca.openlink.host.OpenLinkHostCore
 import tech.mmarca.openlink.host.OpenLinkTrustStore
 import tech.mmarca.openlink.host.SharedPreferencesTrustStorage
 import tech.mmarca.openwatch.MainActivity
-import tech.mmarca.openwatch.R
+import tech.mmarca.openwatch.link.FirstPartyApps
 import tech.mmarca.openwatch.link.OpenWatchLinkCapabilities
 
 /** The OpenLink host: the trust rules, the binder, and what OpenWatch offers through it. */
@@ -27,7 +27,7 @@ object LinkModule {
     @Singleton
     fun provideOpenLinkHostCore(@ApplicationContext context: Context): OpenLinkHostCore = OpenLinkHostCore(
         store = OpenLinkTrustStore(SharedPreferencesTrustStorage.create(context)),
-        knownSigners = context.resources.getStringArray(R.array.openlink_known_signers).toSet(),
+        knownClients = FirstPartyApps.from(context).knownClients,
     )
 
     @Provides

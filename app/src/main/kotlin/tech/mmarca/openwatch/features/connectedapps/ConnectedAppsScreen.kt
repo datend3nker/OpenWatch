@@ -16,13 +16,20 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
+import android.os.Build
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import tech.mmarca.openlink.OpenLink
+import tech.mmarca.openwatch.MainActivity
 import tech.mmarca.openlink.OpenLinkTrust
 import tech.mmarca.openwatch.R
 import tech.mmarca.openwatch.link.LinkSessionStatus
@@ -36,6 +43,7 @@ import tech.mmarca.openwatch.ui.theme.Spacing
 @Composable
 fun ConnectedAppsScreen(viewModel: ConnectedAppsViewModel) {
     val apps by viewModel.apps.collectAsStateWithLifecycle()
+    HideOverlaysWhileShown()
 
     Column(
         modifier = Modifier
@@ -87,6 +95,13 @@ private fun ConnectedAppCard(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            if (app.unknownSignerForKnownName && app.trust != OpenLinkTrust.BLOCKED) {
+                Text(
+                    text = stringResource(R.string.connected_apps_unknown_signer, app.label),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
             if (app.trust != OpenLinkTrust.BLOCKED) ActivityLines(app)
             when (app.trust) {
                 OpenLinkTrust.PENDING -> {
@@ -159,4 +174,31 @@ internal fun capabilityLabel(capability: String): Int = when (capability) {
     OpenLink.CAPABILITY_DEVICES -> R.string.connected_apps_capability_devices
     OpenLink.CAPABILITY_RECORDING -> R.string.connected_apps_capability_recording
     else -> R.string.connected_apps_capability_live
+}
+
+/**
+ * While this screen shows, a touch that passes through another app's window is dropped, and
+ * from API 31 other apps' overlays are hidden. Another app cannot then draw over the screen
+ * and steer a tap on Allow or on a capability switch. The activity drops the touches: Compose
+ * does not apply a view's own `filterTouchesWhenObscured`.
+ */
+@Composable
+private fun HideOverlaysWhileShown() {
+    val view = LocalView.current
+    DisposableEffect(view) {
+        val activity = view.context.findActivity()
+        val window = activity?.window
+        (activity as? MainActivity)?.dropObscuredTouches = true
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) window?.setHideOverlayWindows(true)
+        onDispose {
+            (activity as? MainActivity)?.dropObscuredTouches = false
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) window?.setHideOverlayWindows(false)
+        }
+    }
+}
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }

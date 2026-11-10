@@ -118,6 +118,10 @@
     <uses-permission android:name="app.comaps.google.permission.READ_NAVIGATION_DATA" />
     <uses-permission android:name="app.comaps.huawei.permission.READ_NAVIGATION_DATA" />
 
+    <!-- The Connected apps screen hides other apps' overlays while it shows (API 31+), so
+         no app can draw over Allow. A normal permission, granted at install. -->
+    <uses-permission android:name="android.permission.HIDE_OVERLAY_WINDOWS" />
+
     <!-- OpenWatch is offline-only. Do not inherit network permissions from dependencies. -->
     <uses-permission
         android:name="android.permission.INTERNET"

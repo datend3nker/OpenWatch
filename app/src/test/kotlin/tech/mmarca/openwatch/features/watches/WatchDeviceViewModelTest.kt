@@ -78,6 +78,8 @@ class WatchDeviceViewModelTest {
             synchronized(calls) { calls.add("disassociate:$address") }
         }
 
+        override fun isCompanionAssociated(address: String): Boolean = true
+
         fun snapshot(): List<String> = synchronized(calls) { calls.toList() }
     }
 

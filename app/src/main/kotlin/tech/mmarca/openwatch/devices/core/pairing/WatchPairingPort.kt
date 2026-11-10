@@ -41,8 +41,9 @@ interface WatchPairingPort {
     suspend fun removeBond(address: String)
 
     /**
-     * Asks the OS to associate [address] as a companion. False is not a
-     * failure: the watch is fully usable without it.
+     * Asks the OS to associate [address] as a companion. For a Garmin watch
+     * false is not a failure: the watch is fully usable without it. A Wear OS
+     * watch needs it ([tech.mmarca.openwatch.devices.wearos.OnboardWearOsWatchUseCase]).
      */
     suspend fun associateCompanion(
         address: String,
@@ -52,4 +53,7 @@ interface WatchPairingPort {
 
     /** Drops the companion association for [address]. Best-effort, as above. */
     suspend fun disassociateCompanion(address: String)
+
+    /** Whether Android holds a companion association for [address]. False when it cannot tell. */
+    fun isCompanionAssociated(address: String): Boolean
 }

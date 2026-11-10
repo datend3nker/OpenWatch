@@ -8,7 +8,6 @@ import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import tech.mmarca.openwatch.data.repository.BleDeviceRepository
 import tech.mmarca.openwatch.devices.garmin.GarminRealtimeState
@@ -33,20 +32,10 @@ data class WatchTileState(
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    @dagger.hilt.android.qualifiers.ApplicationContext context: android.content.Context,
     deviceRepository: BleDeviceRepository,
     private val syncController: DeviceSyncController,
     realtimeStore: GarminRealtimeStore,
-    linkCore: tech.mmarca.openlink.host.OpenLinkHostCore,
 ) : ViewModel() {
-
-    /** The apps waiting for an answer to their OpenLink request, by label. */
-    val pendingApps: StateFlow<List<String>> = linkCore.clients
-        .map { records ->
-            records.filter { it.trust == tech.mmarca.openlink.OpenLinkTrust.PENDING }
-                .map { tech.mmarca.openwatch.features.connectedapps.appLabel(context, it.packageName) }
-        }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val watchTile: StateFlow<WatchTileState?> = combine(
         deviceRepository.devicesFlow,

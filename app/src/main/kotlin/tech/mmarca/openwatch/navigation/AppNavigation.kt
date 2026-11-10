@@ -127,7 +127,6 @@ fun AppNavigation(
                         navController.navigate(Screen.HealthConnectSetup.route) { launchSingleTop = true }
                     },
                     onOpenSettings = { navController.navigate(Screen.Settings.route) { launchSingleTop = true } },
-                    onOpenConnectedApps = { navController.navigate(Screen.ConnectedApps.route) { launchSingleTop = true } },
                 )
             }
             composable(Screen.Settings.route) {

@@ -73,6 +73,8 @@ class WatchesViewModelTest {
         override suspend fun disassociateCompanion(address: String) {
             calls.add("disassociate:$address")
         }
+
+        override fun isCompanionAssociated(address: String): Boolean = false
     }
 
     /** Canned GATT verdict; never opens a connection. */
@@ -153,7 +155,7 @@ class WatchesViewModelTest {
         deviceRepository = repo,
         sensorCoordinator = coordinator,
         onboardGarminWatch = OnboardGarminWatchUseCase(pairing, repo, probe),
-        onboardWearOsWatch = mockk<OnboardWearOsWatchUseCase>(relaxed = true),
+        onboardWearOsWatch = OnboardWearOsWatchUseCase(pairing, repo),
         osPermissionsService = os,
     )
 
@@ -366,6 +368,47 @@ class WatchesViewModelTest {
         assertTrue(vm.uiState.value.showAddFlow)
         assertFalse(vm.uiState.value.isOnboarding)
         assertNotNull(vm.uiState.value.errorMessage)
+    }
+
+    private val wearOsWatch = BleDiscoveredDevice(
+        address = "A8:D1:62:BE:3A:3B",
+        name = "Galaxy Watch8 (89FZ)",
+        rssi = -50,
+        suggestedCapabilities = emptySet(),
+    )
+
+    @Test
+    fun `a Wear OS watch without the companion association is not added, and the sheet stays`() = runTest {
+        classification = DeviceClassification(integration = DeviceIntegration.WEAROS, kind = BleDeviceKind.WATCH)
+        pairing.associateResult = false
+        val vm = viewModel()
+        vm.openAddFlow()
+        vm.selectDiscoveredDevice(wearOsWatch)
+
+        var closed: Boolean? = null
+        vm.onboardSelectedWatch { closed = it }
+
+        assertEquals(false, closed)
+        assertTrue(repo.devices.isEmpty())
+        assertTrue(vm.uiState.value.showAddFlow)
+        assertTrue(vm.uiState.value.companionRequired)
+        assertFalse(vm.uiState.value.isOnboarding)
+    }
+
+    @Test
+    fun `a Wear OS watch with the companion association is added`() = runTest {
+        classification = DeviceClassification(integration = DeviceIntegration.WEAROS, kind = BleDeviceKind.WATCH)
+        val vm = viewModel()
+        vm.openAddFlow()
+        vm.selectDiscoveredDevice(wearOsWatch)
+
+        var closed: Boolean? = null
+        vm.onboardSelectedWatch { closed = it }
+
+        assertEquals(true, closed)
+        assertTrue(repo.devices.single().isWearosWatch)
+        assertFalse(vm.uiState.value.companionRequired)
+        assertEquals(null, vm.uiState.value.onboardNotice)
     }
 
     @Test

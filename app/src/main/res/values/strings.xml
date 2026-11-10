@@ -248,6 +248,9 @@
     <string name="settings_watch_step_probing">Checking what the watch supports</string>
     <string name="settings_watch_pair_action">Pair</string>
     <string name="settings_watch_unsupported_notice">Paired, but this watch uses a connection OpenWatch does not support yet, so it cannot sync.</string>
+    <string name="settings_watch_wearos_companion_required">Android did not link the watch to OpenWatch, so it was not added. OpenWatch needs this link to record workouts that another app starts on the watch. Tap Pair again and allow the request.</string>
+    <string name="settings_watch_wearos_companion_missing">Android has not linked this watch to OpenWatch. Without the link, OpenWatch cannot record workouts that another app starts on the watch.</string>
+    <string name="settings_watch_wearos_companion_link">Link watch</string>
     <string name="settings_watch_no_companion_notice">Paired, but Android access was not granted. Syncing works while OpenWatch is open.</string>
     <string name="settings_watch_connected">Connected</string>
     <string name="settings_watch_not_connected">Not connected</string>
@@ -484,6 +487,7 @@
     <string name="connected_apps_settings_body">Apps that use your watches, scale and body profile through OpenWatch, and what each may do</string>
     <string name="connected_apps_intro">These apps asked to use OpenWatch. Each sees only what you allow here, and nothing leaves the phone.</string>
     <string name="connected_apps_empty">No app has asked yet. OpenVitals connects once both apps are installed.</string>
+    <string name="connected_apps_unknown_signer">This app calls itself %1$s, but it was not signed by the OpenVitals project. Allow it only if you built or installed it yourself and trust where it came from.</string>
     <string name="connected_apps_state_pending">Asks to connect</string>
     <string name="connected_apps_state_trusted">Connected</string>
     <string name="connected_apps_state_blocked">Blocked</string>
@@ -496,9 +500,6 @@
     <string name="connected_apps_capability_profile">Share your body profile (birth year, sex, height, weight) with OpenWatch, both ways</string>
     <string name="connected_apps_capability_recording">Keep your watch streaming while it records an activity</string>
     <string name="connected_apps_capability_live">Receive your watch\'s heart rate and steps while it records</string>
-    <string name="connected_apps_pending_title">%1$s wants to connect</string>
-    <string name="connected_apps_pending_body">Review what it may do before you allow it.</string>
-    <string name="connected_apps_review">Review</string>
     <string name="hc_setup_missing_title">Not granted yet:</string>
     <string name="hc_setup_missing_extra">Background and history access sit on their own page: open Health Connect settings, then OpenWatch, then Additional access.</string>
     <string name="time_just_now">just now</string>

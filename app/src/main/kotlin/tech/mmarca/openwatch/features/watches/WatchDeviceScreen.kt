@@ -190,6 +190,7 @@ fun WatchDeviceScreen(
                     bluetoothPermission.launch(android.Manifest.permission.BLUETOOTH_CONNECT)
                 },
                 liveHeartRateBpm = liveHeartRateBpm,
+                onAssociate = (viewModel::associateWearOs).takeIf { state.wearOsCompanionMissing },
             )
             SectionHeader(stringResource(R.string.settings_watch_wearos_sync_section))
             WearOsSyncCard(device, state.sync, onSync = viewModel::syncNow, onAllowGrants = syncGrantLauncher.launch)
@@ -870,109 +871,19 @@ private fun ephemerisSummary(file: GarminAgpsFileState?): String {
 /** The way into the watch's own settings tree. */
 @Composable
 internal fun OnDeviceSettingsRow(onOpen: () -> Unit) {
-    OpenWatchCard {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onOpen)
-                .padding(Spacing.lg),
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.BrightnessMedium,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(modifier = Modifier.width(Spacing.lg))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.settings_watch_on_device_settings),
-                    style = MaterialTheme.typography.bodyLarge,
-                )
-                Text(
-                    text = stringResource(R.string.settings_watch_on_device_settings_body),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Icon(
-                imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
-                contentDescription = null,
-            )
-        }
-    }
+    NavigationRow(Icons.Outlined.BrightnessMedium, R.string.settings_watch_on_device_settings, R.string.settings_watch_on_device_settings_body, onOpen)
 }
 
 /** The way to the send-a-point form. */
 @Composable
 private fun SendPointRow(onOpen: () -> Unit) {
-    OpenWatchCard {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onOpen)
-                .padding(Spacing.lg),
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.Place,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(modifier = Modifier.width(Spacing.lg))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.settings_watch_point_row),
-                    style = MaterialTheme.typography.bodyLarge,
-                )
-                Text(
-                    text = stringResource(R.string.settings_watch_point_row_body),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Icon(
-                imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
-                contentDescription = null,
-            )
-        }
-    }
+    NavigationRow(Icons.Outlined.Place, R.string.settings_watch_point_row, R.string.settings_watch_point_row_body, onOpen)
 }
 
 /** Mirrors phone notifications to the watch. The switches live on the notifications screen. */
 @Composable
 private fun NotificationsRow(onOpen: () -> Unit) {
-    OpenWatchCard {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onOpen)
-                .padding(Spacing.lg),
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.NotificationsActive,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(modifier = Modifier.width(Spacing.lg))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.settings_watch_notifications_title),
-                    style = MaterialTheme.typography.bodyLarge,
-                )
-                Text(
-                    text = stringResource(R.string.settings_watch_notifications_body),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Icon(
-                imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
-                contentDescription = null,
-            )
-        }
-    }
+    NavigationRow(Icons.Outlined.NotificationsActive, R.string.settings_watch_notifications_title, R.string.settings_watch_notifications_body, onOpen)
 }
 
 /** The BLE broadcast controls for a bike computer: its capabilities, and a redetect button. */

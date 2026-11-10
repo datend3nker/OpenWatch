@@ -1,6 +1,5 @@
 package tech.mmarca.openwatch.features.home
 
-import tech.mmarca.openwatch.features.connectedapps.PendingAppCard
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -57,10 +56,8 @@ fun HomeScreen(
     onOpenScale: () -> Unit,
     onOpenHealthConnect: () -> Unit,
     onOpenSettings: () -> Unit,
-    onOpenConnectedApps: () -> Unit = {},
 ) {
     val tile by homeViewModel.watchTile.collectAsStateWithLifecycle()
-    val pendingApps by homeViewModel.pendingApps.collectAsStateWithLifecycle()
 
     Column(
         modifier = Modifier
@@ -69,13 +66,6 @@ fun HomeScreen(
             .padding(vertical = Spacing.md),
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
-        pendingApps.forEach { label ->
-            PendingAppCard(
-                label = label,
-                onReview = onOpenConnectedApps,
-                modifier = Modifier.padding(horizontal = Spacing.lg),
-            )
-        }
         tile?.let { watch ->
             WatchTile(
                 tile = watch,

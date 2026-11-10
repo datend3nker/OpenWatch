@@ -13,15 +13,21 @@ import tech.mmarca.openwatch.domain.model.DeviceIntegration
 /** The one platform step WearOS onboarding shows. No bond, no probe. */
 enum class WearOsOnboardStep { ASSOCIATING }
 
-/** WearOS onboarding always succeeds. [associated] records the optional association. */
-data class WearOsOnboardOutcome(
-    val device: BleSensorDevice,
-    val associated: Boolean,
-)
+/**
+ * How a WearOS onboarding ended. The companion association is required: OpenWatch may
+ * start a foreground service from the background only for an associated device, and a
+ * workout another app starts on the watch needs that.
+ */
+sealed interface WearOsOnboardOutcome {
+    data class Succeeded(val device: BleSensorDevice) : WearOsOnboardOutcome
+
+    /** The user declined Android's association dialog, or it failed. Nothing was registered. */
+    data object NotAssociated : WearOsOnboardOutcome
+}
 
 /**
  * Turns a scanned WearOS watch into a registered `(WATCH, WEAROS)` device.
- * Associate (optional), then register with no capabilities, off the Garmin
+ * Associate (required), then register with no capabilities, off the Garmin
  * sync path. Recorded and live data come over the RFCOMM link (`BluetoothWearOsNodePort`).
  */
 @Singleton
@@ -41,9 +47,9 @@ class OnboardWearOsWatchUseCase @Inject constructor(
             // The address may be the Classic bond's, found in the bonded list.
             pairing.associateCompanion(device.address, displayName, CompanionFilter.BLE_OR_CLASSIC)
         } catch (_: Exception) {
-            // The association is best-effort; the watch onboards regardless.
             false
         }
+        if (!associated) return WearOsOnboardOutcome.NotAssociated
 
         val registered = bleDeviceRepository.addDevice(
             displayName = displayName,
@@ -53,7 +59,20 @@ class OnboardWearOsWatchUseCase @Inject constructor(
             kind = BleDeviceKind.WATCH,
             integration = DeviceIntegration.WEAROS,
         )
-        return WearOsOnboardOutcome(device = registered, associated = associated)
+        return WearOsOnboardOutcome.Succeeded(registered)
+    }
+
+    /** Whether the registered watch at [address] still has its association. */
+    fun isAssociated(address: String): Boolean = pairing.isCompanionAssociated(address)
+
+    /**
+     * Asks for the association again, for a watch registered before it was required, or one
+     * whose association the user removed in Android's settings.
+     */
+    suspend fun associate(address: String, displayName: String): Boolean = try {
+        pairing.associateCompanion(address, displayName, CompanionFilter.BLE_OR_CLASSIC)
+    } catch (_: Exception) {
+        false
     }
 
     /** Undoes [invoke] at the OS level: drops the association. */
