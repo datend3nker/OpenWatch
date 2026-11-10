@@ -148,6 +148,9 @@ dependencies {
     implementation(libs.androidx.wear.compose.navigation)
     // The watch face pill of a running workout.
     implementation(libs.androidx.wear.ongoing)
+    // Ambient mode for a workout and a running measurement (AmbientLifecycleObserver).
+    implementation(libs.androidx.wear)
+    implementation(libs.androidx.fragment)
     implementation(libs.androidx.core.ktx)
     // Same drag-to-reorder library as the phone dashboard.
     implementation(libs.reorderable)
