@@ -103,4 +103,14 @@ class RespiratoryRateTest {
         val (t, v) = ppg(15.0)
         assertNull(RespiratoryRate.fromSignal(t.copyOf(25 * 90), v.copyOf(25 * 90)))
     }
+
+    @Test
+    fun `one route alone counts only with a clear peak`() {
+        val clear = RespiratoryRate.Window(RespiratoryRate.Estimate(13.3, 0.66), null)
+        assertEquals(13.3, clear.value!!, 1e-9)
+        assertEquals(1, clear.routes)
+        val weak = RespiratoryRate.Window(RespiratoryRate.Estimate(14.3, 0.35), null)
+        assertNull(weak.value)
+        assertEquals(0, weak.routes)
+    }
 }
