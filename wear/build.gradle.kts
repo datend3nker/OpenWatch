@@ -150,6 +150,8 @@ dependencies {
     implementation(libs.androidx.wear.ongoing)
     // Ambient mode for a workout and a running measurement (AmbientLifecycleObserver).
     implementation(libs.androidx.wear)
+    // The complications: today's values for watch faces, no Play Services.
+    implementation(libs.androidx.wear.watchface.complications.data.source.ktx)
     implementation(libs.androidx.fragment)
     implementation(libs.androidx.core.ktx)
     // Same drag-to-reorder library as the phone dashboard.
