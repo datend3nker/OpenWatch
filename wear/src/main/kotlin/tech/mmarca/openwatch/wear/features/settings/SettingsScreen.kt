@@ -1,5 +1,6 @@
 package tech.mmarca.openwatch.wear.features.settings
 
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Sensors
@@ -34,6 +35,7 @@ fun SettingsScreen(
     onPhoneClick: () -> Unit,
     onSensorAccessClick: () -> Unit,
     onUnitsClick: () -> Unit,
+    onRecordingClick: () -> Unit = {},
 ) {
     val listState = rememberTransformingLazyColumnState()
     val transformationSpec = rememberTransformationSpec()
@@ -66,6 +68,19 @@ fun SettingsScreen(
                         )
                     },
                     icon = { Icon(Icons.Outlined.Smartphone, contentDescription = null) },
+                    colors = ButtonDefaults.filledTonalButtonColors(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .transformedHeight(this, transformationSpec),
+                    transformation = SurfaceTransformation(transformationSpec),
+                )
+            }
+            item {
+                Button(
+                    onClick = onRecordingClick,
+                    label = { Text(stringResource(R.string.settings_recording)) },
+                    secondaryLabel = { Text(stringResource(R.string.settings_recording_description)) },
+                    icon = { Icon(Icons.Outlined.Tune, contentDescription = null) },
                     colors = ButtonDefaults.filledTonalButtonColors(),
                     modifier = Modifier
                         .fillMaxWidth()
