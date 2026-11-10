@@ -30,7 +30,11 @@ internal class WearOsWorkoutSync(
     class Outcome(val written: Int, val withheld: Set<String>)
 
     /** Null when [pullPage] has no bonded watch to ask. A failure other than a missing grant throws. */
-    suspend fun sync(deviceId: String, pullPage: suspend (Instant) -> WearOsWorkoutPage?): Outcome? {
+    suspend fun sync(
+        deviceId: String,
+        afterWritten: suspend (WearOsWorkout) -> Unit = {},
+        pullPage: suspend (Instant) -> WearOsWorkoutPage?,
+    ): Outcome? {
         var since = cursors.workoutCursor(deviceId)
         var written = 0
         var pages = 0
@@ -64,6 +68,8 @@ internal class WearOsWorkoutSync(
                     return Outcome(written, WearOsWorkoutImport.permissions(workout))
                 }
                 written++
+                // Optional, as the walking energy: it never holds the cursor back.
+                afterWritten(workout)
                 since = workout.start
                 cursors.setWorkoutCursor(deviceId, since)
             }

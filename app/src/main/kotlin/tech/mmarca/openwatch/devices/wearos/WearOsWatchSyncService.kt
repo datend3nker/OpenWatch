@@ -101,7 +101,7 @@ class WearOsWatchSyncService(
     private val writeRespiratoryRate: () -> Boolean = { false },
     /** Whether the watch's night is written although another app wrote one; Health Connect's priority then decides. */
     private val writeSleepBesideOthers: () -> Boolean = { true },
-    /** The body profile for the watch's heart rate zones. */
+    /** The body profile for the watch's heart rate zones and a workout's calories: sex, age and weight. */
     private val profile: suspend () -> BodyProfile = { BodyProfile() },
 ) : DeviceSyncPort {
 
@@ -145,6 +145,14 @@ class WearOsWatchSyncService(
         granted = { healthConnect.grantedPermissions() },
         zone = zone,
         summarize = WearOsWorkoutFigures(healthConnect, profile, zone)::summarize,
+    )
+
+    private val workoutEnergy = WearOsWorkoutEnergy(
+        healthConnect = healthConnect,
+        profile = profile,
+        insert = { records -> insertEstimates(records, "workout energy") },
+        clock = clock,
+        zone = zone,
     )
 
     private val linkRetry = object : WearOsNightSeriesSync.Retry {
@@ -435,6 +443,24 @@ class WearOsWatchSyncService(
         emptyList()
     }
 
+    /** A written workout's active calories ([WearOsWorkoutEnergy]); a missing grant or weight is reported as the walking energy's. */
+    private suspend fun writeWorkoutEnergy(workout: WearOsWorkout, progress: Progress) {
+        when (val outcome = workoutEnergy.write(workout)) {
+            WearOsWorkoutEnergy.Outcome.Written, WearOsWorkoutEnergy.Outcome.Skipped -> Unit
+            WearOsWorkoutEnergy.Outcome.PermissionMissing -> {
+                progress.withheldPermissions += WearOsWorkoutImport.energyPermission
+                progress.unwritten += UnwrittenSeries.WALKING_ENERGY
+            }
+            is WearOsWorkoutEnergy.Outcome.NoWeight -> {
+                progress.missingBodyWeight = true
+                if (outcome.weightReadWithheld) {
+                    progress.weightReadWithheld = true
+                    progress.withheldPermissions += WEIGHT_READ_PERMISSION
+                }
+            }
+        }
+    }
+
     /** The weight for the walking energy; a failure when it could not be read. It is optional, so that never fails the sync. */
     private suspend fun bodyWeightKg(): Result<Double?> = try {
         Result.success(weightKg())
@@ -542,7 +568,10 @@ class WearOsWatchSyncService(
      * watch and the sync goes on. False when no bonded watch matches.
      */
     private suspend fun pullWorkouts(device: BleSensorDevice, progress: Progress): Boolean {
-        val outcome = workouts.sync(device.id) { since ->
+        val outcome = workouts.sync(
+            deviceId = device.id,
+            afterWritten = { writeWorkoutEnergy(it, progress) },
+        ) { since ->
             retryOnce { nodePort.pullWorkouts(device.address, device.bluetoothName, since) }
         } ?: return false
         if (outcome.withheld.isNotEmpty()) {

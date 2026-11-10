@@ -1,6 +1,7 @@
 package tech.mmarca.openwatch.devices.wearos
 
 import androidx.health.connect.client.permission.HealthPermission
+import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
 import androidx.health.connect.client.records.DistanceRecord
 import androidx.health.connect.client.records.ExerciseLap
 import androidx.health.connect.client.records.ExerciseRoute
@@ -9,9 +10,15 @@ import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.Record
 import androidx.health.connect.client.records.metadata.Device
 import androidx.health.connect.client.records.metadata.Metadata
+import androidx.health.connect.client.units.Energy
 import androidx.health.connect.client.units.Length
+import java.time.Duration
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
+import tech.mmarca.openwatch.domain.insights.WorkoutEnergyResult
+import tech.mmarca.openwatch.domain.insights.estimateWorkoutEnergy
+import tech.mmarca.openwatch.domain.preferences.BodyProfile
 
 /**
  * Maps a workout the watch recorded to Health Connect: an
@@ -30,12 +37,14 @@ object WearOsWorkoutImport {
 
     const val KEY_PREFIX = "wearos_workout_"
     const val DISTANCE_PREFIX = "wearos_workout_distance_"
+    const val ENERGY_PREFIX = "wearos_workout_energy_"
 
     /** Health Connect's own ceiling for one distance record. */
     private const val MAX_DISTANCE_METRES = 1_000_000.0
 
     val sessionPermission: String = HealthPermission.getWritePermission(ExerciseSessionRecord::class)
     val distancePermission: String = HealthPermission.getWritePermission(DistanceRecord::class)
+    val energyPermission: String = HealthPermission.getWritePermission(ActiveCaloriesBurnedRecord::class)
     const val routePermission: String = HealthPermission.PERMISSION_WRITE_EXERCISE_ROUTE
 
     /** The grants [workout]'s records need. */
@@ -77,6 +86,54 @@ object WearOsWorkoutImport {
     }
 
     fun importKey(start: Instant): String = "$KEY_PREFIX${start.toEpochMilli()}"
+
+    /**
+     * The workout's active calories, estimated, as an `ActiveCaloriesBurnedRecord`
+     * over the session: [estimateWorkoutEnergy] from the mean of the watch's
+     * heart rate [samples] outside the pauses, the walk or run's distance, or the
+     * activity's Compendium MET, with the body [profile]. The watch measures no
+     * calories itself; minutes inside the session get no walking energy
+     * ([WearOsStepsImport.outsideExerciseSessions]), so nothing counts twice.
+     *
+     * [WorkoutEnergyResult.MissingInputs] when the profile has no weight, so the
+     * caller can say so; the id is a function of the start, so a repeat rewrites it.
+     */
+    fun activeCalories(
+        workout: WearOsWorkout,
+        zone: ZoneId,
+        profile: BodyProfile,
+        samples: List<Pair<Instant, Long>>,
+        today: LocalDate,
+    ): Pair<ActiveCaloriesBurnedRecord?, WorkoutEnergyResult> {
+        val pauses = workout.pauses.filter { it.start < it.endInclusive }
+        val moving = Duration.between(workout.start, workout.end) - pauses.fold(Duration.ZERO) { sum, pause ->
+            val from = maxOf(pause.start, workout.start)
+            val to = minOf(pause.endInclusive, workout.end)
+            if (from < to) sum + Duration.between(from, to) else sum
+        }
+        val beats = samples
+            .filter { (time, _) -> !time.isBefore(workout.start) && time.isBefore(workout.end) }
+            .filter { (time, _) -> pauses.none { time >= it.start && time < it.endInclusive } }
+            .map { (_, bpm) -> bpm }
+        val result = estimateWorkoutEnergy(
+            exerciseType = workout.exerciseType,
+            durationMinutes = moving.seconds / 60.0,
+            meanHeartRateBpm = beats.takeIf { it.isNotEmpty() }?.average(),
+            profile = profile,
+            today = today,
+            distanceMeters = distance(workout),
+        )
+        val estimate = result as? WorkoutEnergyResult.Estimate ?: return null to result
+        val record = ActiveCaloriesBurnedRecord(
+            startTime = workout.start,
+            startZoneOffset = zone.rules.getOffset(workout.start),
+            endTime = workout.end,
+            endZoneOffset = zone.rules.getOffset(workout.end),
+            energy = Energy.kilocalories(estimate.activeKcal),
+            metadata = metadata("$ENERGY_PREFIX${workout.start.toEpochMilli()}"),
+        )
+        return record to result
+    }
 
     // Every point must lie inside the session, or Health Connect refuses the route.
     private fun route(workout: WearOsWorkout): List<ExerciseRoute.Location> = workout.route
