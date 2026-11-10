@@ -11,7 +11,6 @@ class WearPreferenceCodecTest {
         heartRateDay = HeartRateInterval.EVERY_10_SECONDS,
         heartRateSource = WearSettings.Source.RAW_SENSOR,
         hrvSource = WearSettings.Source.RAW_SENSOR,
-        syncedSleepHold = false,
         skinTemperature = false,
         spo2AtNight = false,
     )
@@ -22,7 +21,7 @@ class WearPreferenceCodecTest {
     fun `every setting and ability goes out as a token`() {
         assertEquals(
             mapOf(
-                "hr_day" to "10", "hr_source" to "sensor", "hrv_source" to "sensor", "sleep_hold" to "lock",
+                "hr_day" to "10", "hr_source" to "sensor", "hrv_source" to "sensor",
                 "skin" to "0", "spo2" to "0", "hr_max" to "0", "hr_rest" to "0", "body_hg" to "0", "body_cm" to "0", "birth_year" to "0", "sex" to "0", "samsung" to "1", "skin_granted" to "1", "spo2_granted" to "0",
             ),
             WearPreferenceCodec.encode(defaults, samsung),
@@ -32,7 +31,7 @@ class WearPreferenceCodecTest {
     @Test
     fun `each setting can be changed and comes back the same`() {
         var p = defaults
-        for ((key, value) in listOf("hr_day" to "600", "hr_source" to "samsung", "hrv_source" to "samsung", "sleep_hold" to "synced", "skin" to "1", "spo2" to "1")) {
+        for ((key, value) in listOf("hr_day" to "600", "hr_source" to "samsung", "hrv_source" to "samsung", "skin" to "1", "spo2" to "1")) {
             p = WearPreferenceCodec.apply(p, samsung, key, value)!!
             assertEquals(value, WearPreferenceCodec.encode(p, samsung)[key])
         }
@@ -42,7 +41,7 @@ class WearPreferenceCodecTest {
     fun `an unknown key, a bad value, an ability or a Samsung choice without the platform is refused`() {
         assertNull(WearPreferenceCodec.apply(defaults, samsung, "nope", "1"))
         assertNull(WearPreferenceCodec.apply(defaults, samsung, "hr_day", "0"))
-        assertNull(WearPreferenceCodec.apply(defaults, samsung, "sleep_hold", "maybe"))
+        assertNull(WearPreferenceCodec.apply(defaults, samsung, "sleep_hold", "synced"))
         assertNull(WearPreferenceCodec.apply(defaults, samsung, "samsung", "0"))
         assertNull(WearPreferenceCodec.apply(defaults, pixel, "hr_source", "samsung"))
         assertNull(WearPreferenceCodec.apply(defaults, pixel, "skin", "1"))

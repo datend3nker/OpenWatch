@@ -30,7 +30,6 @@ fun WatchSettingsSection(context: Context) {
     var day by remember { mutableStateOf(WearSettings.heartRateDay(context)) }
     var heartRateSource by remember { mutableStateOf(WearSettings.heartRateSource(context)) }
     var hrvSource by remember { mutableStateOf(WearSettings.hrvSource(context)) }
-    var synced by remember { mutableStateOf(WearSettings.syncedSleepHold(context)) }
     var skin by remember { mutableStateOf(WearSettings.skinTemperature(context)) }
     var spo2 by remember { mutableStateOf(WearSettings.spo2AtNight(context)) }
 
@@ -40,12 +39,7 @@ fun WatchSettingsSection(context: Context) {
         WearSettings.setHeartRateDay(context, day)
         WearAppService.settingsChanged(context)
     }
-    if (powerSave) Line(stringResource(R.string.settings_heart_rate_power_save_note))
-    Toggle(stringResource(if (synced) R.string.settings_sleep_hold_synced else R.string.settings_sleep_hold_wake_lock)) {
-        synced = !synced
-        WearSettings.setSyncedSleepHold(context, synced)
-        WearAppService.settingsChanged(context)
-    }
+    Line(stringResource(if (powerSave) R.string.settings_power_save_on_explained else R.string.settings_power_save_off_explained))
     if (!samsung) return
 
     val heartRateSamsung = heartRateSource == WearSettings.Source.SAMSUNG_PLATFORM
@@ -54,12 +48,14 @@ fun WatchSettingsSection(context: Context) {
         WearSettings.setHeartRateSource(context, heartRateSource)
         WearAppService.settingsChanged(context)
     }
+    Line(stringResource(R.string.settings_heart_rate_source_explained))
     val hrvSamsung = hrvSource == WearSettings.Source.SAMSUNG_PLATFORM
     Toggle(stringResource(if (hrvSamsung) R.string.status_hrv_source_samsung else R.string.status_hrv_source_ppg)) {
         hrvSource = flip(hrvSource)
         WearSettings.setHrvSource(context, hrvSource)
         WearAppService.settingsChanged(context)
     }
+    Line(stringResource(R.string.settings_hrv_source_explained))
     // Switching on asks for the permission the platform checks; the switch stays off without it.
     val askSkin = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         skin = granted
@@ -80,6 +76,7 @@ fun WatchSettingsSection(context: Context) {
             WearAppService.settingsChanged(context)
         }
     }
+    Line(stringResource(R.string.settings_skin_explained))
     Toggle(stringResource(if (spo2) R.string.settings_spo2_on else R.string.settings_spo2_off)) {
         if (!spo2 && !WearPermissions.hasOxygenSaturation(context)) {
             askSpo2.launch(WearPermissions.oxygenSaturation)
@@ -89,6 +86,7 @@ fun WatchSettingsSection(context: Context) {
             WearAppService.settingsChanged(context)
         }
     }
+    Line(stringResource(R.string.settings_spo2_explained))
     if (heartRateSamsung || hrvSamsung || skin || spo2) Line(stringResource(R.string.status_hrv_source_samsung_note))
 }
 

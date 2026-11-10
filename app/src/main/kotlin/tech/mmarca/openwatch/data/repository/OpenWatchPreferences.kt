@@ -39,9 +39,9 @@ class OpenWatchPreferences(
     /** Off pauses every Health Connect write; the devices keep what they heard until it is on again. */
     val healthConnectSyncEnabledFlow: StateFlow<Boolean> = _healthConnectSyncEnabled.asStateFlow()
 
-    private val _writeRespiratoryRate = MutableStateFlow(prefs.getBoolean(KEY_WRITE_RESPIRATORY_RATE, false))
+    private val _writeRespiratoryRate = MutableStateFlow(prefs.getBoolean(KEY_WRITE_RESPIRATORY_RATE, true))
 
-    /** Whether the watch's breathing rate is written to Health Connect. Off by default: not yet checked against a reference. */
+    /** Whether the watch's breathing rate is written to Health Connect. On by default; still marked experimental: not yet checked against a reference. */
     val writeRespiratoryRateFlow: StateFlow<Boolean> = _writeRespiratoryRate.asStateFlow()
 
     var writeRespiratoryRate: Boolean

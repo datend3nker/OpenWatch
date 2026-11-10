@@ -17,7 +17,7 @@ data class SettingsUiState(
     val syncEnabled: Boolean = true,
     /** Whether the system lets this app read notifications, for the watch forwarder. */
     val notificationAccessGranted: Boolean = false,
-    val writeRespiratoryRate: Boolean = false,
+    val writeRespiratoryRate: Boolean = true,
     val writeSleepBesideOthers: Boolean = true,
     val versionName: String = BuildConfig.VERSION_NAME,
 )

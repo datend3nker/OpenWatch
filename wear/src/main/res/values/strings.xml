@@ -35,9 +35,6 @@
     <string name="status_samsung_diagnostics_on">Samsung diagnostics: on · turn off in Settings</string>
     <string name="settings_heart_rate_every_10_seconds">Heart rate: every 10 s</string>
     <string name="settings_heart_rate_power_save">Heart rate: power save</string>
-    <string name="settings_heart_rate_power_save_note">About every 10 minutes outside bedtime mode. Sleep without bedtime mode is then detected from sparse readings.</string>
-    <string name="settings_sleep_hold_wake_lock">Sleep: wake lock</string>
-    <string name="settings_sleep_hold_synced">Sleep: synced wake-ups</string>
     <string name="settings_heart_rate_source_sensor">Heart rate: sensor</string>
     <string name="settings_heart_rate_source_samsung">Heart rate: Samsung platform</string>
     <string name="settings_skin_temperature_off">Skin temperature: off</string>
@@ -286,4 +283,10 @@
     <string name="recovery_two_minutes">Recovery after 2 min</string>
     <string name="settings_recording">Recording</string>
     <string name="settings_recording_description">Power save, sleep, sources</string>
+    <string name="settings_power_save_off_explained">Off: heart rate every 10 s, every sleep minute whole (the watch stays awake while you sleep). No data lost; about 9 to 11 mAh an hour at night.</string>
+    <string name="settings_power_save_on_explained">On: heart rate about every 10 minutes by day, and at night the watch wakes only with the heart rate\'s batches. Saves power; by day most heart rate and at night most of the movement data are lost, so sleep stages are rougher.</string>
+    <string name="settings_heart_rate_source_explained">Sensor: the watch\'s own heart rate, live. Samsung: the platform\'s value, handed over in batches up to 10 minutes late with the screen off. During a workout and a sleep hold the sensor is used either way.</string>
+    <string name="settings_hrv_source_explained">Sensor: HRV from the raw pulse signal, every interval. Samsung: the platform\'s beat intervals; today about 60 % of them get lost (issue #25), so fewer nights have a value.</string>
+    <string name="settings_skin_explained">Skin temperature at the wrist while you sleep, a reading a minute from the Samsung platform. Little power; nothing else changes.</string>
+    <string name="settings_spo2_explained">Blood oxygen at most once an hour while you sleep, about 15 s of red light. A few mAh a night; skipped when the arm moves.</string>
 </resources>

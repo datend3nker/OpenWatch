@@ -457,9 +457,6 @@
     <string name="watch_settings_unreachable">ウォッチが応答しませんでした。近くにあり、OpenWatch アプリが動作していますか？</string>
     <string name="watch_settings_read">ウォッチから読み込む</string>
     <string name="watch_settings_power_save">省電力の心拍</string>
-    <string name="watch_settings_power_save_body">おやすみモード以外では約 10 分ごと。おやすみモードでは常に 10 秒ごとに測定します。</string>
-    <string name="watch_settings_synced">睡眠中のまとめた起動</string>
-    <string name="watch_settings_synced_body">常時のウェイクロックの代わりに心拍センサーの起動で睡眠の各分を保ちます。センサーの心拍でのみ動作します。</string>
     <string name="watch_settings_samsung_note">Samsung プラットフォーム：ウォッチで Health Platform の開発者モードが必要です。オフの場合、プラットフォームはこのアプリについて Samsung に問い合わせます。失敗した Samsung のソースはセンサーに切り替わります。</string>
     <string name="watch_settings_hr_samsung">Samsung プラットフォームの心拍</string>
     <string name="watch_settings_hrv_samsung">Samsung プラットフォームの HRV</string>
