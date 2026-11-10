@@ -6,7 +6,8 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 /**
- * Breaths per minute from one still window of the watch's raw PPG, by two routes that must agree.
+ * Breaths per minute from one still window of the watch's raw PPG, by two routes that must agree,
+ * or one route with a clear peak when the other finds none.
  *
  * Breathing leaves two marks on a pulse signal. It speeds and slows the heart (respiratory sinus
  * arrhythmia), so the beat-to-beat intervals rise and fall once per breath; and it moves the
@@ -36,6 +37,9 @@ object RespiratoryRate {
     /** The share of the band's power that the peak and its two neighbours must hold. */
     const val MIN_PEAK_SHARE = 0.30
 
+    /** The peak share one route alone must hold to count without the other: a clear rhythm. */
+    const val MIN_SINGLE_ROUTE_SHARE = 0.50
+
     /** The two routes agree when they differ by less than this. */
     const val MAX_ROUTE_DIFFERENCE = 3.0
 
@@ -49,14 +53,32 @@ object RespiratoryRate {
     /** One route's reading and how clean its peak was. */
     data class Estimate(val breathsPerMinute: Double, val peakShare: Double)
 
-    /** Both routes of one window; [value] is the mean when they agree and null when they do not. */
+    /**
+     * Both routes of one window. [value] is their mean when they agree, null when they disagree,
+     * and a single route's reading when only that one gave a peak at least [MIN_SINGLE_ROUTE_SHARE]
+     * strong: on the Galaxy Watch7 the signal route almost never finds one at night (one window in
+     * eight on 2026-11-09/10), so requiring both left every night without a value. Charlton et al.
+     * (Physiol Meas 2016;37(4):610-626, doi:10.1088/0967-3334/37/4/610) found the interval route
+     * among the better single methods, with a signal-quality check; the share is this app's check.
+     */
     data class Window(val fromIntervals: Estimate?, val fromSignal: Estimate?) {
         val value: Double?
             get() {
-                val a = fromIntervals ?: return null
-                val b = fromSignal ?: return null
-                if (abs(a.breathsPerMinute - b.breathsPerMinute) >= MAX_ROUTE_DIFFERENCE) return null
-                return (a.breathsPerMinute + b.breathsPerMinute) / 2
+                val a = fromIntervals
+                val b = fromSignal
+                if (a != null && b != null) {
+                    if (abs(a.breathsPerMinute - b.breathsPerMinute) >= MAX_ROUTE_DIFFERENCE) return null
+                    return (a.breathsPerMinute + b.breathsPerMinute) / 2
+                }
+                return (a ?: b)?.takeIf { it.peakShare >= MIN_SINGLE_ROUTE_SHARE }?.breathsPerMinute
+            }
+
+        /** How many routes [value] rests on: 2 when both agreed, 1 for a single clean route, 0 without a value. */
+        val routes: Int
+            get() = when {
+                value == null -> 0
+                fromIntervals != null && fromSignal != null -> 2
+                else -> 1
             }
     }
 

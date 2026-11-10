@@ -107,7 +107,7 @@ internal class PpgWindowSource(context: Context) : HrvWindowSource, SensorEventL
             "rrSignal" to breathing.fromSignal?.breathsPerMinute, "rrSignalShare" to breathing.fromSignal?.peakShare,
             "rr" to breathing.value,
         )
-        onResult(NightWindowResult(result, breathing.value, if (breathing.value != null) 2 else 0))
+        onResult(NightWindowResult(result, breathing.value, breathing.routes))
     }
 
     override fun cancel() {
