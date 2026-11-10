@@ -37,6 +37,7 @@ wear-tiles = "1.6.2"
 wear-protolayout = "1.4.2"
 wear-ongoing = "1.1.0"
 wear = "1.3.0"
+wear-watchface = "1.3.0"
 # androidx.wear:wear 1.3.0 pulls fragment 1.2.4, which lint refuses for activity-result use.
 fragment = "1.8.9"
 concurrent-futures = "1.3.0"
@@ -119,6 +120,8 @@ androidx-test-espresso-core = { group = "androidx.test.espresso", name = "espres
 
 # Wear Compose (used only by :wear)
 androidx-wear-compose-material3 = { group = "androidx.wear.compose", name = "compose-material3", version.ref = "wear-compose" }
+# Watch face complications (used only by :wear)
+androidx-wear-watchface-complications-data-source-ktx = { group = "androidx.wear.watchface", name = "watchface-complications-data-source-ktx", version.ref = "wear-watchface" }
 androidx-wear = { group = "androidx.wear", name = "wear", version.ref = "wear" }
 androidx-fragment = { group = "androidx.fragment", name = "fragment", version.ref = "fragment" }
 androidx-wear-ongoing = { group = "androidx.wear", name = "wear-ongoing", version.ref = "wear-ongoing" }
