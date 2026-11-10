@@ -190,6 +190,9 @@ class WearOsWatchSyncServiceTest {
     /** The user's breathing rate switch; off as in a fresh install. */
     private var writeBreathing = false
 
+    /** Whether the watch's night is written beside another app's; the user's setting, on by default. */
+    private var sleepBesideOthers = true
+
     private fun service() = WearOsWatchSyncService(
         nodePort = nodePort,
         cursors = cursors,
@@ -201,6 +204,7 @@ class WearOsWatchSyncServiceTest {
         clock = { t0 },
         zone = { ZoneId.of("+02:00") },
         writeRespiratoryRate = { writeBreathing },
+        writeSleepBesideOthers = { sleepBesideOthers },
     )
 
     private fun raw(time: Instant, movement: Float, heartRate: Float) =
@@ -618,7 +622,8 @@ class WearOsWatchSyncServiceTest {
     }
 
     @Test
-    fun `a night that already holds a session from elsewhere is left alone`() = runTest {
+    fun `a night that already holds a session from elsewhere is left alone when the user chose so`() = runTest {
+        sleepBesideOthers = false
         pages += WearOsHeartRatePage(emptyList(), hasMore = false)
         sleepPages += WearOsSleepMinutePage(nightMinutes(), hasMore = false)
         val foreign = mockk<SleepSessionRecord> {
@@ -653,7 +658,24 @@ class WearOsWatchSyncServiceTest {
     }
 
     @Test
-    fun `a nap whose time already holds a session from elsewhere is left alone`() = runTest {
+    fun `by default the night is written beside another app's, and Health Connect's priority decides`() = runTest {
+        pages += WearOsHeartRatePage(emptyList(), hasMore = false)
+        sleepPages += WearOsSleepMinutePage(nightMinutes(), hasMore = false)
+        val foreign = mockk<SleepSessionRecord> {
+            every { metadata } returns Metadata.manualEntry(clientRecordId = "samsung_sleep_1")
+        }
+        coEvery { healthConnect.forEachSyncRecordPage(SleepSessionRecord::class, any(), any(), any()) } coAnswers {
+            arg<suspend (List<androidx.health.connect.client.records.Record>) -> Unit>(3).invoke(listOf(foreign))
+        }
+
+        service().sync(WATCH, Duration.ZERO, null)
+
+        assertEquals(1, insertedOf<SleepSessionRecord>().size)
+    }
+
+    @Test
+    fun `a nap whose time already holds a session from elsewhere is left alone when the user chose so`() = runTest {
+        sleepBesideOthers = false
         pages += WearOsHeartRatePage(emptyList(), hasMore = false)
         sleepPages += WearOsSleepMinutePage(napDayMinutes(), hasMore = false)
         val foreign = mockk<SleepSessionRecord> {

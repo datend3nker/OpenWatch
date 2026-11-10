@@ -502,4 +502,6 @@
     <string name="watch_settings_spo2">SpO2 stündlich in der Nacht</string>
     <string name="watch_settings_allow_on_watch">Erlaube es auf der Uhr: Öffne dort OpenWatch und schalte es einmal ein.</string>
     <string name="settings_watch_wearos_needs_workout_write">Trainings nicht geschrieben: Erlaube OpenWatch, Trainings, Routen und Distanz in Health Connect zu schreiben, und synchronisiere dann erneut.</string>
+    <string name="settings_sleep_beside_others_title">Schlaf der Uhr neben anderen Apps schreiben</string>
+    <string name="settings_sleep_beside_others_body">Schreibt die Nacht, auch wenn Samsung Health oder eine andere App schon eine geschrieben hat. Welche Nacht Apps zeigen, entscheidet dann die Datenquellen-Priorität in Health Connect. Aus: Die Nacht der anderen App gewinnt.</string>
 </resources>
