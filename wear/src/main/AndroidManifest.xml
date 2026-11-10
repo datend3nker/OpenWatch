@@ -133,6 +133,34 @@
                 android:resource="@drawable/tile_preview_steps" />
         </service>
         <service
+            android:name=".DistanceTileService"
+            android:description="@string/tile_distance_description"
+            android:exported="true"
+            android:icon="@drawable/ic_metric_distance"
+            android:label="@string/metric_distance"
+            android:permission="com.google.android.wearable.permission.BIND_TILE_PROVIDER">
+            <intent-filter>
+                <action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" />
+            </intent-filter>
+            <meta-data
+                android:name="androidx.wear.tiles.PREVIEW"
+                android:resource="@drawable/tile_preview_distance" />
+        </service>
+        <service
+            android:name=".ActiveCaloriesTileService"
+            android:description="@string/tile_active_calories_description"
+            android:exported="true"
+            android:icon="@drawable/ic_metric_active_calories"
+            android:label="@string/metric_active_calories"
+            android:permission="com.google.android.wearable.permission.BIND_TILE_PROVIDER">
+            <intent-filter>
+                <action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" />
+            </intent-filter>
+            <meta-data
+                android:name="androidx.wear.tiles.PREVIEW"
+                android:resource="@drawable/tile_preview_active_calories" />
+        </service>
+        <service
             android:name=".FloorsTileService"
             android:description="@string/tile_floors_description"
             android:exported="true"
@@ -217,6 +245,32 @@
             android:name=".FloorsComplicationService"
             android:label="@string/metric_floors"
             android:icon="@drawable/ic_metric_floors"
+            android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST" />
+            </intent-filter>
+            <meta-data android:name="android.support.wearable.complications.SUPPORTED_TYPES" android:value="SHORT_TEXT" />
+            <meta-data android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS" android:value="600" />
+        </service>
+
+        <service
+            android:name=".DistanceComplicationService"
+            android:label="@string/metric_distance"
+            android:icon="@drawable/ic_metric_distance"
+            android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST" />
+            </intent-filter>
+            <meta-data android:name="android.support.wearable.complications.SUPPORTED_TYPES" android:value="SHORT_TEXT" />
+            <meta-data android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS" android:value="600" />
+        </service>
+
+        <service
+            android:name=".ActiveCaloriesComplicationService"
+            android:label="@string/metric_active_calories"
+            android:icon="@drawable/ic_metric_active_calories"
             android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER"
             android:exported="true">
             <intent-filter>

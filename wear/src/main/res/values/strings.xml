@@ -94,6 +94,10 @@
     <string name="tile_floors_no_sensor">no barometer</string>
     <string name="tile_read_failed">can\'t read the watch\'s data</string>
     <string name="tile_not_granted">allow in the watch app</string>
+    <string name="tile_distance_description">The distance you walked today, as your phone last sent it</string>
+    <string name="tile_active_calories_description">The energy you burned walking today, as your phone last sent it</string>
+    <string name="tile_needs_phone">sync with the phone</string>
+    <string name="tile_from_phone">as of the last sync</string>
     <string name="metric_no_value">--</string>
     <string name="metric_steps">Steps</string>
     <string name="metric_heart_rate">Heart rate</string>

@@ -3,6 +3,7 @@ package tech.mmarca.openwatch.wear
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.core.content.edit
+import java.time.LocalDate
 import tech.mmarca.openwatch.wearlink.DaySummary
 import tech.mmarca.openwatch.wearlink.WearLinkDaily
 
@@ -29,6 +30,10 @@ class DaySummaryStore(context: Context) {
     fun all(): Map<Long, DaySummary> = prefs.all.values
         .mapNotNull { (it as? String)?.let(WearLinkDaily::parsePutDay) }
         .associateBy { it.epochDay }
+
+    /** The phone's figures for the local day that is running, or null before it sent any. */
+    fun today(): DaySummary? =
+        (prefs.getString(key(LocalDate.now().toEpochDay()), null))?.let(WearLinkDaily::parsePutDay)
 
     private fun key(epochDay: Long) = "$KEY_PREFIX$epochDay"
 

@@ -16,6 +16,7 @@ import java.time.ZoneId
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import tech.mmarca.openwatch.wear.ui.components.formatMetricValue
 import tech.mmarca.openwatch.wearlink.AscentCredit
 
 /**
@@ -126,4 +127,45 @@ class FloorsComplicationService : MetricComplicationService() {
 
     private fun floors(floors: Int, validUntil: Instant?): ComplicationData =
         shortText(floors.toString(), getString(R.string.unit_floors), "${getString(R.string.metric_floors)}: $floors", validUntil)
+}
+
+/**
+ * Today's distance, as the phone estimates it from the step minutes and last
+ * sent it (`PUT_DAY`). Nothing before the phone sent the day.
+ */
+class DistanceComplicationService : MetricComplicationService() {
+    override val iconRes: Int = R.drawable.ic_metric_distance
+
+    override fun read(today: DayReadings, now: Instant, endOfDay: Instant, type: ComplicationType): ComplicationData? {
+        val metres = DaySummaryStore(this).today()?.distanceMetres ?: return null
+        return distance(metres.toDouble(), type, endOfDay)
+    }
+
+    override fun preview(type: ComplicationType): ComplicationData? = distance(4_890.0, type, null)
+
+    private fun distance(metres: Double, type: ComplicationType, validUntil: Instant?): ComplicationData? {
+        if (type != ComplicationType.SHORT_TEXT) return null
+        val text = formatMetricValue(MetricTile.DISTANCE, metres, UnitSystem.METRIC)
+        val unit = getString(R.string.unit_km)
+        return shortText(text, unit, "${getString(R.string.metric_distance)}: $text $unit", validUntil)
+    }
+}
+
+/** Today's walking energy, as the phone estimates it and last sent it (`PUT_DAY`). */
+class ActiveCaloriesComplicationService : MetricComplicationService() {
+    override val iconRes: Int = R.drawable.ic_metric_active_calories
+
+    override fun read(today: DayReadings, now: Instant, endOfDay: Instant, type: ComplicationType): ComplicationData? {
+        val kcal = DaySummaryStore(this).today()?.activeKcal ?: return null
+        return calories(kcal, type, endOfDay)
+    }
+
+    override fun preview(type: ComplicationType): ComplicationData? = calories(312, type, null)
+
+    private fun calories(kcal: Int, type: ComplicationType, validUntil: Instant?): ComplicationData? {
+        if (type != ComplicationType.SHORT_TEXT) return null
+        val text = "%,d".format(kcal)
+        val unit = getString(R.string.unit_kcal)
+        return shortText(text, unit, "${getString(R.string.metric_active_calories)}: $text $unit", validUntil)
+    }
 }

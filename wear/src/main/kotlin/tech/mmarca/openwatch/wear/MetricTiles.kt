@@ -1,11 +1,12 @@
 package tech.mmarca.openwatch.wear
 
+import tech.mmarca.openwatch.wear.ui.components.formatMetricValue
 import tech.mmarca.openwatch.wearlink.AscentCredit
 
 /*
- * The three metric tiles. Each reads today's rows for its metric and says
+ * The metric tiles. Each reads today's rows for its metric and says
  * why when it has nothing to show: a permission that is off, or a sensor
- * the watch lacks. The accents copy the phone app's `ui/theme/Color.kt`;
+ * the watch lacks. Distance and active calories are the phone's figures. The accents copy the phone app's `ui/theme/Color.kt`;
  * a change to that palette belongs here too.
  */
 
@@ -131,4 +132,43 @@ class FloorsTileService : MetricTileService() {
             detail = detail,
         )
     }
+}
+
+/**
+ * The distance walked today, as the phone estimates it from the step minutes
+ * and last sent it (`PUT_DAY`): the watch has no step length of its own. No
+ * curve, since the phone sends the day's total only.
+ */
+class DistanceTileService : MetricTileService() {
+
+    /** `DistanceColor`. */
+    override val accent: Int = 0xFF3B7DD8.toInt()
+
+    override val titleRes: Int = R.string.metric_distance
+
+    override fun read(day: TileDay, chart: TileChart, store: MetricStore): MetricTileContent {
+        val metres = DaySummaryStore(this).today()?.distanceMetres ?: return unavailable(getString(R.string.tile_needs_phone))
+        return fromPhone(formatMetricValue(MetricTile.DISTANCE, metres.toDouble(), UnitSystem.METRIC), getString(R.string.unit_km))
+    }
+}
+
+/** Today's walking energy, as the phone estimates it and last sent it (`PUT_DAY`). No curve, as for the distance. */
+class ActiveCaloriesTileService : MetricTileService() {
+
+    /** `ActiveCaloriesColor`. */
+    override val accent: Int = 0xFFDE6C39.toInt()
+
+    override val titleRes: Int = R.string.metric_active_calories
+
+    override fun read(day: TileDay, chart: TileChart, store: MetricStore): MetricTileContent {
+        val kcal = DaySummaryStore(this).today()?.activeKcal ?: return unavailable(getString(R.string.tile_needs_phone))
+        return fromPhone(formatCount(kcal.toLong()), getString(R.string.unit_kcal))
+    }
+}
+
+/** A tile of one of the phone's figures for today: the value, its unit and that it is as of the last sync. */
+private fun MetricTileService.fromPhone(value: String, unit: String): MetricTileContent {
+    val title = getString(titleRes)
+    val detail = getString(R.string.tile_from_phone)
+    return MetricTileContent(title, value, unit, accent, "$title: $value $unit, $detail", chart = null, detail = detail)
 }

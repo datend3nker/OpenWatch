@@ -66,6 +66,10 @@
     <string name="tile_floors_no_sensor">kein Barometer</string>
     <string name="tile_read_failed">Daten der Uhr nicht lesbar</string>
     <string name="tile_not_granted">in der Uhr-App erlauben</string>
+    <string name="tile_distance_description">Deine heute gegangene Strecke, wie dein Handy sie zuletzt gesendet hat</string>
+    <string name="tile_active_calories_description">Die heute beim Gehen verbrannte Energie, wie dein Handy sie zuletzt gesendet hat</string>
+    <string name="tile_needs_phone">mit dem Handy synchronisieren</string>
+    <string name="tile_from_phone">Stand der letzten Synchronisierung</string>
     <string name="workout_pick">Training starten</string>
     <string name="workout_back">Zurück</string>
     <string name="workout_waiting_for_gps">Warte auf GPS …</string>
