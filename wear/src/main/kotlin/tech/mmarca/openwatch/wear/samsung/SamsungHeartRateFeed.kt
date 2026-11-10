@@ -43,6 +43,9 @@ internal class SamsungHeartRateFeed private constructor(private val context: Con
     fun interface RawSubscriber {
         fun onRawPoints(points: List<RawPoint>)
 
+        /** The flush asked for has been answered: every point held until then was delivered. */
+        fun onFlushed() = Unit
+
         /** The tracker failed (a missing permission, a platform error). */
         fun onError() = Unit
     }
@@ -55,7 +58,7 @@ internal class SamsungHeartRateFeed private constructor(private val context: Con
     private var platform: SamsungHealthPlatform? = null
     private val startedAt = HashMap<String, Long>()
     private val delivered = HashSet<String>()
-    private var flushAskedAt = 0L
+    private val flushAskedAt = HashMap<String, Long>()
 
     val isAvailable: Boolean = SamsungHealthPlatform.isInstalled(context)
 
@@ -94,16 +97,21 @@ internal class SamsungHeartRateFeed private constructor(private val context: Con
         untrack(type)
     }
 
-    /** Asks the platform for the heart rate points it still batches. False when the tracker is not connected. */
-    fun flush(): Boolean = synchronized(lock) {
+    /**
+     * Asks the platform for the points of [type] it still batches (the heart
+     * rate by default). False when the tracker is not connected. The answer
+     * is `onFlushed` of the type's readers, also when the platform cannot be
+     * asked.
+     */
+    fun flush(type: String = SamsungHealthPlatform.TRACKER_HEART_RATE): Boolean = synchronized(lock) {
         val client = platform ?: return false
         val workerHandler = handler ?: return false
         // The platform is driven from the feed's own thread; the answer arrives as onFlushed.
         workerHandler.post {
-            val asked = client.flush(SamsungHealthPlatform.TRACKER_HEART_RATE)
-            flushAskedAt = if (asked) SystemClock.elapsedRealtime() else 0L
-            DebugProtocol.event("SamsungFeed", "flush_asked", "ok" to asked)
-            if (!asked) forEach { it.onFlushed() }
+            val asked = client.flush(type)
+            flushAskedAt[type] = if (asked) SystemClock.elapsedRealtime() else 0L
+            DebugProtocol.event("SamsungFeed", "flush_asked", "type" to type, "ok" to asked)
+            if (!asked) flushed(type)
         }
         true
     }
@@ -133,12 +141,12 @@ internal class SamsungHeartRateFeed private constructor(private val context: Con
         val tracker = when (type) {
             SamsungHealthPlatform.TRACKER_HEART_RATE -> SamsungHealthPlatform.Tracker(
                 onPoints = { raw -> deliverHeartRate(raw.map { it.toHeartRatePoint() }) },
-                onFlushed = ::flushed,
+                onFlushed = { flushed(type) },
                 onError = { failed(type) },
             )
             else -> SamsungHealthPlatform.Tracker(
                 onPoints = { raw -> deliverRaw(type, raw) },
-                onFlushed = {},
+                onFlushed = { flushed(type) },
                 onError = { failed(type) },
             )
         }
@@ -196,10 +204,19 @@ internal class SamsungHeartRateFeed private constructor(private val context: Con
         for ((subscriber, target) in targets) target.post { subscriber.onRawPoints(points) }
     }
 
-    private fun flushed() {
-        val asked = flushAskedAt
-        DebugProtocol.event("SamsungFeed", "flush_done", "afterMs" to if (asked == 0L) null else SystemClock.elapsedRealtime() - asked)
-        forEach { it.onFlushed() }
+    private fun flushed(type: String) {
+        val asked = flushAskedAt[type] ?: 0L
+        DebugProtocol.event(
+            "SamsungFeed", "flush_done",
+            "type" to type,
+            "afterMs" to if (asked == 0L) null else SystemClock.elapsedRealtime() - asked,
+        )
+        if (type == SamsungHealthPlatform.TRACKER_HEART_RATE) {
+            forEach { it.onFlushed() }
+        } else {
+            val targets = synchronized(lock) { rawSubscribers[type]?.toList().orEmpty() }
+            for ((subscriber, target) in targets) target.post { subscriber.onFlushed() }
+        }
     }
 
     /** A tracker's failure ([type]), or the binding's (null), which hits every tracker. */

@@ -8,6 +8,7 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.os.BatteryManager
 import android.os.Handler
 import android.os.HandlerThread
 import android.util.Log
@@ -40,8 +41,13 @@ class WornMonitor(
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             when (intent.action) {
+                Intent.ACTION_POWER_CONNECTED -> {
+                    gate.onCharging(true)
+                    apply(System.currentTimeMillis())
+                }
                 Intent.ACTION_SCREEN_ON, Intent.ACTION_POWER_DISCONNECTED -> {
                     val now = System.currentTimeMillis()
+                    if (intent.action == Intent.ACTION_POWER_DISCONNECTED) gate.onCharging(false)
                     gate.onWakeUp(now)
                     apply(now)
                 }
@@ -65,9 +71,16 @@ class WornMonitor(
         }
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_SCREEN_ON)
+            addAction(Intent.ACTION_POWER_CONNECTED)
             addAction(Intent.ACTION_POWER_DISCONNECTED)
         }
         context.registerReceiver(receiver, filter, null, workerHandler)
+        // Started on the charger, no broadcast comes: ask.
+        val battery = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+        workerHandler.post {
+            gate.onCharging(battery.isCharging)
+            apply(System.currentTimeMillis())
+        }
         thread = worker
         handler = workerHandler
     }

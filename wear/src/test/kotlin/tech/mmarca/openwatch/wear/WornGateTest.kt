@@ -66,4 +66,42 @@ class WornGateTest {
         assertTrue(gate.heartRateWanted(t0 + delay * 10))
         assertNull(gate.nextChangeAt())
     }
+
+    @Test
+    fun `on the charger the heart rate stops at once, worn or not`() {
+        val gate = WornGate()
+        gate.onCharging(true)
+        assertFalse(gate.heartRateWanted(t0))
+        assertNull(gate.nextChangeAt())
+
+        // The sensor saying "worn" on the charger changes nothing.
+        gate.onWorn(t0 + 1_000, worn = true)
+        assertFalse(gate.heartRateWanted(t0 + 1_000))
+    }
+
+    @Test
+    fun `a wake-up on the charger does not start it`() {
+        val gate = WornGate()
+        gate.onWorn(t0, worn = false)
+        gate.onCharging(true)
+        gate.onWakeUp(t0 + delay * 5)
+        assertFalse(gate.heartRateWanted(t0 + delay * 5))
+    }
+
+    @Test
+    fun `off the charger a worn watch measures again, an unworn one gets one more delay`() {
+        val worn = WornGate()
+        worn.onCharging(true)
+        worn.onCharging(false)
+        assertTrue(worn.heartRateWanted(t0))
+
+        val unworn = WornGate()
+        unworn.onWorn(t0, worn = false)
+        unworn.onCharging(true)
+        unworn.onCharging(false)
+        val pulled = t0 + delay * 5
+        unworn.onWakeUp(pulled)
+        assertTrue(unworn.heartRateWanted(pulled))
+        assertFalse(unworn.heartRateWanted(pulled + delay))
+    }
 }

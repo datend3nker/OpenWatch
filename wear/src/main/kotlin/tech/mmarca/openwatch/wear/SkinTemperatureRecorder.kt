@@ -21,13 +21,23 @@ import tech.mmarca.openwatch.wearlink.WearLinkProtocol
  * no skin temperature, since the sensor itself is closed to ordinary apps.
  * In the bench test on a Galaxy Watch7 the tracker delivered nothing; the
  * debug protocol counts what arrives (`samsung.skinPoints`, `skin.*`).
+ *
+ * The platform hands the points over in batches of an hour, so the last
+ * stretch of a night was still held when the hold ended (07:31 to 08:24 on
+ * 2026-11-10). Stopping therefore asks for a flush first and leaves when it
+ * is answered, or after [FLUSH_TIMEOUT_MILLIS]; whether the platform answers
+ * for this tracker is read off the debug protocol (`flush_done`, type skin).
  */
 internal class SkinTemperatureRecorder(
     private val store: MetricStore,
     private val feed: SamsungHeartRateFeed,
 ) : SamsungHeartRateFeed.RawSubscriber {
 
+    private val lock = Any()
     private var thread: HandlerThread? = null
+
+    /** A stop waits for the flush; a start meanwhile cancels it. Under [lock]. */
+    private var stopping = false
 
     val isAvailable: Boolean
         get() = feed.isAvailable
@@ -41,21 +51,49 @@ internal class SkinTemperatureRecorder(
     }
 
     private fun start() {
-        if (thread != null) return
-        val worker = HandlerThread("SkinTemperatureRecorder").apply { start() }
-        if (!feed.subscribeRaw(SamsungHealthPlatform.TRACKER_SKIN_TEMPERATURE, this, Handler(worker.looper))) {
-            worker.quitSafely()
-            return
+        synchronized(lock) {
+            if (thread != null) {
+                stopping = false
+                return
+            }
+            val worker = HandlerThread("SkinTemperatureRecorder").apply { start() }
+            if (!feed.subscribeRaw(SamsungHealthPlatform.TRACKER_SKIN_TEMPERATURE, this, Handler(worker.looper))) {
+                worker.quitSafely()
+                return
+            }
+            thread = worker
         }
-        thread = worker
         Log.i(TAG, "Skin temperature on")
     }
 
+    /** Asks for the points still batched, then leaves. */
     fun stop() {
-        val worker = thread ?: return
-        feed.unsubscribeRaw(SamsungHealthPlatform.TRACKER_SKIN_TEMPERATURE, this)
+        val worker = synchronized(lock) {
+            val running = thread ?: return
+            if (stopping) return
+            stopping = true
+            running
+        }
+        if (feed.flush(SamsungHealthPlatform.TRACKER_SKIN_TEMPERATURE)) {
+            Handler(worker.looper).postDelayed({ leave(worker) }, FLUSH_TIMEOUT_MILLIS)
+        } else {
+            leave(worker)
+        }
+    }
+
+    override fun onFlushed() {
+        val worker = synchronized(lock) { thread } ?: return
+        leave(worker)
+    }
+
+    private fun leave(worker: HandlerThread) {
+        synchronized(lock) {
+            if (!stopping || thread !== worker) return
+            stopping = false
+            thread = null
+            feed.unsubscribeRaw(SamsungHealthPlatform.TRACKER_SKIN_TEMPERATURE, this)
+        }
         worker.quitSafely()
-        thread = null
         Log.i(TAG, "Skin temperature off")
     }
 
@@ -76,6 +114,9 @@ internal class SkinTemperatureRecorder(
     companion object {
         private const val TAG = "SkinTemperatureRecorder"
         private const val MINUTE_MILLIS = 60_000L
+
+        /** How long a stop waits for the platform's answer to the flush. */
+        private const val FLUSH_TIMEOUT_MILLIS = 15_000L
 
         /** The platform's status for a measured point. */
         private const val STATUS_MEASURED = 0

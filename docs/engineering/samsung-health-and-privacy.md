@@ -130,6 +130,12 @@ limit. Not yet measured on the watch: whether the flush answers with the screen 
 the tracker takes to deliver its first point outside a reboot, and how the two sources' RMSSD
 compare over a night.
 
+Skin temperature arrives in batches of an hour: the night of 2026-11-10 delivered at 02:31, 03:31
+and so on, the last at 07:31, and the hold ended at 08:24, so those 53 minutes never reached the
+store. `SkinTemperatureRecorder` now asks for a flush before it leaves (15-second limit), as the
+HRV window does. Not yet measured whether the platform answers a flush for this tracker; the next
+night's debug protocol shows it (`flush_asked` and `flush_done` with the skin temperature type).
+
 ## What leaves the watch
 
 Method: APKs pulled from the watch (Health Platform 1.7.00.05, Samsung Health 7.1.2.003, Health

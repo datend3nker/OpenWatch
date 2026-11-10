@@ -14,6 +14,12 @@ package tech.mmarca.openwatch.wear
  * turns on, the charger is pulled) therefore runs the sensor again for
  * [OFF_DELAY_MILLIS]; if no "on" comes in that time, it stops again.
  *
+ * On the charger the watch lies on its back and is not worn, whatever the
+ * off-body sensor says: after a restart on the charger it reported "worn" once
+ * and never "off", and the sensor ran for twenty minutes. Charging therefore
+ * stops the heart rate at once and no wake-up starts it; pulling the charger
+ * is a wake-up, and the sensor takes over again.
+ *
  * A watch without an off-body sensor never reports "off", so its heart
  * rate always runs. Pure, so it is testable without a device.
  */
@@ -21,6 +27,12 @@ class WornGate {
 
     /** When the watch was last reported off the wrist, or the last wake-up since; null while worn. */
     private var offSince: Long? = null
+
+    private var charging = false
+
+    fun onCharging(charging: Boolean) {
+        this.charging = charging
+    }
 
     fun onWorn(now: Long, worn: Boolean) {
         offSince = if (worn) null else offSince ?: now
@@ -32,12 +44,13 @@ class WornGate {
     }
 
     fun heartRateWanted(now: Long): Boolean {
+        if (charging) return false
         val since = offSince ?: return true
         return now - since < OFF_DELAY_MILLIS
     }
 
     /** When [heartRateWanted] turns false unless something is reported first; null when it will not. */
-    fun nextChangeAt(): Long? = offSince?.plus(OFF_DELAY_MILLIS)
+    fun nextChangeAt(): Long? = if (charging) null else offSince?.plus(OFF_DELAY_MILLIS)
 
     companion object {
         /** Longer than the off-body sensor's short false "off", short enough to save the LEDs. */
