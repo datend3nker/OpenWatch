@@ -7,7 +7,8 @@ import tech.mmarca.openwatch.domain.preferences.BodyProfile
 
 /**
  * The two numbers the heart rate zones rest on. The body profile itself is
- * shared over OpenLink.
+ * shared over OpenLink, so a maximum or resting rate entered in OpenVitals wins;
+ * the rest is OpenWatch's fallback until OpenVitals shares its own zones.
  *
  * Maximum: the one the user entered (a measured maximum is what the ACSM
  * prefers over any formula); else the highest heart rate on record when it is

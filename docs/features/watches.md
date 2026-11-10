@@ -251,6 +251,10 @@ doi:10.1016/S0735-1097(00)01054-8), 206 - 0.88 x age for women (Gulati et al.,
 Circulation 2010, doi:10.1161/CIRCULATIONAHA.110.939249). The resting rate is the
 one entered, else the latest night's. Without either the watch assumes 190 bpm.
 
+OpenVitals is meant to work the zones out, since it holds more of the wearer's data, and to share
+them over OpenLink; until it does, the profile's values it shares win, and the rest above is
+OpenWatch's fallback.
+
 ## Watch Data Screen
 
 The Data action on a Garmin watch opens the watch-only measurements: the things the watch makes that Health Connect has no place for. Everything else goes to Health Connect and is not repeated here.
