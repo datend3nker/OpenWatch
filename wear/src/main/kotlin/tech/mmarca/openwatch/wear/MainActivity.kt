@@ -1,5 +1,10 @@
 package tech.mmarca.openwatch.wear
 
+import tech.mmarca.openwatch.wear.ui.ambient.LocalAmbientRequest
+import tech.mmarca.openwatch.wear.ui.ambient.LocalAmbient
+import tech.mmarca.openwatch.wear.ui.ambient.AmbientRequest
+import androidx.wear.ambient.AmbientLifecycleObserver
+import androidx.compose.runtime.CompositionLocalProvider
 import tech.mmarca.openwatch.wear.workout.WorkoutScreen
 import tech.mmarca.openwatch.wear.workout.WorkoutState
 import android.content.Intent
@@ -36,6 +41,49 @@ class MainActivity : ComponentActivity() {
 
     private var permissionsVersion by mutableStateOf(0)
 
+    /** True while the system shows the dimmed ambient screen. Only set while a screen asked for ambient mode. */
+    private var ambient by mutableStateOf(false)
+    private var ambientObserver: AmbientLifecycleObserver? = null
+    private var ambientAsks = 0
+
+    private val ambientCallback = object : AmbientLifecycleObserver.AmbientLifecycleCallback {
+        override fun onEnterAmbient(ambientDetails: AmbientLifecycleObserver.AmbientDetails) {
+            ambient = true
+        }
+
+        override fun onExitAmbient() {
+            ambient = false
+        }
+    }
+
+    /**
+     * The observer is added only while the workout screen or a running
+     * measurement asks for it. With it the app stays on screen when the
+     * display dims, so every other screen would have to draw an ambient
+     * variant too; without it the system hands over to the watch face.
+     */
+    private val ambientRequest = object : AmbientRequest {
+        override fun acquire() {
+            if (++ambientAsks == 1) {
+                val observer = AmbientLifecycleObserver(this@MainActivity, ambientCallback)
+                ambientObserver = observer
+                lifecycle.addObserver(observer)
+            }
+        }
+
+        override fun release() {
+            if (ambientAsks > 0 && --ambientAsks == 0) {
+                ambientObserver?.let {
+                    lifecycle.removeObserver(it)
+                    // Removing does not unregister from the system; destroying does.
+                    it.onDestroy(this@MainActivity)
+                }
+                ambientObserver = null
+                ambient = false
+            }
+        }
+    }
+
     /** A screen a tile asked for, opened once and then cleared. */
     private var pendingRoute by mutableStateOf<String?>(null)
 
@@ -65,22 +113,24 @@ class MainActivity : ComponentActivity() {
                         WearPermissions.hasHeartRateInBackground(this),
                 )
             }
-            // A running or just finished workout takes the screen.
-            val workout by WorkoutState.state.collectAsStateWithLifecycle()
-            if (workout.running || workout.finished) {
-                OpenWatchWearTheme { WorkoutScreen(zones = uiState.preferences.zones, onClose = {}) }
-                return@setContent
+            CompositionLocalProvider(LocalAmbient provides ambient, LocalAmbientRequest provides ambientRequest) {
+                // A running or just finished workout takes the screen.
+                val workout by WorkoutState.state.collectAsStateWithLifecycle()
+                if (workout.running || workout.finished) {
+                    OpenWatchWearTheme { WorkoutScreen(zones = uiState.preferences.zones, onClose = {}) }
+                    return@CompositionLocalProvider
+                }
+                OpenWatchWearApp(
+                    state = uiState.copy(settings = settings),
+                    onLog = viewModel::log,
+                    deepLinkRoute = pendingRoute,
+                    onDeepLinkHandled = { pendingRoute = null },
+                    workoutScreen = { onClose -> WorkoutScreen(zones = uiState.preferences.zones, onClose = onClose) },
+                    statusScreen = { StatusScreen() },
+                    phoneScreen = { PhoneRoute() },
+                    sensorScreen = { onOpenDetails -> SensorAccessRoute(onOpenDetails) },
+                )
             }
-            OpenWatchWearApp(
-                state = uiState.copy(settings = settings),
-                onLog = viewModel::log,
-                deepLinkRoute = pendingRoute,
-                onDeepLinkHandled = { pendingRoute = null },
-                workoutScreen = { onClose -> WorkoutScreen(zones = uiState.preferences.zones, onClose = onClose) },
-                statusScreen = { StatusScreen() },
-                phoneScreen = { PhoneRoute() },
-                sensorScreen = { onOpenDetails -> SensorAccessRoute(onOpenDetails) },
-            )
         }
     }
 

@@ -11,6 +11,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,7 +26,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.keepScreenOn
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -45,6 +46,9 @@ import androidx.wear.compose.material3.Text
 import tech.mmarca.openwatch.wear.R
 import tech.mmarca.openwatch.wear.WearPermissions
 import tech.mmarca.openwatch.wear.UnitSystem
+import tech.mmarca.openwatch.wear.ui.ambient.AmbientLook
+import tech.mmarca.openwatch.wear.ui.ambient.ambientLook
+import tech.mmarca.openwatch.wear.ui.ambient.rememberAmbient
 import tech.mmarca.openwatch.wear.ui.components.MetricValueRow
 import tech.mmarca.openwatch.wear.ui.preview.WearPreviews
 import tech.mmarca.openwatch.wear.ui.theme.Emphasis
@@ -141,9 +145,15 @@ fun MeasurementScreen(
         is MeasureUiState.Running -> null
     }
 
+    // The screen is not held bright any more. While a measurement runs it may
+    // dim to the ambient view. The HRV window holds its own wake lock, so the
+    // run goes on either way.
+    val ambient = rememberAmbient(wanted = state is MeasureUiState.Running)
+    val look = ambientLook(ambient)
+
     ScreenScaffold {
-        Box(modifier = Modifier.fillMaxSize()) {
-            MeasurementBody(measurement, state, unitSystem, onStart, onOpenSettings)
+        Box(modifier = Modifier.fillMaxSize().then(if (ambient) Modifier.background(Color.Black) else Modifier)) {
+            MeasurementBody(measurement, state, unitSystem, look, onStart, onOpenSettings)
             if (edgeButton != null) {
                 Box(modifier = Modifier.align(Alignment.BottomCenter)) { edgeButton() }
             }
@@ -156,11 +166,12 @@ private fun MeasurementBody(
     measurement: Measurement,
     state: MeasureUiState,
     unitSystem: UnitSystem,
+    look: AmbientLook,
     onStart: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        if (state is MeasureUiState.Running) {
+        if (state is MeasureUiState.Running && look.showProgressArc) {
             EdgeProgress(
                 progress = state.progress,
                 color = measurement.accentColor,
@@ -183,22 +194,23 @@ private fun MeasurementBody(
                     Body(stringResource(measurement.instruction))
                 }
                 is MeasureUiState.Running -> {
-                    PulsingIcon(measurement)
+                    if (look.animate) PulsingIcon(measurement)
                     MetricValueRow(
                         value = state.live?.let { formatMeasurement(it) },
                         unit = stringResource(measurementUnit(measurement)),
                         valueStyle = MaterialTheme.typography.displaySmall,
-                        modifier = Modifier.keepScreenOn(),
                     )
-                    Body(
-                        stringResource(
-                            when {
-                                state.offBody -> R.string.measure_hint_off_body
-                                state.waiting -> R.string.measure_hint_detecting
-                                else -> measurement.instruction
-                            },
-                        ),
-                    )
+                    if (look.showSecondaryValues) {
+                        Body(
+                            stringResource(
+                                when {
+                                    state.offBody -> R.string.measure_hint_off_body
+                                    state.waiting -> R.string.measure_hint_detecting
+                                    else -> measurement.instruction
+                                },
+                            ),
+                        )
+                    }
                 }
                 is MeasureUiState.Done -> {
                     Icon(measurement.icon, null, tint = measurement.accentColor, modifier = Modifier.size(24.dp))
