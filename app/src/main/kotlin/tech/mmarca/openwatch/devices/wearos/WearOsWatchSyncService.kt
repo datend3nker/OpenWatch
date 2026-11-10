@@ -39,6 +39,7 @@ import tech.mmarca.openwatch.data.repository.insertWithOutcomes
 import tech.mmarca.openwatch.domain.insights.sleepNightWindow
 import tech.mmarca.openwatch.domain.insights.WearSleepEstimator
 import tech.mmarca.openwatch.domain.model.BleSensorDevice
+import tech.mmarca.openwatch.domain.preferences.BodyProfile
 import tech.mmarca.openwatch.domain.model.WearSleepMinute
 import tech.mmarca.openwatch.data.repository.isDuplicateClientRecordFailure
 import tech.mmarca.openwatch.healthconnect.HealthConnectGateway
@@ -98,6 +99,8 @@ class WearOsWatchSyncService(
     private val zone: () -> ZoneId,
     /** Whether the user chose to write the watch's breathing rate; off by default, not yet checked against a reference. */
     private val writeRespiratoryRate: () -> Boolean = { false },
+    /** The body profile for the watch's heart rate zones. */
+    private val profile: suspend () -> BodyProfile = { BodyProfile() },
 ) : DeviceSyncPort {
 
     @Inject
@@ -116,6 +119,7 @@ class WearOsWatchSyncService(
         { bodyProfile.resolve().weightKg },
         Instant::now, ZoneId::systemDefault,
         { preferences.writeRespiratoryRate },
+        { bodyProfile.resolve() },
     )
 
     private val syncMutex = Mutex()
@@ -136,6 +140,8 @@ class WearOsWatchSyncService(
         granted = { healthConnect.grantedPermissions() },
         zone = zone,
     )
+
+    private val zones by lazy { WearOsZoneSync(healthConnect, nodePort, profile, clock, zone) }
 
     private val linkRetry = object : WearOsNightSeriesSync.Retry {
         override suspend fun <T> run(pull: suspend () -> T): T = retryOnce(pull)
@@ -173,6 +179,7 @@ class WearOsWatchSyncService(
             progress.unwritten += night.unwritten
             progress.withheldPermissions += night.withheld
             if (!pullWorkouts(device, progress)) return notPaired(device)
+            zones.sync(device, linkRetry)
         } catch (error: CancellationException) {
             throw error
         } catch (failure: WearOsLinkFailure) {

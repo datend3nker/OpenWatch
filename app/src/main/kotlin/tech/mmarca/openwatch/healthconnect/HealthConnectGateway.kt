@@ -10,9 +10,11 @@ import androidx.health.connect.client.HealthConnectFeatures
 import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ExerciseSessionRecord
+import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.HeightRecord
 import androidx.health.connect.client.records.Record
 import androidx.health.connect.client.records.WeightRecord
+import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -118,6 +120,16 @@ class HealthConnectGateway(
         return runCatching {
             clientProvider().features.getFeatureStatus(HealthConnectFeatures.FEATURE_SKIN_TEMPERATURE)
         }.getOrNull() == HealthConnectFeatures.FEATURE_STATUS_AVAILABLE
+    }
+
+    /** The highest heart rate Health Connect holds in `[start, end)`, from any app; null without the read grant or a sample. */
+    suspend fun readMaxHeartRate(start: Instant, end: Instant): Long? {
+        if (HealthPermission.getReadPermission(HeartRateRecord::class) !in grantedPermissions()) return null
+        return withContext(Dispatchers.IO) {
+            clientProvider().aggregate(
+                AggregateRequest(metrics = setOf(HeartRateRecord.BPM_MAX), timeRangeFilter = TimeRangeFilter.between(start, end)),
+            )[HeartRateRecord.BPM_MAX]
+        }
     }
 
     /** True when this Health Connect offers the background-read grant at all. */

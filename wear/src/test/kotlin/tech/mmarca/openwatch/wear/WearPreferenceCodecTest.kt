@@ -23,7 +23,7 @@ class WearPreferenceCodecTest {
         assertEquals(
             mapOf(
                 "hr_day" to "10", "hr_source" to "sensor", "hrv_source" to "sensor", "sleep_hold" to "lock",
-                "skin" to "0", "spo2" to "0", "samsung" to "1", "skin_granted" to "1", "spo2_granted" to "0",
+                "skin" to "0", "spo2" to "0", "hr_max" to "0", "hr_rest" to "0", "samsung" to "1", "skin_granted" to "1", "spo2_granted" to "0",
             ),
             WearPreferenceCodec.encode(defaults, samsung),
         )
@@ -47,5 +47,15 @@ class WearPreferenceCodecTest {
         assertNull(WearPreferenceCodec.apply(defaults, pixel, "hr_source", "samsung"))
         assertNull(WearPreferenceCodec.apply(defaults, pixel, "skin", "1"))
         assertEquals(defaults, WearPreferenceCodec.apply(defaults, pixel, "skin", "0"))
+    }
+
+    @Test
+    fun `the zones' heart rates take whole bpm in range, and 0 clears them`() {
+        val set = WearPreferenceCodec.apply(defaults, pixel, "hr_max", "187")!!
+        assertEquals(187, set.maxHeartRate)
+        assertEquals(null, WearPreferenceCodec.apply(set, pixel, "hr_max", "0")!!.maxHeartRate)
+        assertEquals(52, WearPreferenceCodec.apply(defaults, pixel, "hr_rest", "52")!!.restingHeartRate)
+        assertNull(WearPreferenceCodec.apply(defaults, pixel, "hr_max", "40"))
+        assertNull(WearPreferenceCodec.apply(defaults, pixel, "hr_rest", "x"))
     }
 }

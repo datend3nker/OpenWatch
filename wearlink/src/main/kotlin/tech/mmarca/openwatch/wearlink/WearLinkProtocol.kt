@@ -191,6 +191,10 @@ object WearLinkProtocol {
         /** SpO2 spot measurements at night from the Samsung platform. [OFF] / [ON]. */
         const val SPO2: String = "spo2"
 
+        /** The zones' maximum and resting heart rate from the profile, whole bpm; `0` for none. */
+        const val HEART_RATE_MAX: String = "hr_max"
+        const val HEART_RATE_REST: String = "hr_rest"
+
         /** Read only: whether the watch has the Samsung Health Platform. [OFF] / [ON]. */
         const val SAMSUNG_AVAILABLE: String = "samsung"
 
