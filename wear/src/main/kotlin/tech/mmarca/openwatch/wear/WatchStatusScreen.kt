@@ -137,7 +137,6 @@ internal fun WatchStatusScreen(
         samsungDiagnostics?.let { on ->
             Line(stringResource(if (on) R.string.status_samsung_diagnostics_on else R.string.status_samsung_diagnostics_off))
         }
-        WatchSettingsSection(LocalContext.current)
         PhoneCards(link, onAllow, onBlock, onOpenBluetoothSettings)
         if (link.ppgLogging) Line(stringResource(R.string.status_ppg_logging))
     }

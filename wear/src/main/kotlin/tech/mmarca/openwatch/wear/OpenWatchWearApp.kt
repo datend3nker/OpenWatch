@@ -1,5 +1,6 @@
 package tech.mmarca.openwatch.wear
 
+import tech.mmarca.openwatch.wear.features.settings.RecordingSettingsScreen
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -218,11 +219,13 @@ fun OpenWatchWearApp(
                         onPhoneClick = { navController.navigate(WearRoutes.PHONE) },
                         onSensorAccessClick = { navController.navigate(WearRoutes.SENSORS) },
                         onUnitsClick = {},
+                        onRecordingClick = { navController.navigate(WearRoutes.RECORDING_SETTINGS) },
                     )
                 }
                 composable(WearRoutes.PHONE) { phoneScreen() }
                 composable(WearRoutes.SENSORS) { sensorScreen { navController.navigate(WearRoutes.STATUS) } }
                 composable(WearRoutes.STATUS) { statusScreen() }
+                composable(WearRoutes.RECORDING_SETTINGS) { RecordingSettingsScreen() }
                 composable(WearRoutes.WORKOUT) { workoutScreen { navController.popBackStack() } }
             }
         }

@@ -284,4 +284,6 @@
     <string name="summary_split">Km %1$d</string>
     <string name="recovery_one_minute">Recovery after 1 min</string>
     <string name="recovery_two_minutes">Recovery after 2 min</string>
+    <string name="settings_recording">Recording</string>
+    <string name="settings_recording_description">Power save, sleep, sources</string>
 </resources>

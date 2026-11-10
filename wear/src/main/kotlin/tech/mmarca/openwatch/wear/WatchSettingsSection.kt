@@ -25,7 +25,7 @@ import tech.mmarca.openwatch.wearlink.HeartRateInterval
  * once ([WearAppService.settingsChanged]).
  */
 @Composable
-internal fun WatchSettingsSection(context: Context) {
+fun WatchSettingsSection(context: Context) {
     val samsung = remember { SamsungHealthPlatform.isInstalled(context) }
     var day by remember { mutableStateOf(WearSettings.heartRateDay(context)) }
     var heartRateSource by remember { mutableStateOf(WearSettings.heartRateSource(context)) }
