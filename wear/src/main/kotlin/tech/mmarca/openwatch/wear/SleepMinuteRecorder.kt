@@ -269,12 +269,12 @@ class SleepMinuteRecorder(
         }
     }
 
-    /** The wearer used the phone: an automatic hold ends at once. Any thread. */
+    /** The wearer used the phone: an automatic hold ends at once, unless it has lasted an hour. Any thread. */
     fun notePhoneActive(epochMillis: Long) {
         handler?.post {
             val wasHolding = autoHold.isHolding
             autoHold.onPhoneActive(epochMillis)
-            DebugProtocol.event("SleepHold", "phone_active", "endedHold" to wasHolding)
+            DebugProtocol.event("SleepHold", "phone_active", "endedHold" to (wasHolding && !autoHold.isHolding))
             applyHold()
         }
     }

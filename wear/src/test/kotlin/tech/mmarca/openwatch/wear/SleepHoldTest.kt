@@ -163,6 +163,19 @@ class SleepHoldTest {
     }
 
     @Test
+    fun `the phone does not end a hold that lasted an hour, waking minutes do`() {
+        val hold = SleepHold()
+        hold.day()
+        hold.falling(12)
+        repeat(60) { hold.onMinute(minute(bpm = 55)) }
+
+        hold.onPhoneActive(start + 60_000L * next)
+        assertTrue(hold.isHolding)
+        repeat(5) { hold.onMinute(minute(movement = 20f, bpm = 70)) }
+        assertFalse(hold.isHolding)
+    }
+
+    @Test
     fun `a glance at the watch does not end the hold`() {
         val hold = SleepHold()
         hold.day()

@@ -37,6 +37,8 @@ class SleepHold(private val config: Config = Config()) {
         val quietMinutes: Int = 10,
         val quietMinutesByDay: Int = 20,
         val phoneCooldownMinutes: Int = 30,
+        /** A hold this long is a night, not a false start; the phone no longer ends it. */
+        val establishedMinutes: Int = 60,
         val quietMovement: Float = 2f,
         val wakeMovement: Float = 8f,
         val fallBpm: Float = 2f,
@@ -97,8 +99,14 @@ class SleepHold(private val config: Config = Config()) {
     /**
      * The wearer used the phone at [epochMillis]: they are awake. A hold
      * ends, and none starts for [Config.phoneCooldownMinutes].
+     *
+     * Not so a hold that has lasted [Config.establishedMinutes]: that one
+     * was no false start, and the phone in the hand is then an alarm put on
+     * snooze or a look at the time (on 2026-11-11 a snooze at 08:21 ended
+     * the hold, and the wearer slept on until 08:51). Waking minutes end it.
      */
     fun onPhoneActive(epochMillis: Long) {
+        if (holding && heldMinutes >= config.establishedMinutes) return
         reset()
         coolUntil = maxOf(coolUntil, epochMillis + config.phoneCooldownMinutes * MINUTE_MILLIS)
     }

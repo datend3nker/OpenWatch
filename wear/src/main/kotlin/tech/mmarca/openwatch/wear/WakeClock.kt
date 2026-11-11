@@ -170,7 +170,9 @@ class WakeClock(
         if (!motionRegistered) return
         DebugProtocol.count("clock.motions")
         // The sensor service's own lock ends with this callback; the re-registration needs a moment more.
-        wakeLock.acquire(MOTION_WAKE_LOCK_MILLIS)
+        // Already dense, nothing is registered again: a night gave 134 of these an hour, and each
+        // one held the processor two seconds for nothing.
+        if (batchLatencyMillis != DENSE_PERIOD_MILLIS) wakeLock.acquire(MOTION_WAKE_LOCK_MILLIS)
         handler.removeCallbacks(stillCheck)
         handler.postDelayed(stillCheck, ACTIVE_HOLD_MILLIS)
         setLatency(DENSE_PERIOD_MILLIS)
