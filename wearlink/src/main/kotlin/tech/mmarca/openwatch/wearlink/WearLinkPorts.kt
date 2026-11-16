@@ -82,6 +82,9 @@ interface WearLinkRequestHandler {
     /** The SpO2 spot measurements newer than [sinceEpochMillis]. Only called when the watch advertised [WearLinkProtocol.CAP_SPO2]. */
     fun spo2Since(sinceEpochMillis: Long, limit: Int): Page<WearLinkProtocol.Spo2Measurement>
 
+    /** The body composition measurements newer than [sinceEpochMillis]. Only called when the watch advertised [WearLinkProtocol.CAP_BODY_COMPOSITION]. */
+    fun bodyCompositionSince(sinceEpochMillis: Long, limit: Int): Page<WearLinkBodyLines.BodyComposition>
+
     fun skinSince(sinceEpochMillis: Long, limit: Int): Page<WearLinkProtocol.SkinMinute>
 
     /** Keeps the phone's figures for a day. False when the watch cannot keep them. Only called when the watch advertised [WearLinkProtocol.CAP_DAY_SUMMARY]. */

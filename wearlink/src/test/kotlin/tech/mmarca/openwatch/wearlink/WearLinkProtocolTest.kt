@@ -270,4 +270,18 @@ class WearLinkProtocolTest {
         assertNull(WearLinkProtocol.parseRequest("WO_SINCE 10"))
         assertNull(WearLinkProtocol.parseRequest("WO_SINCE -1 5"))
     }
+
+    @Test
+    fun `a body composition line round-trips and an implausible one is refused`() {
+        val measurement = WearLinkBodyLines.BodyComposition(1_700_000_400_000L, 196, 579, 410)
+        assertEquals("BC 1700000400000 196 579 410", WearLinkBodyLines.format(measurement))
+        assertEquals(measurement, WearLinkBodyLines.parse("BC 1700000400000 196 579 410"))
+        assertNull(WearLinkBodyLines.parse("BC 1700000400000 0 579 410"))
+        assertNull(WearLinkBodyLines.parse("BC 1700000400000 196 579"))
+        assertNull(WearLinkBodyLines.parse("O2 1700000400000 96 54 1"))
+        assertEquals(
+            WearLinkProtocol.Request.BodyCompositionSince(5, 10),
+            WearLinkProtocol.parseRequest(WearLinkProtocol.formatRequest(WearLinkProtocol.Request.BodyCompositionSince(5, 10))),
+        )
+    }
 }

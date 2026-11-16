@@ -11,6 +11,7 @@ import tech.mmarca.openwatch.wearlink.Page
 import tech.mmarca.openwatch.wearlink.WearLinkConnection
 import tech.mmarca.openwatch.wearlink.DaySummary
 import tech.mmarca.openwatch.wearlink.WatchEntry
+import tech.mmarca.openwatch.wearlink.WearLinkBodyLines
 import tech.mmarca.openwatch.wearlink.WearLinkProtocol
 import tech.mmarca.openwatch.wearlink.WearLinkWorkout
 import tech.mmarca.openwatch.wearlink.WearLinkRequestHandler
@@ -149,6 +150,7 @@ class WearLinkServerHost(
             if (!skinAvailable()) {
                 remove(WearLinkProtocol.CAP_SKIN_TEMPERATURE)
                 remove(WearLinkProtocol.CAP_SPO2)
+                remove(WearLinkProtocol.CAP_BODY_COMPOSITION)
             }
             add(WearLinkProtocol.CAP_PHONE_ACTIVE)
             add(WearLinkProtocol.CAP_PREFERENCES)
@@ -188,6 +190,9 @@ class WearLinkServerHost(
 
         override fun respiratorySince(sinceEpochMillis: Long, limit: Int): Page<WearLinkProtocol.RespiratoryWindow> =
             page(WearMetrics.RESPIRATORY_RATE, sinceEpochMillis, limit)
+
+        override fun bodyCompositionSince(sinceEpochMillis: Long, limit: Int): Page<WearLinkBodyLines.BodyComposition> =
+            page(WearMetrics.BODY_COMPOSITION, sinceEpochMillis, limit)
 
         override fun spo2Since(sinceEpochMillis: Long, limit: Int): Page<WearLinkProtocol.Spo2Measurement> =
             page(WearMetrics.SPO2, sinceEpochMillis, limit)

@@ -119,6 +119,8 @@ class WearLinkLoopbackTest {
         assertTrue(session.setPreference("nope", "1") !is WearLinkOutcome.Ok)
         loopback.handler.spo2 = listOf(WearLinkProtocol.Spo2Measurement(1_700_000_300_000L, 96, 54))
         assertEquals(loopback.handler.spo2, (session.pullSpo2(0, 500) as WearLinkOutcome.Ok).value.items)
+        loopback.handler.bodyComposition = listOf(WearLinkBodyLines.BodyComposition(1_700_000_400_000L, 196, 579, 410))
+        assertEquals(loopback.handler.bodyComposition, (session.pullBodyComposition(0, 500) as WearLinkOutcome.Ok).value.items)
         assertEquals(listOf(1_700_000_200_000L), loopback.handler.phoneActive)
         assertFalse(link.serverReturned())
         session.close()

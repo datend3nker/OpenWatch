@@ -140,6 +140,17 @@ data class WearOsSkinPage(
 /** One SpO2 spot measurement the watch took with the Samsung platform. */
 data class WearOsSpo2Measurement(val time: Instant, val percent: Int)
 
+/** One body composition measurement the watch took with the Samsung platform. */
+data class WearOsBodyComposition(
+    val time: Instant,
+    val bodyFatPercent: Double,
+    val fatFreeMassKg: Double,
+    val bodyWaterKg: Double,
+)
+
+/** One page of a body composition pull. [hasMore] means the watch cut the reply at its limit. */
+data class WearOsBodyCompositionPage(val measurements: List<WearOsBodyComposition>, val hasMore: Boolean)
+
 /** One page of an SpO2 pull. [hasMore] means the watch cut the reply at its limit. */
 data class WearOsSpo2Page(
     val measurements: List<WearOsSpo2Measurement>,
@@ -262,6 +273,17 @@ interface WearOsNodePort {
         targetName: String?,
         since: Instant,
     ): WearOsRespiratoryPage?
+
+    /**
+     * Body composition measurements newer than [since], oldest first. Empty
+     * page: the watch app is too old or has no Samsung platform. Null: no
+     * bonded watch matches. Any other failure throws [WearOsLinkFailure].
+     */
+    suspend fun pullBodyComposition(
+        targetAddress: String?,
+        targetName: String?,
+        since: Instant,
+    ): WearOsBodyCompositionPage?
 
     /**
      * SpO2 spot measurements newer than [since], oldest first. Empty page:

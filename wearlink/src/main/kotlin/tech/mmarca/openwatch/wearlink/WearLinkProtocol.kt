@@ -69,6 +69,9 @@ import java.util.UUID
  *   (beat intervals, signal baseline) agreed on it.
  * - `O2 <epochMillis> <percent> <bpm|->` — one SpO2 spot measurement by the
  *   Samsung platform: its time, the saturation in percent, the heart rate.
+ * - `BC <epochMillis> <fat1000> <fatFree10> <water10>` — one body composition
+ *   measurement by the Samsung platform: body fat in tenths of a per cent,
+ *   fat-free mass and body water in tenths of a kilogram.
  * - `SK <minuteMillis> <skin100> <ambient100>` — one minute of the Samsung
  *   platform's skin temperature, in hundredths of a degree Celsius.
  * - `SM <epochMillis> <kind> <offsetSeconds> <flags> <n> <mv10> <bpm|-> <hsd10|->
@@ -126,6 +129,8 @@ object WearLinkProtocol {
     const val SKIN_SINCE: String = "SK_SINCE"
     const val SPO2_SINCE: String = "O2_SINCE"
     const val SPO2_MEASUREMENT: String = "O2"
+    const val BODY_COMPOSITION_SINCE: String = "BC_SINCE"
+    const val BODY_COMPOSITION: String = "BC"
     const val SKIN_MINUTE: String = "SK"
     const val HEART_RATE_LIVE: String = "HR_LIVE"
     const val PHONE_ACTIVE: String = "PHONE_ACTIVE"
@@ -163,6 +168,9 @@ object WearLinkProtocol {
 
     /** The watch measures SpO2 at night with the Samsung platform and serves `O2_SINCE`. */
     const val CAP_SPO2: String = "o2"
+
+    /** The watch measures body composition with the Samsung platform and serves `BC_SINCE`. */
+    const val CAP_BODY_COMPOSITION: String = "bc"
 
     /** The watch takes `PHONE_ACTIVE`: the phone says when the wearer used it. */
     const val CAP_PHONE_ACTIVE: String = "pa"
@@ -229,6 +237,7 @@ object WearLinkProtocol {
         data class RespiratorySince(val sinceEpochMillis: Long, val limit: Int) : Request()
         data class SkinSince(val sinceEpochMillis: Long, val limit: Int) : Request()
         data class Spo2Since(val sinceEpochMillis: Long, val limit: Int) : Request()
+        data class BodyCompositionSince(val sinceEpochMillis: Long, val limit: Int) : Request()
         data class LiveHeartRate(val seconds: Int) : Request()
         data class PutDay(val day: DaySummary) : Request()
         data class EntriesSince(val sinceEpochMillis: Long, val limit: Int) : Request()
@@ -295,6 +304,8 @@ object WearLinkProtocol {
         Request.GetPreferences -> GET_PREFERENCES
         is Request.RespiratorySince -> "$RESPIRATORY_SINCE ${request.sinceEpochMillis} ${request.limit.coerceIn(1, MAX_WINDOWS_PER_REQUEST)}"
         is Request.Spo2Since -> "$SPO2_SINCE ${request.sinceEpochMillis} ${request.limit.coerceIn(1, MAX_WINDOWS_PER_REQUEST)}"
+        is Request.BodyCompositionSince ->
+            "$BODY_COMPOSITION_SINCE ${request.sinceEpochMillis} ${request.limit.coerceIn(1, MAX_WINDOWS_PER_REQUEST)}"
         is Request.SkinSince -> "$SKIN_SINCE ${request.sinceEpochMillis} ${request.limit.coerceIn(1, MAX_SKIN_MINUTES_PER_REQUEST)}"
         is Request.LiveHeartRate -> "$HEART_RATE_LIVE ${request.seconds.coerceIn(1, MAX_LIVE_SECONDS)}"
         is Request.PutDay -> WearLinkDaily.formatPutDay(request.day)
@@ -321,6 +332,8 @@ object WearLinkProtocol {
         parsePreferenceRequest(line)?.let { return it }
         parseSinceRequest(line, RESPIRATORY_SINCE, MAX_WINDOWS_PER_REQUEST)?.let { (since, limit) -> return Request.RespiratorySince(since, limit) }
         parseSinceRequest(line, SPO2_SINCE, MAX_WINDOWS_PER_REQUEST)?.let { (since, limit) -> return Request.Spo2Since(since, limit) }
+        parseSinceRequest(line, BODY_COMPOSITION_SINCE, MAX_WINDOWS_PER_REQUEST)
+            ?.let { (since, limit) -> return Request.BodyCompositionSince(since, limit) }
         parseSinceRequest(line, SKIN_SINCE, MAX_SKIN_MINUTES_PER_REQUEST)?.let { (since, limit) -> return Request.SkinSince(since, limit) }
         parseLiveRequest(line)?.let { return Request.LiveHeartRate(it) }
         WearLinkDaily.parsePutDay(line)?.let { return Request.PutDay(it) }

@@ -44,7 +44,7 @@ the research logger already records.
 | Respiratory rate | From the night HRV windows (beat intervals and PPG baseline) | built, opt-in, not checked against a reference |
 | SpO2 | No SpO2 sensor type an ordinary app may read, and `hr_raw` shows only two green-like channels; the Samsung platform's on-demand SpO2 tracker | built, Samsung watches |
 | Skin temperature | Only `SSENSOR` as a raw sensor; the Samsung platform's tracker | built, Samsung watches |
-| ECG, body composition (BIA) | Only `SSENSOR` as a raw sensor; the Samsung platform offers on-demand trackers | not built |
+| ECG, body composition (BIA) | Only `SSENSOR` as a raw sensor; the Samsung platform's on-demand trackers | built as measurements on the watch, Samsung watches, not yet run on a watch; body composition syncs to Health Connect, the ECG is shown only |
 | VO2 max, fall detection, stress | From heart rate, HRV and motion | not built; see [wear-auto-activity.md](../proposals/wear-auto-activity.md) for VO2 max |
 | Blood pressure | Needs calibration and Samsung's own app | not planned |
 

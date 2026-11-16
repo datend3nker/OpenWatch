@@ -30,6 +30,9 @@
     <!-- The Samsung platform checks these per tracker on Android 16 (skin temperature, SpO2); asked only when switched on. -->
     <uses-permission android:name="android.permission.health.READ_SKIN_TEMPERATURE" />
     <uses-permission android:name="android.permission.health.READ_OXYGEN_SATURATION" />
+    <!-- What the Samsung Health Platform checks, from Android 16, for its raw PPG, ECG and body
+         composition trackers. Asked only when the wearer opens one of them. -->
+    <uses-permission android:name="com.samsung.android.hardware.sensormanager.permission.READ_ADDITIONAL_HEALTH_DATA" />
     <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND" />
 
     <!-- The step counter. -->

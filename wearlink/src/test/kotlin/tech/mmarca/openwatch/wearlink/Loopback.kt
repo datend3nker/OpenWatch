@@ -86,6 +86,7 @@ class MemoryHandler(
     var respiratory: List<WearLinkProtocol.RespiratoryWindow> = emptyList(),
     var skin: List<WearLinkProtocol.SkinMinute> = emptyList(),
     var spo2: List<WearLinkProtocol.Spo2Measurement> = emptyList(),
+    var bodyComposition: List<WearLinkBodyLines.BodyComposition> = emptyList(),
     var workouts: List<WearLinkWorkout> = emptyList(),
     val preferences: MutableMap<String, String> = linkedMapOf(WearLinkPreferences.HEART_RATE_DAY to "10"),
     /** What one `HR_LIVE` window hands out; empty is a watch off the wrist. */
@@ -113,6 +114,10 @@ class MemoryHandler(
     }
     override fun spo2Since(sinceEpochMillis: Long, limit: Int): Page<WearLinkProtocol.Spo2Measurement> {
         val newer = spo2.filter { it.epochMillis > sinceEpochMillis }
+        return Page(newer.take(limit), newer.size > limit)
+    }
+    override fun bodyCompositionSince(sinceEpochMillis: Long, limit: Int): Page<WearLinkBodyLines.BodyComposition> {
+        val newer = bodyComposition.filter { it.epochMillis > sinceEpochMillis }
         return Page(newer.take(limit), newer.size > limit)
     }
     override fun skinSince(sinceEpochMillis: Long, limit: Int): Page<WearLinkProtocol.SkinMinute> {

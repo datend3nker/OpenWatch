@@ -57,4 +57,14 @@ class WearPreferenceCodecTest {
         assertNull(WearPreferenceCodec.apply(defaults, pixel, "hr_max", "40"))
         assertNull(WearPreferenceCodec.apply(defaults, pixel, "hr_rest", "x"))
     }
+
+    @Test
+    fun `the platform's PPG is an HRV source only, and only with its permission`() {
+        val granted = samsung.copy(ppgGranted = true)
+        val chosen = WearPreferenceCodec.apply(defaults, granted, "hrv_source", "samsung_ppg")!!
+        assertEquals(WearSettings.Source.SAMSUNG_PPG, chosen.hrvSource)
+        assertEquals("samsung_ppg", WearPreferenceCodec.encode(chosen, granted)["hrv_source"])
+        assertNull(WearPreferenceCodec.apply(defaults, samsung, "hrv_source", "samsung_ppg"))
+        assertNull(WearPreferenceCodec.apply(defaults, granted, "hr_source", "samsung_ppg"))
+    }
 }

@@ -30,6 +30,8 @@ private class FakeWearOsNodePort : WearOsNodePort {
 
     override suspend fun pullRespiratory(targetAddress: String?, targetName: String?, since: Instant): WearOsRespiratoryPage? = null
 
+    override suspend fun pullBodyComposition(targetAddress: String?, targetName: String?, since: Instant): WearOsBodyCompositionPage? = null
+
     override suspend fun pullSpo2(targetAddress: String?, targetName: String?, since: Instant): WearOsSpo2Page? = null
 
     override suspend fun pullSkin(targetAddress: String?, targetName: String?, since: Instant): WearOsSkinPage? = null

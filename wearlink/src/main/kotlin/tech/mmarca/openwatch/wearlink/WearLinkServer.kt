@@ -180,6 +180,11 @@ class WearLinkServer(
                 for (entry in page.items) writer.line(WearLinkDaily.formatEntry(entry))
                 writer.line(WearLinkProtocol.formatEnd(page.items.size, page.more))
             }
+            is WearLinkProtocol.Request.BodyCompositionSince -> {
+                val page = handler.bodyCompositionSince(request.sinceEpochMillis, request.limit)
+                for (measurement in page.items) writer.line(WearLinkBodyLines.format(measurement))
+                writer.line(WearLinkProtocol.formatEnd(page.items.size, page.more))
+            }
             is WearLinkProtocol.Request.SkinSince -> {
                 val page = handler.skinSince(request.sinceEpochMillis, request.limit)
                 for (minute in page.items) writer.line(WearLinkProtocol.formatSkinMinute(minute))

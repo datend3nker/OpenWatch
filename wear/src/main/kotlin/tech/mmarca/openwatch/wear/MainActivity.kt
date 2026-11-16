@@ -120,6 +120,18 @@ class MainActivity : ComponentActivity() {
                     OpenWatchWearTheme { WorkoutScreen(zones = uiState.preferences.zones, onClose = {}) }
                     return@CompositionLocalProvider
                 }
+                // A measurement the wearer started takes the screen until it is closed.
+                when (OpenMeasurement.current) {
+                    OpenMeasurement.Kind.ECG -> {
+                        OpenWatchWearTheme { EcgScreen(onClose = { OpenMeasurement.current = null }) }
+                        return@CompositionLocalProvider
+                    }
+                    OpenMeasurement.Kind.BIA -> {
+                        OpenWatchWearTheme { BiaScreen(onClose = { OpenMeasurement.current = null }) }
+                        return@CompositionLocalProvider
+                    }
+                    null -> Unit
+                }
                 OpenWatchWearApp(
                     state = uiState.copy(settings = settings),
                     onLog = viewModel::log,

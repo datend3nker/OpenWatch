@@ -178,6 +178,31 @@ class BluetoothWearOsNodePort @Inject constructor(
         }
     }
 
+    override suspend fun pullBodyComposition(
+        targetAddress: String?,
+        targetName: String?,
+        since: Instant,
+    ): WearOsBodyCompositionPage? = withContext(Dispatchers.IO) {
+        val match = bondedWatchOrNull(targetAddress, targetName) ?: return@withContext null
+        withSession(match, targetAddress, PULL_TIMEOUT_MS) { session ->
+            if (WearLinkProtocol.CAP_BODY_COMPOSITION !in session.peer.capabilities) {
+                return@withSession WearOsBodyCompositionPage(emptyList(), false)
+            }
+            val page = unwrap(session.pullBodyComposition(since.toEpochMilli(), WearLinkProtocol.MAX_WINDOWS_PER_REQUEST))
+            WearOsBodyCompositionPage(
+                page.items.map {
+                    WearOsBodyComposition(
+                        time = Instant.ofEpochMilli(it.epochMillis),
+                        bodyFatPercent = it.bodyFatPermille / 10.0,
+                        fatFreeMassKg = it.fatFreeMassHectograms / 10.0,
+                        bodyWaterKg = it.bodyWaterHectograms / 10.0,
+                    )
+                },
+                page.more,
+            )
+        }
+    }
+
     override suspend fun pullSkin(
         targetAddress: String?,
         targetName: String?,

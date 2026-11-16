@@ -1,5 +1,6 @@
 package tech.mmarca.openwatch.wear
 
+import tech.mmarca.openwatch.wearlink.WearLinkBodyLines
 import tech.mmarca.openwatch.wearlink.WearLinkProtocol
 import tech.mmarca.openwatch.wearlink.WearLinkWorkoutLines
 
@@ -139,6 +140,20 @@ object WearMetrics {
         onSameTime = WearMetric.OnSameTime.KEEP,
     )
 
+    /**
+     * One body composition measurement the wearer took on the watch with the
+     * Samsung platform; see `BiaScreen`. Final once taken, and kept a month:
+     * it is taken by hand, rarely.
+     */
+    val BODY_COMPOSITION = WearMetric(
+        key = WearLinkProtocol.CAP_BODY_COMPOSITION,
+        encode = WearLinkBodyLines::format,
+        decode = WearLinkBodyLines::parse,
+        timeOf = { it.epochMillis },
+        onSameTime = WearMetric.OnSameTime.KEEP,
+        retentionMillis = 30L * 24 * 60 * 60 * 1000,
+    )
+
     /** A month: a workout is worth keeping longer than a week of minutes. */
     private const val WORKOUT_RETENTION_MILLIS: Long = 30L * 24 * 60 * 60 * 1000
 
@@ -173,7 +188,7 @@ object WearMetrics {
     )
 
     val ALL: List<WearMetric<*>> = listOf(
-        HEART_RATE, SLEEP_MINUTES, STEPS, ASCENT, HRV, RESPIRATORY_RATE, SKIN_TEMPERATURE, SPO2,
+        HEART_RATE, SLEEP_MINUTES, STEPS, ASCENT, HRV, RESPIRATORY_RATE, SKIN_TEMPERATURE, SPO2, BODY_COMPOSITION,
         WORKOUTS, WORKOUT_PAUSES, WORKOUT_POINTS,
     )
 }

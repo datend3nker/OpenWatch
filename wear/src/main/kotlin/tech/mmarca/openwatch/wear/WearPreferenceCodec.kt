@@ -21,7 +21,12 @@ internal data class WatchPreferences(
 )
 
 /** What the watch can offer, which the phone reads but cannot change. */
-internal data class WatchAbilities(val samsung: Boolean, val skinGranted: Boolean, val spo2Granted: Boolean)
+internal data class WatchAbilities(
+    val samsung: Boolean,
+    val skinGranted: Boolean,
+    val spo2Granted: Boolean,
+    val ppgGranted: Boolean = false,
+)
 
 /**
  * The watch's settings as the `GET_PREF` and `SET_PREF` tokens
@@ -55,7 +60,8 @@ internal object WearPreferenceCodec {
         Preferences.HEART_RATE_DAY -> HeartRateInterval.fromWire(value)
             ?.takeIf { it == HeartRateInterval.EVERY_10_SECONDS || it == HeartRateInterval.POWER_SAVE }
             ?.let { preferences.copy(heartRateDay = it) }
-        Preferences.HEART_RATE_SOURCE -> source(value, abilities)?.let { preferences.copy(heartRateSource = it) }
+        Preferences.HEART_RATE_SOURCE -> source(value, abilities)
+            ?.takeIf { it != WearSettings.Source.SAMSUNG_PPG }?.let { preferences.copy(heartRateSource = it) }
         Preferences.HRV_SOURCE -> source(value, abilities)?.let { preferences.copy(hrvSource = it) }
         Preferences.SKIN_TEMPERATURE -> flag(value)?.takeIf { !it || abilities.samsung }?.let { preferences.copy(skinTemperature = it) }
         Preferences.SPO2 -> flag(value)?.takeIf { !it || abilities.samsung }?.let { preferences.copy(spo2AtNight = it) }
@@ -82,12 +88,17 @@ internal object WearPreferenceCodec {
     /** A whole number within [range], or `0` for none; null for anything else. */
     private fun bpm(value: String, range: IntRange): Int? = value.toIntOrNull()?.takeIf { it == 0 || it in range }
 
-    private fun source(source: WearSettings.Source): String =
-        if (source == WearSettings.Source.SAMSUNG_PLATFORM) Preferences.SAMSUNG else Preferences.SENSOR
+    private fun source(source: WearSettings.Source): String = when (source) {
+        WearSettings.Source.RAW_SENSOR -> Preferences.SENSOR
+        WearSettings.Source.SAMSUNG_PLATFORM -> Preferences.SAMSUNG
+        WearSettings.Source.SAMSUNG_PPG -> Preferences.SAMSUNG_PPG
+    }
 
     private fun source(value: String, abilities: WatchAbilities): WearSettings.Source? = when (value) {
         Preferences.SENSOR -> WearSettings.Source.RAW_SENSOR
         Preferences.SAMSUNG -> WearSettings.Source.SAMSUNG_PLATFORM.takeIf { abilities.samsung }
+        // Needs a permission only the watch can ask for.
+        Preferences.SAMSUNG_PPG -> WearSettings.Source.SAMSUNG_PPG.takeIf { abilities.samsung && abilities.ppgGranted }
         else -> null
     }
 

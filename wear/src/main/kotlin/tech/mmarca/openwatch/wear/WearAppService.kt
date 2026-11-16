@@ -422,6 +422,7 @@ class WearAppService : Service() {
         samsung = samsungFeed.isAvailable,
         skinGranted = WearPermissions.hasSkinTemperature(this),
         spo2Granted = WearPermissions.hasOxygenSaturation(this),
+        ppgGranted = WearPermissions.hasAdditionalHealthData(this),
     )
 
     /** A setting the phone changed: stored, and the recorders follow as for one changed on the watch. Link thread. */

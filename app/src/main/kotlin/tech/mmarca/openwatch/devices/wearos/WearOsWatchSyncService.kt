@@ -133,6 +133,8 @@ class WearOsWatchSyncService(
 
     private val syncMutex = Mutex()
 
+    private val bodyComposition = WearOsBodyCompositionSync(importRepository, healthConnect, cursors, nodePort, zone)
+
     private val nightSeries = WearOsNightSeriesSync(
         importRepository = importRepository,
         healthConnect = healthConnect,
@@ -198,6 +200,12 @@ class WearOsWatchSyncService(
             val night = nightSeries.sync(device, linkRetry) ?: return notPaired(device)
             progress.unwritten += night.unwritten
             progress.withheldPermissions += night.withheld
+            val body = bodyComposition.sync(device, linkRetry) ?: return notPaired(device)
+            if (body.withheld.isNotEmpty()) {
+                progress.unwritten += UnwrittenSeries.BODY_COMPOSITION
+                progress.withheldPermissions += body.withheld
+            }
+            WearOsLog.log("body composition: ${body.written} written")
             if (!pullWorkouts(device, progress)) return notPaired(device)
             dayLink.sync(device, linkRetry) ?: return notPaired(device)
             zones.sync(device, linkRetry)

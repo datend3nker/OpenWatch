@@ -44,6 +44,9 @@ internal class SamsungHeartRateFeed private constructor(private val context: Con
     fun interface RawSubscriber {
         fun onRawPoints(points: List<RawPoint>)
 
+        /** The flush asked for has been answered, or could not be asked. */
+        fun onFlushed() = Unit
+
         /** The tracker failed (a missing permission, a platform error). */
         fun onError() = Unit
     }
@@ -76,15 +79,24 @@ internal class SamsungHeartRateFeed private constructor(private val context: Con
         untrack(SamsungHealthPlatform.TRACKER_HEART_RATE)
     }
 
-    /** Joins tracker [type] and starts it if this is its first reader. False when the platform refused the bind. */
-    fun subscribeRaw(type: String, subscriber: RawSubscriber, handler: Handler): Boolean = synchronized(lock) {
+    /**
+     * Joins tracker [type] and starts it if this is its first reader. False when the platform refused the bind.
+     * [profile] and [ppgColours] are the first reader's: they are what the tracker is created with.
+     */
+    fun subscribeRaw(
+        type: String,
+        subscriber: RawSubscriber,
+        handler: Handler,
+        profile: SamsungHealthPlatform.UserProfile? = null,
+        ppgColours: List<String> = emptyList(),
+    ): Boolean = synchronized(lock) {
         val readers = rawSubscribers.getOrPut(type) { LinkedHashMap() }
         readers[subscriber] = handler
         if (!ensurePlatform()) {
             readers.remove(subscriber)
             return false
         }
-        if (readers.size == 1) track(type, subscriber.javaClass.simpleName)
+        if (readers.size == 1) track(type, subscriber.javaClass.simpleName, profile, ppgColours)
         true
     }
 
@@ -95,16 +107,16 @@ internal class SamsungHeartRateFeed private constructor(private val context: Con
         untrack(type)
     }
 
-    /** Asks the platform for the heart rate points it still batches. False when the tracker is not connected. */
-    fun flush(): Boolean = synchronized(lock) {
+    /** Asks the platform for the points of [type] it still batches. False when the tracker is not connected. */
+    fun flush(type: String = SamsungHealthPlatform.TRACKER_HEART_RATE): Boolean = synchronized(lock) {
         val client = platform ?: return false
         val workerHandler = handler ?: return false
         // The platform is driven from the feed's own thread; the answer arrives as onFlushed.
         workerHandler.post {
-            val asked = client.flush(SamsungHealthPlatform.TRACKER_HEART_RATE)
+            val asked = client.flush(type)
             flushAskedAt = if (asked) SystemClock.elapsedRealtime() else 0L
-            DebugProtocol.event("SamsungFeed", "flush_asked", "ok" to asked)
-            if (!asked) forEach { it.onFlushed() }
+            DebugProtocol.event("SamsungFeed", "flush_asked", "type" to type, "ok" to asked)
+            if (!asked) flushed(type)
         }
         true
     }
@@ -127,20 +139,27 @@ internal class SamsungHeartRateFeed private constructor(private val context: Con
         return true
     }
 
-    private fun track(type: String, by: String) {
+    private fun track(
+        type: String,
+        by: String,
+        profile: SamsungHealthPlatform.UserProfile? = null,
+        ppgColours: List<String> = emptyList(),
+    ) {
         val client = platform ?: return
         startedAt[type] = SystemClock.elapsedRealtime()
         delivered -= type
         val tracker = when (type) {
             SamsungHealthPlatform.TRACKER_HEART_RATE -> SamsungHealthPlatform.Tracker(
                 onPoints = { raw -> deliverHeartRate(raw.map { it.toHeartRatePoint() }) },
-                onFlushed = ::flushed,
+                onFlushed = { flushed(type) },
                 onError = { failed(type) },
             )
             else -> SamsungHealthPlatform.Tracker(
                 onPoints = { raw -> deliverRaw(type, raw) },
-                onFlushed = {},
+                onFlushed = { flushed(type) },
                 onError = { failed(type) },
+                profile = profile,
+                ppgColours = ppgColours,
             )
         }
         handler?.post { client.track(type, tracker) }
@@ -197,10 +216,15 @@ internal class SamsungHeartRateFeed private constructor(private val context: Con
         for ((subscriber, target) in targets) target.post { subscriber.onRawPoints(points) }
     }
 
-    private fun flushed() {
+    private fun flushed(type: String) {
         val asked = flushAskedAt
-        DebugProtocol.event("SamsungFeed", "flush_done", "afterMs" to if (asked == 0L) null else SystemClock.elapsedRealtime() - asked)
-        forEach { it.onFlushed() }
+        DebugProtocol.event(
+            "SamsungFeed", "flush_done",
+            "type" to type, "afterMs" to if (asked == 0L) null else SystemClock.elapsedRealtime() - asked,
+        )
+        if (type == SamsungHealthPlatform.TRACKER_HEART_RATE) return forEach { it.onFlushed() }
+        val readers = synchronized(lock) { rawSubscribers[type]?.toList().orEmpty() }
+        for ((subscriber, target) in readers) target.post { subscriber.onFlushed() }
     }
 
     /** A tracker's failure ([type]), or the binding's (null), which hits every tracker. */

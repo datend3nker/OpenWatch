@@ -31,6 +31,9 @@ import tech.mmarca.openwatch.healthconnect.HealthConnectGateway
 import tech.mmarca.healthcalculations.model.WearSleepMinute
 import androidx.health.connect.client.records.HeartRateVariabilityRmssdRecord
 import androidx.health.connect.client.records.OxygenSaturationRecord
+import androidx.health.connect.client.records.BodyFatRecord
+import androidx.health.connect.client.records.BodyWaterMassRecord
+import androidx.health.connect.client.records.LeanBodyMassRecord
 import androidx.health.connect.client.records.RespiratoryRateRecord
 import androidx.health.connect.client.records.RestingHeartRateRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
@@ -87,6 +90,7 @@ class WearOsWatchSyncServiceTest {
 
     /** SpO2 pages; with none queued the watch answers an empty page. */
     private val spo2Pages = ArrayDeque<WearOsSpo2Page>()
+    private val bodyCompositionPages = ArrayDeque<WearOsBodyCompositionPage>()
     private val nodePort = object : WearOsNodePort {
         override suspend fun checkStatus(targetAddress: String?, targetName: String?) = WearOsCompanionStatus()
         override suspend fun pullHeartRate(targetAddress: String?, targetName: String?, since: Instant): WearOsHeartRatePage? {
@@ -133,6 +137,9 @@ class WearOsWatchSyncServiceTest {
             respiratoryPulls++
             return respiratoryPages.removeFirstOrNull() ?: WearOsRespiratoryPage(emptyList(), hasMore = false)
         }
+
+        override suspend fun pullBodyComposition(targetAddress: String?, targetName: String?, since: Instant): WearOsBodyCompositionPage? =
+            bodyCompositionPages.removeFirstOrNull() ?: WearOsBodyCompositionPage(emptyList(), hasMore = false)
 
         override suspend fun pullSpo2(targetAddress: String?, targetName: String?, since: Instant): WearOsSpo2Page? =
             spo2Pages.removeFirstOrNull() ?: WearOsSpo2Page(emptyList(), hasMore = false)
@@ -1125,6 +1132,36 @@ class WearOsWatchSyncServiceTest {
         assertEquals(95.0, record.percentage.value, 1e-9)
         assertEquals("wearos_spo2_${t0.toEpochMilli()}", record.metadata.clientRecordId)
         assertEquals(t0, cursors.spo2Cursor(WATCH.id))
+    }
+
+    @Test
+    fun `a body composition measurement is three records and moves the cursor`() = runTest {
+        pages += WearOsHeartRatePage(emptyList(), hasMore = false)
+        coEvery { healthConnect.grantedPermissions() } returns WearOsBodyCompositionImport.writePermissions
+        bodyCompositionPages += WearOsBodyCompositionPage(listOf(WearOsBodyComposition(t0, 19.6, 57.9, 41.0)), hasMore = false)
+
+        service().sync(WATCH, Duration.ZERO, null)
+
+        val fat = insertedOf<BodyFatRecord>().single()
+        assertEquals(19.6, fat.percentage.value, 1e-9)
+        assertEquals("wearos_bc_fat_${t0.toEpochMilli()}", fat.metadata.clientRecordId)
+        assertEquals(57.9, insertedOf<LeanBodyMassRecord>().single().mass.inKilograms, 1e-9)
+        assertEquals(41.0, insertedOf<BodyWaterMassRecord>().single().mass.inKilograms, 1e-9)
+        assertEquals(t0, cursors.bodyCompositionCursor(WATCH.id))
+    }
+
+    @Test
+    fun `a body composition measurement with one grant missing writes the rest and waits on the watch`() = runTest {
+        pages += WearOsHeartRatePage(emptyList(), hasMore = false)
+        coEvery { healthConnect.grantedPermissions() } returns setOf(HealthPermission.getWritePermission(BodyFatRecord::class))
+        bodyCompositionPages += WearOsBodyCompositionPage(listOf(WearOsBodyComposition(t0, 19.6, 57.9, 41.0)), hasMore = false)
+
+        val result = service().sync(WATCH, Duration.ZERO, null)
+
+        assertEquals(1, insertedOf<BodyFatRecord>().size)
+        assertTrue(insertedOf<LeanBodyMassRecord>().isEmpty())
+        assertEquals(Instant.EPOCH, cursors.bodyCompositionCursor(WATCH.id))
+        assertTrue(UnwrittenSeries.BODY_COMPOSITION in (result as DeviceSyncResult.Succeeded).unwritten)
     }
 
     private companion object {

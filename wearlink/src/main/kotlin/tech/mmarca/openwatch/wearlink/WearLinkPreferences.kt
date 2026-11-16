@@ -46,6 +46,9 @@ object WearLinkPreferences {
 
     const val SENSOR: String = "sensor"
     const val SAMSUNG: String = "samsung"
+
+    /** The Samsung platform's green PPG, analysed on the watch. A value of [HRV_SOURCE] only. */
+    const val SAMSUNG_PPG: String = "samsung_ppg"
     const val LOCK: String = "lock"
     const val SYNCED: String = "synced"
     const val OFF: String = "0"

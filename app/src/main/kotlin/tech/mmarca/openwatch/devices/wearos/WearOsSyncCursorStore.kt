@@ -71,6 +71,14 @@ class WearOsSyncCursorStore(private val prefs: SharedPreferences) {
         prefs.edit { putLong(respiratoryKey(deviceId), at.toEpochMilli()) }
     }
 
+    /** The body composition cursor: the time of the newest measurement written. [Instant.EPOCH] for a watch never synced. */
+    fun bodyCompositionCursor(deviceId: String): Instant =
+        Instant.ofEpochMilli(prefs.getLong(bodyCompositionKey(deviceId), 0L))
+
+    fun setBodyCompositionCursor(deviceId: String, at: Instant) {
+        prefs.edit { putLong(bodyCompositionKey(deviceId), at.toEpochMilli()) }
+    }
+
     /** The SpO2 cursor: the time of the newest measurement written. [Instant.EPOCH] for a watch never synced. */
     fun spo2Cursor(deviceId: String): Instant =
         Instant.ofEpochMilli(prefs.getLong(spo2Key(deviceId), 0L))
@@ -120,6 +128,7 @@ class WearOsSyncCursorStore(private val prefs: SharedPreferences) {
             remove(hrvKey(deviceId))
             remove(respiratoryKey(deviceId))
             remove(spo2Key(deviceId))
+            remove(bodyCompositionKey(deviceId))
             remove(skinKey(deviceId))
             remove(workoutKey(deviceId))
             remove(skinMediansKey(deviceId))
@@ -141,6 +150,8 @@ class WearOsSyncCursorStore(private val prefs: SharedPreferences) {
     private fun spo2Key(deviceId: String) = "spo2_cursor_$deviceId"
 
     private fun entryKey(deviceId: String) = "entry_cursor_$deviceId"
+
+    private fun bodyCompositionKey(deviceId: String) = "body_composition_cursor_$deviceId"
 
     private fun skinKey(deviceId: String) = "skin_cursor_$deviceId"
 

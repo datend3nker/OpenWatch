@@ -19,7 +19,15 @@ import tech.mmarca.openwatch.wearlink.HeartRateInterval
  */
 internal object WearSettings {
 
-    enum class Source { RAW_SENSOR, SAMSUNG_PLATFORM }
+    /** [SAMSUNG_PPG], the platform's green PPG analysed on the watch, is a choice for the HRV windows only. */
+    enum class Source { RAW_SENSOR, SAMSUNG_PLATFORM, SAMSUNG_PPG }
+
+    /**
+     * The wearer as the platform's body composition tracker needs them: read
+     * from the body profile the phone sends, handed to the platform only for
+     * a measurement.
+     */
+    data class BodyProfile(val heightCm: Int, val weightKg: Int, val ageYears: Int, val male: Boolean)
 
     private const val PREFS = "wear_settings"
     private const val KEY_HEART_RATE_DAY = "heart_rate_day"
@@ -58,7 +66,8 @@ internal object WearSettings {
         prefs(context).edit().putBoolean(KEY_AUTO_DETECT, on).apply()
     }
 
-    fun heartRateSource(context: Context): Source = source(context, KEY_HEART_RATE_SOURCE)
+    fun heartRateSource(context: Context): Source =
+        source(context, KEY_HEART_RATE_SOURCE).takeIf { it != Source.SAMSUNG_PPG } ?: Source.RAW_SENSOR
 
     fun setHeartRateSource(context: Context, source: Source) = setSource(context, KEY_HEART_RATE_SOURCE, source)
 
@@ -104,6 +113,30 @@ internal object WearSettings {
         maxHeartRate(context)?.let { HeartRateZones.Basis(it, restingHeartRate(context)) }
 
     private fun positive(context: Context, key: String): Int? = prefs(context).getInt(key, 0).takeIf { it > 0 }
+
+    /**
+     * The wearer for a body composition measurement: the profile the phone
+     * sent, or the one entered on the watch, which is kept in the same place.
+     * Null until all four are known.
+     */
+    fun bodyProfile(context: Context, currentYear: Int): BodyProfile? {
+        val sex = prefs(context).getString(KEY_SEX, null)
+        return BodyProfile(
+            heightCm = positive(context, KEY_HEIGHT_CM) ?: return null,
+            weightKg = Math.round((positive(context, KEY_WEIGHT_HG) ?: return null) / 10f),
+            ageYears = currentYear - (positive(context, KEY_BIRTH_YEAR) ?: return null),
+            male = when (sex) { "m" -> true; "f" -> false; else -> return null },
+        )
+    }
+
+    fun setBodyProfile(context: Context, profile: BodyProfile, currentYear: Int) {
+        prefs(context).edit()
+            .putInt(KEY_HEIGHT_CM, profile.heightCm)
+            .putInt(KEY_WEIGHT_HG, profile.weightKg * 10)
+            .putInt(KEY_BIRTH_YEAR, currentYear - profile.ageYears)
+            .putString(KEY_SEX, if (profile.male) "m" else "f")
+            .apply()
+    }
 
     /** Every setting in one value, for the phone's `GET_PREF`. */
     fun read(context: Context): WatchPreferences = WatchPreferences(

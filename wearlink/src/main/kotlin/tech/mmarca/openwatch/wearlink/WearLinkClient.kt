@@ -81,6 +81,15 @@ class WearLinkSession internal constructor(
         }
     }
 
+    fun pullBodyComposition(sinceEpochMillis: Long, limit: Int): WearLinkOutcome<Page<WearLinkBodyLines.BodyComposition>> {
+        val items = ArrayList<WearLinkBodyLines.BodyComposition>()
+        return exchange(WearLinkProtocol.Request.BodyCompositionSince(sinceEpochMillis, limit)) { line ->
+            WearLinkBodyLines.parse(line)?.let { items += it; return@exchange Reply.More }
+            WearLinkProtocol.parseEnd(line)?.let { return@exchange Reply.Done(Page(items, it.more)) }
+            Reply.Unexpected
+        }
+    }
+
     fun pullSpo2(sinceEpochMillis: Long, limit: Int): WearLinkOutcome<Page<WearLinkProtocol.Spo2Measurement>> {
         val items = ArrayList<WearLinkProtocol.Spo2Measurement>()
         return exchange(WearLinkProtocol.Request.Spo2Since(sinceEpochMillis, limit)) { line ->
