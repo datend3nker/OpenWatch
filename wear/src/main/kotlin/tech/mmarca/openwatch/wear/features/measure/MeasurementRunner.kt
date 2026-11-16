@@ -40,6 +40,8 @@ class MeasurementRunner(private val context: Context) {
         Measurement.HRV -> hrv()
         Measurement.AIR_PRESSURE -> airPressure()
         Measurement.SPO2 -> spo2()
+        // These have a screen of their own and are never run from here.
+        Measurement.ECG, Measurement.BODY_COMPOSITION -> flow { throw MeasureException(MeasureError.NOT_SUPPORTED) }
     }
 
     private fun heartRate(): Flow<MeasureEvent> = flow {

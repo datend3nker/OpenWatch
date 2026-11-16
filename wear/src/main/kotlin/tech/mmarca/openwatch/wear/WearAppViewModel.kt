@@ -41,7 +41,13 @@ class WearAppViewModel(application: Application) : AndroidViewModel(application)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(StopTimeoutMillis), initial)
 
     init {
-        viewModelScope.launch { capabilities.value = CapabilityProbe(application).probe() }
+        viewModelScope.launch {
+            val probe = CapabilityProbe(application)
+            // What the sensors give is shown at once; what only the platform lists joins when it has answered.
+            capabilities.value = probe.probe()
+            val types = probe.samsungTypes()
+            if (types.isNotEmpty()) capabilities.value = probe.probe(types)
+        }
     }
 
     fun log(entry: LoggedEntry) = entryLog.add(entry)

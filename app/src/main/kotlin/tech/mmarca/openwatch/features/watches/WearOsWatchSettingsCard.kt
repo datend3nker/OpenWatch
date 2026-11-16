@@ -82,8 +82,15 @@ internal fun WearOsWatchSettingsCard(
                 ) { onSet(Preferences.HEART_RATE_SOURCE, if (it) Preferences.SAMSUNG else Preferences.SENSOR) }
                 SettingSwitch(
                     title = stringResource(R.string.watch_settings_hrv_samsung),
-                    body = stringResource(R.string.watch_settings_hrv_source_explained),
-                    checked = settings[Preferences.HRV_SOURCE] == Preferences.SAMSUNG,
+                    // The platform's PPG is chosen on the watch, where its permission is asked; shown here, not offered.
+                    body = stringResource(
+                        if (settings[Preferences.HRV_SOURCE] == Preferences.SAMSUNG_PPG) {
+                            R.string.watch_settings_hrv_samsung_ppg
+                        } else {
+                            R.string.watch_settings_hrv_source_explained
+                        },
+                    ),
+                    checked = settings[Preferences.HRV_SOURCE] in setOf(Preferences.SAMSUNG, Preferences.SAMSUNG_PPG),
                     enabled = !busy,
                 ) { onSet(Preferences.HRV_SOURCE, if (it) Preferences.SAMSUNG else Preferences.SENSOR) }
                 SettingSwitch(

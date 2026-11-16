@@ -148,10 +148,13 @@ limit. Not yet measured on the watch: whether the flush answers with the screen 
 the tracker takes to deliver its first point outside a reboot, and how the two sources' RMSSD
 compare over a night.
 
-**What the watch offers.** The status screen asks the platform for its tracker types (code 5,
-over a short binding of its own) and shows a switch or a measurement only for a type the
-platform lists. While it has not answered, the switches for skin temperature and SpO2 stay
-(they predate the question); the three below are not shown.
+**What the watch offers.** The platform is asked for its tracker types (code 5, over a short
+binding of its own). The settings show a switch only for a type it lists; while it has not
+answered, the switches for skin temperature and SpO2 stay (they predate the question) and its
+PPG is not offered. Its ECG and body composition are measurements (`Measurement.ECG`,
+`Measurement.BODY_COMPOSITION`): `CapabilityProbe.samsungTypes` puts them into
+`WearCapabilities.measurements`, so the measure list shows them only where the platform lists
+the tracker, and not at all when it does not answer within three seconds.
 
 **Raw PPG, ECG and body composition (code; not yet run on a watch).** All three check
 Samsung's `READ_ADDITIONAL_HEALTH_DATA` from Android 16 (`BODY_SENSORS` before); the watch
@@ -168,8 +171,8 @@ asks for it when one of them is first chosen.
   and the odd ones). Tested on synthetic traces only, not against annotated recordings.
   Nothing is stored: Health Connect has no ECG record, and the link has no command for a trace.
 - *Body composition* (`BiaScreen`): the wearer enters height, weight, age and sex on the
-  watch (`WearSettings.BodyProfile`); they are handed to the platform for the measurement and
-  to nothing else. The result is shown and kept as a `WearMetrics.BODY_COMPOSITION` row (a
+  watch, or the phone sends them (`WearSettings.BodyProfile`, the body profile the workouts'
+  energy uses too); they are handed to the platform for the measurement and to nothing else. The result is shown and kept as a `WearMetrics.BODY_COMPOSITION` row (a
   month); the phone pulls it (`BC_SINCE`, capability `bc`) and writes body fat, lean body mass
   and body water to Health Connect (`WearOsBodyCompositionSync`), the three the scale writes.
   Skeletal muscle and the basal rate stay on the watch's screen: Health Connect has no record

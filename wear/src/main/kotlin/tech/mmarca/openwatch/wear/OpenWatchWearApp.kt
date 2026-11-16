@@ -155,6 +155,13 @@ fun OpenWatchWearApp(
                     val name = entry.arguments?.getString(WearRoutes.MEASUREMENT_ARG)
                     val measurement = Measurement.entries.firstOrNull { it.name == name } ?: Measurement.HEART_RATE
                     val capabilities = currentState.capabilities
+                    // A measurement with a screen of its own, and only where the watch has it: a route
+                    // opened from outside for one it lacks ends in the plain screen's "not supported".
+                    if (measurement.hasOwnScreen && measurement in capabilities.measurements) {
+                        val close: () -> Unit = { navController.popBackStack() }
+                        if (measurement == Measurement.ECG) EcgScreen(onClose = close) else BiaScreen(onClose = close)
+                        return@composable
+                    }
                     MeasurementRoute(
                         measurement = measurement,
                         supported = if (capabilities.probed) measurement in capabilities.measurements else null,

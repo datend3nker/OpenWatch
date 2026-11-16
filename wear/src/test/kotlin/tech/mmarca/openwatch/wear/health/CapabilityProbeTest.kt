@@ -32,11 +32,19 @@ class CapabilityProbeTest {
 
     @Test
     fun `a full watch offers every sensor metric except VO2 max`() {
-        val capabilities = capabilitiesOf(everything)
+        val capabilities = capabilitiesOf(everything.copy(samsungTypes = setOf("ECG", "BIA")))
         assertTrue(capabilities.probed)
         val sensorTiles = MetricTile.entries.filter { it.source == MetricSource.SENSOR }.toSet()
         assertEquals(sensorTiles - MetricTile.VO2_MAX, capabilities.sensorMetrics)
         assertEquals(Measurement.entries.toSet(), capabilities.measurements)
+    }
+
+    @Test
+    fun `the platform's ECG and body composition are offered only where it lists them`() {
+        val unlisted = capabilitiesOf(everything).measurements
+        assertFalse(Measurement.ECG in unlisted)
+        assertFalse(Measurement.BODY_COMPOSITION in unlisted)
+        assertEquals(setOf(Measurement.ECG), capabilitiesOf(nothing.copy(samsungTypes = setOf("ECG", "HEART_RATE"))).measurements)
     }
 
     @Test

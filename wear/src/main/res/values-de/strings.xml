@@ -303,6 +303,8 @@
     <string name="quicklog_editor_available_header">Einträge hinzufügen</string>
     <string name="quicklog_editor_reorder_hint">Eintrag lange drücken und ziehen, um ihn zu verschieben. Antippen entfernt ihn.</string>
     <string name="measure_spo2">Blutsauerstoff</string>
+    <string name="measure_ecg_description">30 Sekunden, ein Finger auf der oberen Taste</string>
+    <string name="measure_bia_description">Etwa 15 Sekunden, zwei Finger auf den Tasten</string>
     <string name="measure_spo2_description">Etwa 15 Sekunden, Arm ruhig</string>
     <string name="recovery_ask">Erholungspuls messen?</string>
     <string name="recovery_instruction">Zwei Minuten langsam weitergehen.</string>

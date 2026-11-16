@@ -144,16 +144,6 @@ internal class EcgMeasurement(private val feed: SamsungHeartRateFeed) : SamsungH
     }
 }
 
-/**
- * The measurement the wearer opened from the settings: it takes the screen
- * until closed, whichever screen the settings were shown on. Main thread.
- */
-internal object OpenMeasurement {
-    enum class Kind { ECG, BIA }
-
-    var current by mutableStateOf<Kind?>(null)
-}
-
 @Composable
 internal fun EcgScreen(onClose: () -> Unit) {
     val context = LocalContext.current

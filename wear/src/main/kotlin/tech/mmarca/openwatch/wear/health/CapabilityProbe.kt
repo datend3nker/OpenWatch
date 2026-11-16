@@ -1,5 +1,11 @@
 package tech.mmarca.openwatch.wear.health
 
+import android.os.Handler
+import android.os.Looper
+import kotlin.coroutines.resume
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
+import tech.mmarca.openwatch.wear.samsung.SamsungHealthPlatform
 import tech.mmarca.openwatch.wear.samsung.SamsungHeartRateFeed
 import android.content.Context
 import android.content.pm.PackageManager
@@ -20,6 +26,8 @@ data class WatchSensors(
     val rawPpg: Boolean = false,
     /** The Samsung Health Platform, the only source of an SpO2 reading. */
     val samsung: Boolean = false,
+    /** The tracker types the platform says this watch has; empty when it has not answered. */
+    val samsungTypes: Set<String> = emptySet(),
     val stepCounter: Boolean,
     val barometer: Boolean,
     val gps: Boolean,
@@ -33,7 +41,28 @@ data class WatchSensors(
  */
 class CapabilityProbe(private val context: Context) {
 
-    fun probe(): WearCapabilities {
+    private companion object {
+        /** The platform answers a bound call at once; past this the list is shown without its trackers. */
+        const val PLATFORM_WAIT_MILLIS = 3_000L
+    }
+
+    /**
+     * The tracker types the Samsung platform lists, empty on a watch without
+     * it or when it does not answer within [PLATFORM_WAIT_MILLIS]: what it
+     * alone could offer is then not offered.
+     */
+    suspend fun samsungTypes(): Set<String> {
+        if (!SamsungHealthPlatform.isInstalled(context)) return emptySet()
+        return withTimeoutOrNull(PLATFORM_WAIT_MILLIS) {
+            suspendCancellableCoroutine { continuation ->
+                SamsungHealthPlatform.supportedTypes(context, Handler(Looper.getMainLooper())) { types ->
+                    if (continuation.isActive) continuation.resume(types.orEmpty())
+                }
+            }
+        }.orEmpty()
+    }
+
+    fun probe(samsungTypes: Set<String> = emptySet()): WearCapabilities {
         val sensors = context.getSystemService(SensorManager::class.java)
         val has = { type: Int -> sensors?.getDefaultSensor(type) != null }
         return capabilitiesOf(
@@ -41,6 +70,7 @@ class CapabilityProbe(private val context: Context) {
                 heartRate = has(Sensor.TYPE_HEART_RATE),
                 heartBeat = has(Sensor.TYPE_HEART_BEAT),
                 samsung = SamsungHeartRateFeed.shared(context).isAvailable,
+                samsungTypes = samsungTypes,
                 rawPpg = sensors?.getSensorList(Sensor.TYPE_ALL).orEmpty().any { it.stringType == PpgRawLogger.SENSOR_TYPE },
                 stepCounter = has(Sensor.TYPE_STEP_COUNTER),
                 barometer = has(Sensor.TYPE_PRESSURE),
@@ -70,6 +100,8 @@ fun capabilitiesOf(sensors: WatchSensors): WearCapabilities {
         if (sensors.heartBeat || sensors.rawPpg) add(Measurement.HRV)
         if (sensors.barometer) add(Measurement.AIR_PRESSURE)
         if (sensors.samsung) add(Measurement.SPO2)
+        if (SamsungHealthPlatform.TRACKER_ECG in sensors.samsungTypes) add(Measurement.ECG)
+        if (SamsungHealthPlatform.TRACKER_BIA in sensors.samsungTypes) add(Measurement.BODY_COMPOSITION)
     }
     val workouts = ActivityType.entries
         .associateWith { workoutFields(it, sensors) }

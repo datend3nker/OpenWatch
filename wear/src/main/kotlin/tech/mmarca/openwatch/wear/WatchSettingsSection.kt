@@ -28,9 +28,10 @@ import tech.mmarca.openwatch.wearlink.HeartRateInterval
  * once ([WearAppService.settingsChanged]).
  *
  * What the platform offers differs by watch, so it is asked for its tracker
- * types: a switch or a measurement whose type it does not list is not shown.
- * Until it has answered, and when it does not, the switches this app always
- * had are shown and the newer ones are not.
+ * types: a switch whose type it does not list is not shown. Until it has
+ * answered, and when it does not, the switches this app always had are shown
+ * and the platform's PPG is not offered. Its ECG and body composition are
+ * measurements (`Measurement`), offered in the measure list the same way.
  */
 @Composable
 fun WatchSettingsSection(context: Context) {
@@ -139,11 +140,7 @@ fun WatchSettingsSection(context: Context) {
         }
         Line(stringResource(R.string.settings_spo2_explained))
     }
-    val hasEcg = has(SamsungHealthPlatform.TRACKER_ECG, whenUnknown = false)
-    val hasBia = has(SamsungHealthPlatform.TRACKER_BIA, whenUnknown = false)
-    if (hasEcg) Toggle(stringResource(R.string.ecg_open)) { OpenMeasurement.current = OpenMeasurement.Kind.ECG }
-    if (hasBia) Toggle(stringResource(R.string.bia_open)) { OpenMeasurement.current = OpenMeasurement.Kind.BIA }
-    if (heartRateSamsung || hrvSamsung || skin || spo2 || hasEcg || hasBia) Line(stringResource(R.string.status_hrv_source_samsung_note))
+    if (heartRateSamsung || hrvSamsung || skin || spo2) Line(stringResource(R.string.status_hrv_source_samsung_note))
 }
 
 private fun flip(source: WearSettings.Source): WearSettings.Source =

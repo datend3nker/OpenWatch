@@ -7,6 +7,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Compress
 import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.Insights
+import androidx.compose.material.icons.outlined.MonitorHeart
+import androidx.compose.material.icons.outlined.MonitorWeight
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import tech.mmarca.openwatch.wear.R
@@ -79,6 +81,39 @@ enum class Measurement(
         permission = { WearPermissions.oxygenSaturation },
         durationSeconds = 45,
     ),
+
+    /**
+     * The Samsung platform's ECG tracker: thirty seconds of unbroken contact, a trace, its heart rate
+     * and a description of its rhythm. It has a screen of its own (`EcgScreen`), not the runner's
+     * single value. Offered only where the platform lists the tracker.
+     */
+    ECG(
+        R.string.ecg_open,
+        R.string.measure_ecg_description,
+        R.string.ecg_touch,
+        Icons.Outlined.MonitorHeart,
+        HeartColor,
+        permission = { WearPermissions.additionalHealthData },
+        durationSeconds = 30,
+    ),
+
+    /**
+     * The Samsung platform's body composition tracker, with the wearer's body profile. It has a
+     * screen of its own (`BiaScreen`). Offered only where the platform lists the tracker.
+     */
+    BODY_COMPOSITION(
+        R.string.bia_open,
+        R.string.measure_bia_description,
+        R.string.bia_touch,
+        Icons.Outlined.MonitorWeight,
+        VitalsColor,
+        permission = { WearPermissions.additionalHealthData },
+        durationSeconds = 15,
+    ),
+    ;
+
+    /** Whether it shows a screen of its own instead of the runner's single value. */
+    val hasOwnScreen: Boolean get() = this == ECG || this == BODY_COMPOSITION
 }
 
 /** Why a measurement could not give a result. */
