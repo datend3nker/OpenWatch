@@ -75,6 +75,14 @@ class WorkoutMetricsTest {
     }
 
     @Test
+    fun `the part kilometre at the end is no split, and a sport that does not travel has none`() {
+        // Fifteen steps of about 100 m: one whole kilometre and half of the next.
+        val route = northwards(16, 9_000)
+        assertEquals(listOf(0), WorkoutMetrics.splits(workout(9, route)).map { it.index })
+        assertEquals(emptyList<WorkoutMetrics.Split>(), WorkoutMetrics.splits(workout(9, route, exerciseType = ExerciseSessionRecord.EXERCISE_TYPE_YOGA)))
+    }
+
+    @Test
     fun `vo2max of a steady run, and none for another sport`() {
         // 200 m/min at 150 bpm, rest 50, max 190: 0.2 x 200 / (100 / 140) + 3.5.
         val step = (200.0 / 111_195.0 * 1e7).toInt()

@@ -4,17 +4,20 @@ import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import kotlin.math.roundToInt
-import tech.mmarca.healthcalculations.geo.haversineMeters
 import tech.mmarca.healthcalculations.insights.CardioLoadTimeWindow
 import tech.mmarca.healthcalculations.insights.HeartRateRecoveryQuality
 import tech.mmarca.healthcalculations.insights.HeartRateZones
 import tech.mmarca.healthcalculations.insights.WorkoutEnergyResult
+import tech.mmarca.healthcalculations.insights.buildActivitySplits
 import tech.mmarca.healthcalculations.insights.calculateHeartRateRecovery
 import tech.mmarca.healthcalculations.insights.estimateRouteVo2Max
 import tech.mmarca.healthcalculations.insights.estimateWorkoutEnergy
 import tech.mmarca.healthcalculations.insights.timeWeightedMeanHeartRate
 import tech.mmarca.healthcalculations.insights.workoutTrimp
+import tech.mmarca.healthcalculations.model.ExerciseData
 import tech.mmarca.healthcalculations.model.ExerciseRoutePoint
+import tech.mmarca.healthcalculations.model.ExerciseSegment
+import tech.mmarca.healthcalculations.model.ExerciseSegmentData
 import tech.mmarca.healthcalculations.model.HeartRateSample
 import tech.mmarca.healthcalculations.preferences.BodyProfile
 
@@ -126,36 +129,42 @@ object WorkoutMetrics {
     }
 
     /**
-     * One split per whole kilometre of the route, its time without pauses. The
-     * kilometre mark is timed in proportion inside the step it falls in. The
-     * watch's own: health-calculations' distance splits carry no start and end
-     * time, which the phone's laps need. The distance is its haversine.
+     * One split per whole kilometre of the route, its time without pauses, cut
+     * by health-calculations ([buildActivitySplits], the same cut OpenVitals
+     * shows): the kilometre mark is timed in proportion inside the step it
+     * falls in, and each split's moving time leaves out the pauses. The
+     * trailing part kilometre is not a lap and is dropped.
      */
-    fun splits(workout: WearLinkWorkout): List<Split> {
-        val route = workout.route.sortedBy { it.epochMillis }
-        if (route.size < 2) return emptyList()
-        val splits = ArrayList<Split>()
-        var metres = 0.0
-        var splitStart = workout.startMillis
-        for (i in 1 until route.size) {
-            val step = metresBetween(route[i - 1], route[i])
-            val before = metres
-            metres += step
-            while (metres >= (splits.size + 1) * METRES_PER_KM && step > 0) {
-                val share = ((splits.size + 1) * METRES_PER_KM - before) / step
-                val at = route[i - 1].epochMillis + ((route[i].epochMillis - route[i - 1].epochMillis) * share).toLong()
-                splits += Split(splits.size, splitStart, at, activeBetween(workout, splitStart, at) / 1000)
-                splitStart = at
-            }
-        }
-        return splits
-    }
+    fun splits(workout: WearLinkWorkout): List<Split> =
+        buildActivitySplits(
+            workout = exerciseData(workout),
+            routePoints = routePoints(workout),
+            speedSamples = emptyList(),
+            heartRateSamples = emptyList(),
+            splitDistanceMeters = METRES_PER_KM,
+        ).splits
+            .filter { !it.isPartial }
+            .map { Split(it.index - 1, it.startTime.toEpochMilli(), it.endTime.toEpochMilli(), it.elapsedMs / 1000) }
 
-    private fun metresBetween(a: WearLinkWorkout.RoutePoint, b: WearLinkWorkout.RoutePoint): Double =
-        haversineMeters(a.latitudeE7 / 1e7, a.longitudeE7 / 1e7, b.latitudeE7 / 1e7, b.longitudeE7 / 1e7)
-
-    private fun activeBetween(workout: WearLinkWorkout, from: Long, to: Long): Long =
-        (to - from) - workout.pauses.sumOf { p -> (minOf(p.endMillis, to) - maxOf(p.startMillis, from)).coerceAtLeast(0) }
+    /** The workout as health-calculations reads a session: its pauses as PAUSE segments. */
+    private fun exerciseData(workout: WearLinkWorkout) = ExerciseData(
+        id = "",
+        title = null,
+        exerciseType = workout.exerciseType,
+        startTime = Instant.ofEpochMilli(workout.startMillis),
+        endTime = Instant.ofEpochMilli(workout.endMillis),
+        durationMs = workout.endMillis - workout.startMillis,
+        source = "",
+        totalDistanceMeters = workout.distanceMetres?.toDouble(),
+        segments = workout.pauses.map {
+            ExerciseSegmentData(
+                startTime = Instant.ofEpochMilli(it.startMillis),
+                endTime = Instant.ofEpochMilli(it.endMillis),
+                segmentType = ExerciseSegment.EXERCISE_SEGMENT_TYPE_PAUSE,
+                repetitions = 0,
+            )
+        },
+    )
 
     /**
      * The recovery from [stopMillis], by [calculateHeartRateRecovery]: the falls from
