@@ -337,6 +337,8 @@
     <string name="detected_walk">Looks like a walk</string>
     <string name="detected_run">Looks like a run</string>
     <string name="detected_body">%1$d min, %2$s. Record it?</string>
+    <string name="detected_ride">Looks like a ride</string>
+    <string name="detected_ride_body">%1$d min at about %2$d bpm. Record it?</string>
     <string name="detected_start">Record</string>
     <plurals name="detected_steps">
         <item quantity="one">%d step</item>

@@ -24,10 +24,11 @@ import tech.mmarca.openwatch.wear.WatchPreferences
 import tech.mmarca.openwatch.wear.WearAppService
 import tech.mmarca.openwatch.wear.WearMetrics
 import tech.mmarca.openwatch.wearlink.WorkoutSport
+import tech.mmarca.openwatch.wearlink.WearLinkProtocol
 
 /**
- * Offers to record a walk or a run the watch sees in its step minutes
- * ([ActivityDetector]) while no workout runs: a notification ("Looks like a
+ * Offers to record a walk or a run the watch sees in its step minutes, or a
+ * ride in those and the heart rate ([ActivityDetector]), while no workout runs: a notification ("Looks like a
  * walk") whose Record action starts the workout at the walk's start, so the
  * minutes already walked count ([WorkoutRecorder.start]). Nothing is
  * recorded by itself, and nothing runs for it but a read of the last three
@@ -103,10 +104,17 @@ internal class ActivityDetectionMonitor(
         }
         if (!settings().autoDetect) return null
         val rows = store.since(WearMetrics.STEPS, now - LOOKBACK_MILLIS, LOOKBACK_ROWS)
-        val found = ActivityDetector.detect(rows, now) ?: return null
+        val found = ActivityDetector.detect(rows, now) ?: detectRide(rows, now) ?: return null
         if (found.startMillis <= ignoreBefore) return null
         ignoreBefore = now
         return found
+    }
+
+    /** A ride, only with a maximum heart rate from the phone: without it there are no zones to measure the effort by. */
+    private fun detectRide(steps: List<WearLinkProtocol.StepMinute>, now: Long): ActivityDetector.Detection? {
+        val moderate = settings().zoneBasis()?.boundsBpm?.getOrNull(MODERATE_ZONE) ?: return null
+        val heartRate = store.since(WearMetrics.HEART_RATE, now - RIDE_LOOKBACK_MILLIS, RIDE_LOOKBACK_ROWS)
+        return ActivityDetector.detectRide(steps, heartRate, now, moderate)
     }
 
     private fun offer(found: ActivityDetector.Detection): Notification {
@@ -126,12 +134,17 @@ internal class ActivityDetectionMonitor(
                 .putExtra(EXTRA_START, found.startMillis),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        val text = context.getString(
+        // A ride is told by its heart rate; its steps are few by what it is.
+        val text = found.heartRateBpm?.let { context.getString(R.string.detected_ride_body, found.minutes, it) } ?: context.getString(
             R.string.detected_body,
             found.minutes,
             context.resources.getQuantityString(R.plurals.detected_steps, found.steps, found.steps),
         )
-        val title = if (found.sport == WorkoutSport.RUNNING) R.string.detected_run else R.string.detected_walk
+        val title = when (found.sport) {
+            WorkoutSport.RUNNING -> R.string.detected_run
+            WorkoutSport.BIKING -> R.string.detected_ride
+            else -> R.string.detected_walk
+        }
         return Notification.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher_monochrome)
             .setContentTitle(context.getString(title))
@@ -163,6 +176,13 @@ internal class ActivityDetectionMonitor(
         /** As far back as a workout may begin (`WorkoutRecorder`), and the rows that cover it. */
         private const val LOOKBACK_MILLIS = 3 * 60 * 60_000L
         private const val LOOKBACK_ROWS = 200
+
+        /** An hour of heart rate at a sample every ten seconds; oldest first, so the limit must not cut it. */
+        private const val RIDE_LOOKBACK_MILLIS = 60 * 60_000L
+        private const val RIDE_LOOKBACK_ROWS = 400
+
+        /** Zone 3, from index 0: its lower bound is the ACSM's moderate intensity. */
+        private const val MODERATE_ZONE = 2
     }
 }
 

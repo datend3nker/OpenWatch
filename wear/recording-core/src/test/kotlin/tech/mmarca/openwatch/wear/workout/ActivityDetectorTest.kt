@@ -67,4 +67,36 @@ class ActivityDetectorTest {
         assertEquals(11, found.minutes)
         assertEquals(11 * 105, found.steps)
     }
+
+    /** Six samples a minute, as the heart rate is kept at full rate. */
+    private fun heartRate(vararg bpmPerMinute: Int) = bpmPerMinute.flatMapIndexed { i, bpm ->
+        (0 until 6).map { WearLinkProtocol.HeartRateSample(t0 + i * 60_000L + it * 10_000L, bpm) }
+    }
+
+    /** Zone 3's lower bound for a maximum of 190 and a resting rate of 60: 60 + 0.4 x 130. */
+    private val moderate = 112
+
+    @Test fun `twelve minutes of a raised heart rate with few steps are a ride`() {
+        val found = ActivityDetector.detectRide(rows(*IntArray(12) { 4 }), heartRate(*IntArray(12) { 130 }), nowAfter(12), moderate)!!
+
+        assertEquals(WorkoutSport.BIKING, found.sport)
+        assertEquals(t0, found.startMillis)
+        assertEquals(12, found.minutes)
+        assertEquals(130, found.heartRateBpm)
+    }
+
+    @Test fun `a stop at a light does not break a ride, a sitting heart rate is no ride`() {
+        val bpm = IntArray(12) { 130 }.also { it[5] = 95 }
+        assertEquals(12, ActivityDetector.detectRide(rows(*IntArray(12) { 0 }), heartRate(*bpm), nowAfter(12), moderate)!!.minutes)
+
+        assertNull(ActivityDetector.detectRide(rows(*IntArray(15) { 0 }), heartRate(*IntArray(15) { 85 }), nowAfter(15), moderate))
+    }
+
+    @Test fun `a walk is no ride, and minutes without a heart rate are none either`() {
+        assertNull(ActivityDetector.detectRide(rows(*IntArray(12) { 110 }), heartRate(*IntArray(12) { 130 }), nowAfter(12), moderate))
+
+        // Power save: one sample every ten minutes.
+        val sparse = heartRate(*IntArray(20) { 130 }).filter { (it.epochMillis - t0) % 600_000L == 0L }
+        assertNull(ActivityDetector.detectRide(rows(*IntArray(20) { 0 }), sparse, nowAfter(20), moderate))
+    }
 }
