@@ -205,7 +205,6 @@ class WearOsWatchSyncService(
                 progress.unwritten += UnwrittenSeries.BODY_COMPOSITION
                 progress.withheldPermissions += body.withheld
             }
-            WearOsLog.log("body composition: ${body.written} written")
             if (!pullWorkouts(device, progress)) return notPaired(device)
             dayLink.sync(device, linkRetry) ?: return notPaired(device)
             zones.sync(device, linkRetry)

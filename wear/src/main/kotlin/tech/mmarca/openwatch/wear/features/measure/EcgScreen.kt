@@ -1,43 +1,37 @@
-package tech.mmarca.openwatch.wear
+package tech.mmarca.openwatch.wear.features.measure
 
-import android.content.Context
 import android.os.Handler
 import android.os.Looper
-import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.wear.compose.material3.Button
+import androidx.wear.compose.material3.EdgeButton
+import androidx.wear.compose.material3.Icon
+import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
+import tech.mmarca.openwatch.wear.DebugProtocol
+import tech.mmarca.openwatch.wear.EcgHeartRate
+import tech.mmarca.openwatch.wear.R
 import tech.mmarca.openwatch.wear.samsung.EcgPoint
 import tech.mmarca.openwatch.wear.samsung.RawPoint
 import tech.mmarca.openwatch.wear.samsung.SamsungHealthPlatform
 import tech.mmarca.openwatch.wear.samsung.SamsungHeartRateFeed
 import tech.mmarca.openwatch.wear.samsung.toEcgPoint
+import tech.mmarca.openwatch.wear.ui.components.MetricValueRow
 
 /**
  * One ECG recording from the Samsung Health Platform's on-demand tracker:
@@ -51,9 +45,9 @@ import tech.mmarca.openwatch.wear.samsung.toEcgPoint
  */
 internal class EcgMeasurement(private val feed: SamsungHeartRateFeed) : SamsungHeartRateFeed.RawSubscriber {
 
-    enum class Phase { WAITING_FOR_CONTACT, RECORDING, DONE, NO_RATE, FAILED }
+    enum class Phase { READY, WAITING_FOR_CONTACT, RECORDING, DONE, NO_RATE, PERMISSION_DENIED, FAILED }
 
-    var phase by mutableStateOf(Phase.WAITING_FOR_CONTACT)
+    var phase by mutableStateOf(Phase.READY)
         private set
     var progress by mutableStateOf(0f)
         private set
@@ -89,6 +83,13 @@ internal class EcgMeasurement(private val feed: SamsungHeartRateFeed) : SamsungH
     }
 
     fun stop() = end(null)
+
+    /** The wearer refused the permission the platform checks. */
+    fun denied() {
+        phase = Phase.PERMISSION_DENIED
+    }
+
+    val isRunning: Boolean get() = phase == Phase.WAITING_FOR_CONTACT || phase == Phase.RECORDING
 
     /** The last [seconds] of the recording so far, oldest first. */
     fun trace(seconds: Int): FloatArray {
@@ -144,34 +145,62 @@ internal class EcgMeasurement(private val feed: SamsungHeartRateFeed) : SamsungH
     }
 }
 
+/**
+ * The ECG as a measurement: ready with its instruction and a start button,
+ * the trace and the progress along the edge while it records, then the
+ * heart rate and the description of the rhythm.
+ */
 @Composable
 internal fun EcgScreen(onClose: () -> Unit) {
     val context = LocalContext.current
     val measurement = remember { EcgMeasurement(SamsungHeartRateFeed.shared(context)) }
-    AdditionalHealthDataGate(context, onRefused = onClose) {
-        KeepScreenOn()
-        DisposableEffect(measurement) {
-            measurement.start()
-            onDispose { measurement.stop() }
+    DisposableEffect(measurement) { onDispose { measurement.stop() } }
+    KeepScreenOn(measurement.isRunning)
+    val start = rememberPermittedStart(Measurement.ECG, onGranted = measurement::start, onDenied = measurement::denied)
+    val phase = measurement.phase
+
+    val edgeButton: (@Composable () -> Unit)? = when (phase) {
+        EcgMeasurement.Phase.READY -> {
+            { EdgeButton(onClick = start) { Text(stringResource(R.string.measure_start)) } }
         }
+        EcgMeasurement.Phase.DONE -> {
+            { EdgeButton(onClick = onClose) { Text(stringResource(R.string.action_done)) } }
+        }
+        EcgMeasurement.Phase.PERMISSION_DENIED -> {
+            { EdgeButton(onClick = start) { Text(stringResource(R.string.measure_grant)) } }
+        }
+        EcgMeasurement.Phase.NO_RATE, EcgMeasurement.Phase.FAILED -> {
+            { EdgeButton(onClick = start) { Text(stringResource(R.string.action_retry)) } }
+        }
+        EcgMeasurement.Phase.WAITING_FOR_CONTACT, EcgMeasurement.Phase.RECORDING -> null
     }
-    BackHandler(onBack = onClose)
-    MeasureColumn {
-        Text(
-            stringResource(
-                when (measurement.phase) {
-                    EcgMeasurement.Phase.WAITING_FOR_CONTACT -> R.string.ecg_touch
-                    EcgMeasurement.Phase.RECORDING -> R.string.ecg_recording
-                    EcgMeasurement.Phase.DONE -> R.string.ecg_done
-                    EcgMeasurement.Phase.NO_RATE -> R.string.ecg_no_rate
-                    EcgMeasurement.Phase.FAILED -> R.string.measure_failed
-                },
-            ),
-        )
-        when (measurement.phase) {
+    OwnMeasurementFrame(
+        measurement = Measurement.ECG,
+        progress = measurement.progress.takeIf { measurement.isRunning },
+        edgeButton = edgeButton,
+    ) {
+        when (phase) {
+            EcgMeasurement.Phase.READY -> {
+                Icon(Measurement.ECG.icon, null, tint = Measurement.ECG.accentColor, modifier = Modifier.size(28.dp))
+                FrameTitle(stringResource(Measurement.ECG.label))
+                FrameBody(stringResource(Measurement.ECG.instruction))
+            }
+            EcgMeasurement.Phase.WAITING_FOR_CONTACT, EcgMeasurement.Phase.RECORDING -> {
+                EcgTrace(measurement)
+                FrameBody(
+                    stringResource(
+                        if (phase == EcgMeasurement.Phase.RECORDING) R.string.ecg_recording else R.string.ecg_touch,
+                    ),
+                )
+            }
             EcgMeasurement.Phase.DONE -> {
-                Line(stringResource(R.string.status_heart_rate_bpm, measurement.bpm), title = true)
-                Line(
+                Icon(Measurement.ECG.icon, null, tint = Measurement.ECG.accentColor, modifier = Modifier.size(24.dp))
+                MetricValueRow(
+                    value = measurement.bpm.toString(),
+                    unit = stringResource(R.string.unit_bpm),
+                    valueStyle = MaterialTheme.typography.displayMedium,
+                )
+                FrameTitle(
                     stringResource(
                         when (measurement.rhythm) {
                             EcgHeartRate.Rhythm.SINUS_LIKE -> R.string.ecg_rhythm_sinus_like
@@ -181,36 +210,49 @@ internal fun EcgScreen(onClose: () -> Unit) {
                         },
                     ),
                 )
+                EcgTrace(measurement)
+                FrameBody(stringResource(R.string.ecg_not_medical))
             }
-            EcgMeasurement.Phase.RECORDING -> Line(stringResource(R.string.measure_percent, (measurement.progress * 100).toInt()))
-            else -> Unit
+            EcgMeasurement.Phase.NO_RATE, EcgMeasurement.Phase.PERMISSION_DENIED, EcgMeasurement.Phase.FAILED -> {
+                Icon(
+                    Icons.Outlined.ErrorOutline,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(28.dp),
+                )
+                FrameTitle(stringResource(Measurement.ECG.label))
+                FrameBody(
+                    stringResource(
+                        when (phase) {
+                            EcgMeasurement.Phase.NO_RATE -> R.string.ecg_no_rate
+                            EcgMeasurement.Phase.PERMISSION_DENIED -> R.string.measure_error_additional_permission
+                            else -> R.string.measure_failed
+                        },
+                    ),
+                )
+            }
         }
-        if (measurement.phase != EcgMeasurement.Phase.FAILED) EcgTrace(measurement)
-        if (measurement.phase == EcgMeasurement.Phase.DONE || measurement.phase == EcgMeasurement.Phase.NO_RATE) {
-            Line(stringResource(R.string.ecg_not_medical))
-        }
-        Button(onClick = onClose) { Text(stringResource(R.string.measure_close)) }
     }
 }
 
 /** The last seconds of the trace, scaled to their own range. */
 @Composable
 private fun EcgTrace(measurement: EcgMeasurement) {
-    Canvas(Modifier.fillMaxWidth().height(48.dp)) {
+    val color = Measurement.ECG.accentColor
+    Canvas(Modifier.fillMaxWidth().height(40.dp)) {
         // Read here, so each delivery draws the trace again.
         measurement.traceVersion
         val trace = measurement.trace(TRACE_SECONDS)
         if (trace.size < 2) return@Canvas
         val low = trace.min()
         val span = (trace.max() - low).coerceAtLeast(1e-6f)
-        val step = TRACE_STEP
         var last: Offset? = null
-        for (i in trace.indices step step) {
+        for (i in trace.indices step TRACE_STEP) {
             val point = Offset(
                 x = size.width * i / (TRACE_SECONDS * EcgHeartRate.SAMPLE_RATE_HZ),
                 y = size.height * (1f - (trace[i] - low) / span),
             )
-            last?.let { drawLine(Color.Green, it, point, strokeWidth = 2f) }
+            last?.let { drawLine(color, it, point, strokeWidth = 2f) }
             last = point
         }
     }
@@ -220,45 +262,3 @@ private const val TRACE_SECONDS = 3
 
 /** Every third sample: 6 ms, still several points on an R wave. */
 private const val TRACE_STEP = 3
-
-/** The frame the two measurement screens share. */
-@Composable
-internal fun MeasureColumn(content: @Composable () -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) { content() }
-}
-
-/** A measurement the wearer watches: the screen stays on while it is shown. */
-@Composable
-internal fun KeepScreenOn() {
-    val view = LocalView.current
-    DisposableEffect(view) {
-        view.keepScreenOn = true
-        onDispose { view.keepScreenOn = false }
-    }
-}
-
-/**
- * Runs [content] once the watch holds the permission the platform checks for
- * its ECG and body composition trackers, asking for it first; [onRefused]
- * when the wearer says no.
- */
-@Composable
-internal fun AdditionalHealthDataGate(context: Context, onRefused: () -> Unit, content: @Composable () -> Unit) {
-    var granted by remember { mutableStateOf(WearPermissions.hasAdditionalHealthData(context)) }
-    val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { result ->
-        granted = result
-        if (!result) onRefused()
-    }
-    LaunchedEffect(Unit) {
-        if (!granted) ask.launch(WearPermissions.additionalHealthData)
-    }
-    if (granted) content()
-}

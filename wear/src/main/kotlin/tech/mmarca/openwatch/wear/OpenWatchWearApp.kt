@@ -18,6 +18,8 @@ import androidx.wear.compose.navigation.composable
 import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
 import tech.mmarca.openwatch.wear.features.dashboard.DashboardScreen
 import tech.mmarca.openwatch.wear.features.dashboard.TileEditorScreen
+import tech.mmarca.openwatch.wear.features.measure.BiaScreen
+import tech.mmarca.openwatch.wear.features.measure.EcgScreen
 import tech.mmarca.openwatch.wear.features.measure.MeasureListScreen
 import tech.mmarca.openwatch.wear.features.measure.Measurement
 import tech.mmarca.openwatch.wear.features.measure.MeasurementRoute

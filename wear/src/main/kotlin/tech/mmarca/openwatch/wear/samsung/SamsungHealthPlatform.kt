@@ -421,6 +421,15 @@ internal class BiaPoint(
 
     companion object {
         const val STATUS_OK = 0
+
+        /**
+         * "NV_NG": the platform's body composition library has no calibration (yet). The first point
+         * of every run carries it: the library handles that point before the calibration the sensor
+         * sends with it is set. A run whose points all carry it never got the calibration (the
+         * platform drops it when its library, loaded on the first use in the process, is not ready
+         * in time).
+         */
+        const val STATUS_NO_CALIBRATION = 2
         const val STATUS_WRIST_DETACHED = 4
         const val STATUS_FINGERS_DETACHED = 9
         const val STATUS_WRIST_LOOSE = 10

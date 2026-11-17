@@ -30,7 +30,10 @@ internal class WearOsBodyCompositionSync(
     class Outcome(val written: Int, val withheld: Set<String>)
 
     /** Null when no bonded watch matches. A failure other than a missing grant throws. */
-    suspend fun sync(device: BleSensorDevice, retry: WearOsNightSeriesSync.Retry): Outcome? {
+    suspend fun sync(device: BleSensorDevice, retry: WearOsNightSeriesSync.Retry): Outcome? =
+        pull(device, retry)?.also { WearOsLog.log("body composition: ${it.written} written") }
+
+    private suspend fun pull(device: BleSensorDevice, retry: WearOsNightSeriesSync.Retry): Outcome? {
         var since = cursors.bodyCompositionCursor(device.id)
         var granted: Set<String>? = null
         var written = 0
