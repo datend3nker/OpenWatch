@@ -10,9 +10,11 @@ import kotlinx.coroutines.launch
 import tech.mmarca.openlink.host.OpenLinkHost
 import tech.mmarca.openwatch.data.repository.LinkSettingsStore
 import tech.mmarca.openwatch.data.repository.contract.BodyProfilePreferences
+import tech.mmarca.openwatch.healthconnect.HealthConnectWrites
 
 /**
- * Sends the device list and local profile changes to the bound OpenLink clients, and keeps
+ * Sends the device list, local profile and settings changes, and what OpenWatch wrote to Health
+ * Connect (types and times, `onDataWritten`), to the bound OpenLink clients, and keeps
  * the streaming notification up while a client holds a session.
  */
 @Singleton
@@ -23,6 +25,7 @@ class OpenWatchLinkPublisher @Inject constructor(
     private val profileSync: LinkProfileSync,
     private val streamingNotifier: LinkStreamingNotifier,
     private val settings: LinkSettingsStore,
+    private val writes: HealthConnectWrites,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var started = false
@@ -40,6 +43,7 @@ class OpenWatchLinkPublisher @Inject constructor(
             }
         }
         scope.launch { settings.changes.collect { host.publishSettings(it) } }
+        scope.launch { writes.written.asDataWritten().collect { host.publishDataWritten(it) } }
         scope.launch { streamingNotifier.run() }
     }
 }

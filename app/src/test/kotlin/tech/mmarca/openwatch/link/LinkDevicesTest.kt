@@ -8,6 +8,9 @@ import tech.mmarca.openlink.OpenLinkConnection
 import tech.mmarca.openlink.OpenLinkDeviceKind
 import tech.mmarca.openlink.OpenLinkIntegration
 import tech.mmarca.openlink.OpenLinkSampleType
+import tech.mmarca.openlink.OpenLinkSyncResult
+import org.junit.Assert.assertNull
+import tech.mmarca.openwatch.features.watches.SyncAttempt
 import tech.mmarca.openwatch.devices.wearos.WearOsAppStatus
 import tech.mmarca.openwatch.devices.wearos.WearOsLinkSnapshot
 import tech.mmarca.openwatch.devices.xiaomi.ScaleListenerStatus
@@ -84,5 +87,24 @@ class LinkDevicesTest {
 
         assertEquals(OpenLinkIntegration.GARMIN, devices.single().integration)
         assertEquals(OpenLinkConnection.UNKNOWN, devices.single().connection)
+    }
+
+    @Test
+    fun `a watch carries how its last sync ended and when, one never tried carries neither`() {
+        val devices = linkDevices(
+            registered = listOf(device("venu", BleDeviceKind.WATCH, DeviceIntegration.GARMIN), device("pixel", BleDeviceKind.WATCH, DeviceIntegration.WEAROS)),
+            syncingDeviceId = null,
+            wearOs = emptyMap(),
+            scale = XiaomiScaleConfig(),
+            scaleStatus = ScaleListenerStatus.OFF,
+            attempts = mapOf("venu" to SyncAttempt(SyncAttempt.Outcome.PERMISSION_MISSING, now)),
+        )
+
+        val venu = devices.single { it.id == "venu" }
+        assertEquals(OpenLinkSyncResult.PERMISSION_MISSING, venu.lastSyncResult)
+        assertEquals(now.toEpochMilli(), venu.lastSyncAttemptAtMillis)
+        val pixel = devices.single { it.id == "pixel" }
+        assertNull(pixel.lastSyncResult)
+        assertNull(pixel.lastSyncAttemptAtMillis)
     }
 }

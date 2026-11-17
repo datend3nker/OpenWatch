@@ -88,8 +88,10 @@ class DeviceSyncControllerTest {
         integration = DeviceIntegration.GARMIN,
     )
 
+    private val attemptAt = java.time.Instant.parse("2026-11-17T07:00:00Z")
+
     private fun kotlinx.coroutines.test.TestScope.controller() =
-        DeviceSyncController(repo, port, backgroundScope)
+        DeviceSyncController(repo, port, backgroundScope) { attemptAt }
 
     @Test
     fun `a successful sync ends idle with the file count`() = runTest {
@@ -282,5 +284,29 @@ class DeviceSyncControllerTest {
         controller.syncDevice(watch.id, listenAfter = Duration.ZERO)!!.join()
 
         assertEquals(Duration.ZERO, port.seenListenAfter)
+    }
+
+    @Test
+    fun `each device keeps how its last sync ended and when`() = runTest {
+        val watch = addWatch()
+        val controller = controller()
+        assertNull(controller.lastAttempts.value[watch.id])
+
+        port.result = DeviceSyncResult.Failed("Could not connect: timeout")
+        controller.syncDevice(watch.id)!!.join()
+        assertEquals(SyncAttempt(SyncAttempt.Outcome.FAILED, attemptAt), controller.lastAttempts.value[watch.id])
+
+        port.result = DeviceSyncResult.Succeeded(3)
+        controller.syncDevice(watch.id)!!.join()
+        assertEquals(SyncAttempt.Outcome.SUCCEEDED, controller.lastAttempts.value[watch.id]?.outcome)
+    }
+
+    @Test
+    fun `a missing grant, as a failure or as a series left out, is a missing permission`() {
+        assertEquals(SyncAttempt.Outcome.PERMISSION_MISSING, SyncAttempt.outcomeOf(DeviceSyncResult.Failed(ScreenError.PermissionDenied)))
+        assertEquals(
+            SyncAttempt.Outcome.PERMISSION_MISSING,
+            SyncAttempt.outcomeOf(DeviceSyncResult.Succeeded(1, withheldPermissions = setOf("android.permission.health.WRITE_HEART_RATE"))),
+        )
     }
 }

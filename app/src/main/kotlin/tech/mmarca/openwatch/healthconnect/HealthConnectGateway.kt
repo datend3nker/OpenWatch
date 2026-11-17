@@ -49,13 +49,15 @@ class HealthConnectGateway(
     private val foregroundGate: AppForegroundGate,
     private val clientProvider: () -> HealthConnectClient,
     private val elapsedMillis: () -> Long = { System.nanoTime() / 1_000_000L },
+    private val writes: HealthConnectWrites = HealthConnectWrites(),
 ) {
     @Inject
     constructor(
         @ApplicationContext context: Context,
         syncGate: HealthConnectSyncGate,
         foregroundGate: AppForegroundGate,
-    ) : this(context, syncGate, foregroundGate, CachedClient(context))
+        writes: HealthConnectWrites,
+    ) : this(context, syncGate, foregroundGate, CachedClient(context), writes = writes)
 
     private val diagnostics = HealthConnectDiagnostics(context)
     private val availabilityService = HealthConnectAvailabilityService(
@@ -202,7 +204,11 @@ class HealthConnectGateway(
 
     suspend fun insertImportedRecords(records: List<Record>) {
         withSyncEnabled { clientProvider().insertRecords(records) }
+        writes.report(records)
     }
+
+    /** For a write that goes past [insertImportedRecords] ([ActivityRecordWriter]): reported as it is. */
+    internal fun reportWritten(records: List<Record>) = writes.report(records)
 
     /** Deletes this app's records of [recordType] by `clientRecordId`. Unknown ids are ignored. */
     suspend fun deleteImportedRecordsByClientIds(recordType: KClass<out Record>, clientRecordIds: List<String>) {

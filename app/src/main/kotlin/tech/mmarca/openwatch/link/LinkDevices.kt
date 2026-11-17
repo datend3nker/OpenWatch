@@ -15,6 +15,7 @@ import tech.mmarca.openlink.OpenLinkDevice
 import tech.mmarca.openlink.OpenLinkDeviceKind
 import tech.mmarca.openlink.OpenLinkIntegration
 import tech.mmarca.openlink.OpenLinkSampleType
+import tech.mmarca.openlink.OpenLinkSyncResult
 import tech.mmarca.openwatch.data.repository.BleDeviceRepository
 import tech.mmarca.openwatch.devices.wearos.WearOsAppStatus
 import tech.mmarca.openwatch.devices.wearos.WearOsLinkSnapshot
@@ -25,6 +26,7 @@ import tech.mmarca.openwatch.devices.xiaomi.XiaomiScaleListener
 import tech.mmarca.openwatch.devices.xiaomi.XiaomiScaleStore
 import tech.mmarca.openwatch.domain.model.BleSensorDevice
 import tech.mmarca.openwatch.features.watches.DeviceSyncController
+import tech.mmarca.openwatch.features.watches.SyncAttempt
 
 /**
  * The paired devices as OpenLink shows them: watches and bike computers from the device
@@ -42,13 +44,13 @@ class LinkDevices @Inject constructor(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     val devices: StateFlow<List<OpenLinkDevice>> = combine(
-        deviceRepository.devicesFlow,
+        deviceRepository.devicesFlow.combine(syncController.lastAttempts, ::Pair),
         syncController.state,
         wearOsLinkStore.snapshots,
         scaleStore.config,
         scaleListener.status,
-    ) { registered, sync, wearOs, scale, scaleStatus ->
-        linkDevices(registered, sync.syncingDeviceId, wearOs, scale, scaleStatus)
+    ) { (registered, attempts), sync, wearOs, scale, scaleStatus ->
+        linkDevices(registered, sync.syncingDeviceId, wearOs, scale, scaleStatus, attempts)
     }.distinctUntilChanged().stateIn(scope, SharingStarted.Eagerly, emptyList())
 }
 
@@ -59,6 +61,7 @@ internal fun linkDevices(
     wearOs: Map<String, WearOsLinkSnapshot>,
     scale: XiaomiScaleConfig,
     scaleStatus: ScaleListenerStatus,
+    attempts: Map<String, SyncAttempt> = emptyMap(),
 ): List<OpenLinkDevice> {
     val watches = registered.filter { it.isWatch || it.isBikeComputer }.mapNotNull { device ->
         val integration = when {
@@ -89,6 +92,8 @@ internal fun linkDevices(
             supportsSync = true,
             supportsRecording = true,
             liveSampleTypes = live,
+            lastSyncResult = attempts[device.id]?.outcome?.let(::linkSyncResult),
+            lastSyncAttemptAtMillis = attempts[device.id]?.at?.toEpochMilli(),
         )
     }
     val scaleDevice = scale.address?.takeIf { scale.isSetUp }?.let { address ->
@@ -101,6 +106,13 @@ internal fun linkDevices(
         )
     }
     return watches + listOfNotNull(scaleDevice)
+}
+
+private fun linkSyncResult(outcome: SyncAttempt.Outcome): OpenLinkSyncResult = when (outcome) {
+    SyncAttempt.Outcome.SUCCEEDED -> OpenLinkSyncResult.SUCCEEDED
+    SyncAttempt.Outcome.INTERRUPTED -> OpenLinkSyncResult.INTERRUPTED
+    SyncAttempt.Outcome.PERMISSION_MISSING -> OpenLinkSyncResult.PERMISSION_MISSING
+    SyncAttempt.Outcome.FAILED -> OpenLinkSyncResult.FAILED
 }
 
 internal const val SCALE_ID_PREFIX = "xiaomi-scale:"

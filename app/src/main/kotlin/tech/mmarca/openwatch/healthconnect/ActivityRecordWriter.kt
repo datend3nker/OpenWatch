@@ -46,6 +46,8 @@ import tech.mmarca.openwatch.domain.model.importSessionClientRecordId
  * Only the write half lives here; OpenWatch reads no activity back.
  */
 class ActivityRecordWriter(
+    /** OpenWatch: told what was written once an insert went through. */
+    private val onInserted: (List<Record>) -> Unit = {},
     private val client: () -> HealthConnectClient,
 ) {
     suspend fun writeActivityEntry(request: ActivityWriteRequest): String = withContext(Dispatchers.IO) {
@@ -102,7 +104,7 @@ class ActivityRecordWriter(
 
 
     private suspend fun insertShrinkingRoutes(records: List<Record>): List<String> =
-        withShrunkRoutes(records) { client().insertRecords(it).recordIdsList }
+        withShrunkRoutes(records) { written -> client().insertRecords(written).recordIdsList.also { onInserted(written) } }
 
     private suspend fun <T> withShrunkRoutes(
         records: List<Record>,

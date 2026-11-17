@@ -1,5 +1,6 @@
 package tech.mmarca.openwatch.features.watches
 
+import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.time.Duration
@@ -61,6 +62,7 @@ class DeviceSyncController(
     private val deviceRepository: BleDeviceRepository,
     private val syncPort: DeviceSyncPort,
     private val scope: CoroutineScope,
+    private val clock: () -> Instant = Instant::now,
 ) {
 
     @Inject
@@ -75,6 +77,11 @@ class DeviceSyncController(
 
     private val _state = MutableStateFlow(DeviceSyncUiState())
     val state: StateFlow<DeviceSyncUiState> = _state.asStateFlow()
+
+    private val _lastAttempts = MutableStateFlow<Map<String, SyncAttempt>>(emptyMap())
+
+    /** How each device's last sync in this process ended, by device id; a device not tried yet is absent. */
+    val lastAttempts: StateFlow<Map<String, SyncAttempt>> = _lastAttempts.asStateFlow()
 
     companion object {
         /**
@@ -127,10 +134,12 @@ class DeviceSyncController(
                 )
             } catch (error: CancellationException) {
                 _state.value = DeviceSyncUiState()
+                recordAttempt(deviceId, SyncAttempt.Outcome.INTERRUPTED)
                 throw error
             } catch (error: Exception) {
                 DeviceSyncResult.Failed(error.message ?: error.toString())
             }
+            recordAttempt(deviceId, SyncAttempt.outcomeOf(result))
             _state.value = when (result) {
                 is DeviceSyncResult.Succeeded -> DeviceSyncUiState(
                     phase = DeviceSyncPhase.COMPLETE,
@@ -154,9 +163,29 @@ class DeviceSyncController(
         }
     }
 
+    private fun recordAttempt(deviceId: String, outcome: SyncAttempt.Outcome) {
+        _lastAttempts.update { it + (deviceId to SyncAttempt(outcome, clock())) }
+    }
+
     /** Clears the finished/failed banner so the row goes back to normal. */
     fun clear() {
         if (_state.value.isSyncing) return
         _state.value = DeviceSyncUiState()
+    }
+}
+
+/** How a device's sync ended, and when. */
+data class SyncAttempt(val outcome: Outcome, val at: Instant) {
+
+    enum class Outcome { SUCCEEDED, INTERRUPTED, PERMISSION_MISSING, FAILED }
+
+    companion object {
+        /** A run that left a series out for want of a grant counts as a missing permission. */
+        fun outcomeOf(result: DeviceSyncResult): Outcome = when (result) {
+            is DeviceSyncResult.Succeeded ->
+                if (result.unwritten.isEmpty() && result.withheldPermissions.isEmpty()) Outcome.SUCCEEDED else Outcome.PERMISSION_MISSING
+            is DeviceSyncResult.Failed ->
+                if (result.error == ScreenError.PermissionDenied) Outcome.PERMISSION_MISSING else Outcome.FAILED
+        }
     }
 }
