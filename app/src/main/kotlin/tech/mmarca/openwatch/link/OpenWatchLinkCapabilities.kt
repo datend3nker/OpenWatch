@@ -2,6 +2,7 @@ package tech.mmarca.openwatch.link
 
 import javax.inject.Inject
 import javax.inject.Singleton
+import tech.mmarca.openlink.OpenLinkSettings
 import tech.mmarca.openlink.OpenLinkDevice
 import tech.mmarca.openlink.OpenLinkDeviceKind
 import tech.mmarca.openlink.OpenLinkLiveSubscription
@@ -9,6 +10,7 @@ import tech.mmarca.openlink.OpenLinkProfile
 import tech.mmarca.openlink.OpenLinkRecordingRequest
 import tech.mmarca.openlink.host.OpenLinkCaller
 import tech.mmarca.openlink.host.OpenLinkHostCapabilities
+import tech.mmarca.openwatch.data.repository.LinkSettingsStore
 import tech.mmarca.openwatch.features.watches.DeviceSyncController
 
 /** What OpenWatch offers over OpenLink. Every method returns at once; see [OpenLinkHostCapabilities]. */
@@ -18,12 +20,20 @@ class OpenWatchLinkCapabilities @Inject constructor(
     private val devices: LinkDevices,
     private val syncController: DeviceSyncController,
     private val sessions: LinkLiveSessions,
+    private val settings: LinkSettingsStore,
 ) : OpenLinkHostCapabilities {
 
     override fun profile(): OpenLinkProfile = profileSync.current()
 
     override fun setProfile(caller: OpenLinkCaller, profile: OpenLinkProfile) {
         profileSync.accept(profile)
+    }
+
+    override fun settings(): OpenLinkSettings = settings.current()
+
+    /** The store keeps the newer per key and publishes what changed, which tells the other clients. */
+    override fun setSettings(caller: OpenLinkCaller, settings: OpenLinkSettings) {
+        this.settings.accept(settings)
     }
 
     override fun devices(): List<OpenLinkDevice> = devices.devices.value

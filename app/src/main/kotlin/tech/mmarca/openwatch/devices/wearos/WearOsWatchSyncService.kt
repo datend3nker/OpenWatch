@@ -29,6 +29,7 @@ import tech.mmarca.openwatch.core.presentation.isPermissionFailure
 import tech.mmarca.openwatch.data.repository.ImportedRecordRepository
 import tech.mmarca.openwatch.data.repository.BleDeviceRepository
 import tech.mmarca.openwatch.data.repository.BodyProfileProvider
+import tech.mmarca.openwatch.data.repository.LinkSettingsStore
 import tech.mmarca.openwatch.data.repository.OpenWatchPreferences
 import tech.mmarca.openwatch.devices.core.sync.DeviceSyncPhase
 import tech.mmarca.openwatch.devices.core.sync.DeviceSyncPort
@@ -108,6 +109,8 @@ class WearOsWatchSyncService(
      * read, since the zones take no weight and a sync with nothing to estimate reads none.
      */
     private val zoneProfile: suspend () -> BodyProfile = { BodyProfile() },
+    /** The daily goals the connected apps share, as watch settings. */
+    private val goals: suspend () -> List<Pair<String, String>> = { emptyList() },
 ) : DeviceSyncPort {
 
     @Inject
@@ -120,6 +123,7 @@ class WearOsWatchSyncService(
         linkStore: WearOsLinkStore,
         bodyProfile: BodyProfileProvider,
         preferences: OpenWatchPreferences,
+        linkSettings: LinkSettingsStore,
     ) : this(
         nodePort, cursors, importRepository, bleDeviceRepository, healthConnect, linkStore,
         // Strict by construction: a failed Health Connect read throws, it never passes for "no weight".
@@ -129,6 +133,7 @@ class WearOsWatchSyncService(
         { preferences.writeSleepBesideOthers },
         { bodyProfile.resolve() },
         { bodyProfile.declared() },
+        { WatchGoals.tokens(linkSettings.current()) },
     )
 
     private val syncMutex = Mutex()
@@ -163,7 +168,7 @@ class WearOsWatchSyncService(
         zone = zone,
     )
 
-    private val zones by lazy { WearOsZoneSync(healthConnect, nodePort, zoneProfile, profile, clock, zone) }
+    private val zones by lazy { WearOsZoneSync(healthConnect, nodePort, zoneProfile, profile, clock, zone, goals) }
 
     private val linkRetry = object : WearOsNightSeriesSync.Retry {
         override suspend fun <T> run(pull: suspend () -> T): T = retryOnce(pull)

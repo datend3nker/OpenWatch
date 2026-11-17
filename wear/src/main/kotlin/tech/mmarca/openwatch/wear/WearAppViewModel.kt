@@ -28,12 +28,22 @@ class WearAppViewModel(application: Application) : AndroidViewModel(application)
     private val initial = WearUiState()
 
     val uiState: StateFlow<WearUiState> =
-        combine(capabilities, entryLog.entries, readings.metrics()) { capabilities, entries, readings ->
-            val metrics = readings.metrics
+        combine(capabilities, entryLog.entries, readings.metrics(), WearSettings.changes) { capabilities, entries, readings, _ ->
+            // The goals are the wearer's, kept in the watch's settings; the rings read them from here.
+            val goals = mapOf(
+                MetricTile.STEPS to WearSettings.stepGoal(application),
+                MetricTile.ACTIVE_CALORIES to WearSettings.activeKcalGoal(application),
+            )
+            val metrics = readings.metrics.mapValues { (tile, state) ->
+                goals[tile]?.let { state.copy(goal = it.toDouble()) } ?: state
+            }
             initial.copy(
                 metrics = metrics,
                 sleepStages = readings.sleepStages,
-                preferences = initial.preferences.copy(zones = WearSettings.zoneBasis(application)),
+                preferences = initial.preferences.copy(
+                    zones = WearSettings.zoneBasis(application),
+                    waterGoalMl = WearSettings.waterGoalMl(application),
+                ),
                 capabilities = capabilities,
                 // Until the probe answers, keep offering what was on offer before.
                 availableMetrics = if (capabilities.probed) capabilities.availableMetrics(metrics.keys) else initial.availableMetrics,

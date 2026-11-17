@@ -500,6 +500,7 @@
     <string name="connected_apps_unblock">Unblock</string>
     <string name="connected_apps_capability_devices">See your watches and scale, their battery and last sync, and start a sync</string>
     <string name="connected_apps_capability_profile">Share your body profile (birth year, sex, height, weight) with OpenWatch, both ways</string>
+    <string name="connected_apps_capability_settings">Share your goals, limits and display choices with OpenWatch, both ways</string>
     <string name="connected_apps_capability_recording">Keep your watch streaming while it records an activity</string>
     <string name="connected_apps_capability_live">Receive your watch\'s heart rate and steps while it records</string>
     <string name="hc_setup_missing_title">Not granted yet:</string>
@@ -542,5 +543,10 @@
     <string name="watch_settings_hrv_samsung_ppg">On, with the platform\'s raw pulse signal, as chosen on the watch. Switching off goes back to the watch\'s own sensor.</string>
     <string name="watch_settings_hrv_source_explained">Off: HRV from the raw pulse signal, every interval. On: the platform\'s beat intervals; today about 60 % of them get lost, so fewer nights have a value.</string>
     <string name="watch_settings_skin_explained">Skin temperature at the wrist while you sleep, a reading a minute. Little power; nothing else changes.</string>
+    <string name="watch_settings_goals_explained">Daily goals the watch draws its rings against. Apps connected to OpenWatch with the settings capability share them, both ways; a goal left empty shows no ring.</string>
+    <string name="watch_settings_goal_steps">Step goal</string>
+    <string name="watch_settings_goal_active_kcal">Active energy goal (kcal)</string>
+    <string name="watch_settings_goal_water_ml">Water goal (ml)</string>
+    <string name="watch_settings_goal_none">No goal</string>
     <string name="watch_settings_spo2_explained">Blood oxygen at most once an hour while you sleep, about 15 s of red light. A few mAh a night; skipped when the arm moves.</string>
 </resources>

@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import tech.mmarca.openwatch.data.repository.BleDeviceRepository
+import tech.mmarca.openwatch.data.repository.LinkSettingsStore
 import kotlinx.coroutines.withContext
 import tech.mmarca.openwatch.R
 import tech.mmarca.openwatch.core.presentation.ScreenError
@@ -42,6 +43,7 @@ import tech.mmarca.openwatch.devices.wearos.WearOsCompanionManager
 import tech.mmarca.openwatch.devices.wearos.WearOsCompanionStatus
 import tech.mmarca.openwatch.devices.wearos.WearOsLinkSnapshot
 import tech.mmarca.openwatch.devices.wearos.WearOsLinkStore
+import tech.mmarca.openwatch.devices.wearos.WatchGoals
 import tech.mmarca.openwatch.domain.model.BleSensorDevice
 import tech.mmarca.openwatch.navigation.WATCH_DEVICE_ID_ARG
 import tech.mmarca.openwatch.sensors.ble.BleSensorCoordinator
@@ -128,6 +130,7 @@ data class WatchDeviceUiState(
 class WatchDeviceViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val deviceRepository: BleDeviceRepository,
+    private val linkSettings: LinkSettingsStore,
     private val stateStore: GarminDeviceStateStore,
     private val syncController: DeviceSyncController,
     private val autoSyncScheduler: WatchAutoSyncScheduler,
@@ -418,6 +421,11 @@ class WatchDeviceViewModel @Inject constructor(
             try {
                 wearOsCompanionManager.setWatchSetting(device.address, device.bluetoothName, key, value)
                 val held = wearOsCompanionManager.watchSettings(device.address, device.bluetoothName)
+                // A goal the watch took is shared with the connected apps; one it refused, or an older
+                // watch app without goals, changes nothing there.
+                if (held?.get(key) == value) {
+                    WatchGoals.toSetting(key, value)?.let { (goal, numbers) -> linkSettings.setLocal(goal, numbers) }
+                }
                 localState.update { it.copy(watchSettings = held, watchSettingsError = null) }
             } catch (e: Exception) {
                 localState.update { it.copy(watchSettingsError = e.toScreenError(logTag = TAG, logMessage = "Watch setting change failed")) }

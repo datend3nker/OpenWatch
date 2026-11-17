@@ -18,6 +18,10 @@ internal data class WatchPreferences(
     val heightCm: Int? = null,
     val birthYear: Int? = null,
     val female: Boolean? = null,
+    /** The daily goals the rings are drawn against; null for no step or energy goal. */
+    val stepGoal: Int? = WearSettings.DEFAULT_STEP_GOAL,
+    val activeKcalGoal: Int? = WearSettings.DEFAULT_ACTIVE_KCAL_GOAL,
+    val waterGoalMl: Int = WearSettings.DEFAULT_WATER_GOAL_ML,
 )
 
 /** What the watch can offer, which the phone reads but cannot change. */
@@ -46,6 +50,9 @@ internal object WearPreferenceCodec {
         Preferences.BODY_HEIGHT to (preferences.heightCm ?: 0).toString(),
         Preferences.BIRTH_YEAR to (preferences.birthYear ?: 0).toString(),
         Preferences.SEX to when (preferences.female) { true -> "f"; false -> "m"; null -> "0" },
+        Preferences.GOAL_STEPS to (preferences.stepGoal ?: 0).toString(),
+        Preferences.GOAL_ACTIVE_KCAL to (preferences.activeKcalGoal ?: 0).toString(),
+        Preferences.GOAL_WATER_ML to preferences.waterGoalMl.toString(),
         Preferences.SAMSUNG_AVAILABLE to flag(abilities.samsung),
         Preferences.SKIN_GRANTED to flag(abilities.skinGranted),
         Preferences.SPO2_GRANTED to flag(abilities.spo2Granted),
@@ -70,6 +77,9 @@ internal object WearPreferenceCodec {
         Preferences.BODY_WEIGHT -> bpm(value, WEIGHT_HECTOGRAM_RANGE)?.let { preferences.copy(weightHectograms = it.takeIf { v -> v > 0 }) }
         Preferences.BODY_HEIGHT -> bpm(value, HEIGHT_CM_RANGE)?.let { preferences.copy(heightCm = it.takeIf { v -> v > 0 }) }
         Preferences.BIRTH_YEAR -> bpm(value, BIRTH_YEAR_RANGE)?.let { preferences.copy(birthYear = it.takeIf { v -> v > 0 }) }
+        Preferences.GOAL_STEPS -> bpm(value, STEP_GOAL_RANGE)?.let { preferences.copy(stepGoal = it.takeIf { v -> v > 0 }) }
+        Preferences.GOAL_ACTIVE_KCAL -> bpm(value, ACTIVE_KCAL_GOAL_RANGE)?.let { preferences.copy(activeKcalGoal = it.takeIf { v -> v > 0 }) }
+        Preferences.GOAL_WATER_ML -> value.toIntOrNull()?.takeIf { it in WATER_GOAL_RANGE }?.let { preferences.copy(waterGoalMl = it) }
         Preferences.SEX -> when (value) {
             "f" -> preferences.copy(female = true)
             "m" -> preferences.copy(female = false)
@@ -84,6 +94,10 @@ internal object WearPreferenceCodec {
     private val BIRTH_YEAR_RANGE = 1900..2100
     private val MAX_HEART_RATE_RANGE = 100..230
     private val RESTING_HEART_RATE_RANGE = 25..120
+    // As wide as OpenLink's keys, so a goal another app shares always fits.
+    private val STEP_GOAL_RANGE = 100..100_000
+    private val ACTIVE_KCAL_GOAL_RANGE = 10..5_000
+    private val WATER_GOAL_RANGE = 100..10_000
 
     /** A whole number within [range], or `0` for none; null for anything else. */
     private fun bpm(value: String, range: IntRange): Int? = value.toIntOrNull()?.takeIf { it == 0 || it in range }

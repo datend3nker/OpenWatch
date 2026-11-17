@@ -10,6 +10,7 @@ import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
 import android.content.BroadcastReceiver
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -22,6 +23,9 @@ import android.os.SystemClock
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.wear.ongoing.OngoingActivity
+import androidx.wear.tiles.TileService
+import androidx.wear.watchface.complications.datasource.ComplicationDataSourceUpdateRequester
+import tech.mmarca.openwatch.wear.tiles.QuickLogTileService
 import androidx.wear.ongoing.Status
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -427,8 +431,19 @@ class WearAppService : Service() {
 
     /** A setting the phone changed: stored, and the recorders follow as for one changed on the watch. Link thread. */
     private fun applyPhonePreference(key: String, value: String): Boolean {
-        val next = WearPreferenceCodec.apply(WearSettings.read(this), abilities(), key, value) ?: return false
+        val held = WearSettings.read(this)
+        val next = WearPreferenceCodec.apply(held, abilities(), key, value) ?: return false
+        // The phone sends its shared settings with every sync: one that changes nothing resets nothing.
+        if (next == held) return true
         WearSettings.write(this, next)
+        if (next.stepGoal != held.stepGoal) {
+            ComplicationDataSourceUpdateRequester
+                .create(this, ComponentName(this, StepsComplicationService::class.java))
+                .requestUpdateAll()
+        }
+        if (next.waterGoalMl != held.waterGoalMl) {
+            TileService.getUpdater(this).requestUpdate(QuickLogTileService::class.java)
+        }
         mainHandler.post {
             recorder.resetFallBack()
             nightHrv.resetFallBack()

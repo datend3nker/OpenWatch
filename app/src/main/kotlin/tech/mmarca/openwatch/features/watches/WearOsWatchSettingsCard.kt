@@ -4,15 +4,23 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
 import tech.mmarca.openwatch.R
+import tech.mmarca.openwatch.devices.wearos.WatchGoals
 import tech.mmarca.openwatch.core.presentation.ScreenError
 import tech.mmarca.openwatch.ui.components.OpenWatchCard
 import tech.mmarca.openwatch.ui.theme.Spacing
@@ -67,6 +75,18 @@ internal fun WearOsWatchSettingsCard(
                 checked = settings[Preferences.HEART_RATE_DAY] == "600",
                 enabled = !busy,
             ) { onSet(Preferences.HEART_RATE_DAY, if (it) "600" else "10") }
+            // An older watch app reports no goals and would refuse them.
+            if (settings.containsKey(Preferences.GOAL_STEPS)) {
+                Text(
+                    text = stringResource(R.string.watch_settings_goals_explained),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.sm),
+                )
+                GoalField(stringResource(R.string.watch_settings_goal_steps), Preferences.GOAL_STEPS, settings, allowNone = true, enabled = !busy, onSet)
+                GoalField(stringResource(R.string.watch_settings_goal_active_kcal), Preferences.GOAL_ACTIVE_KCAL, settings, allowNone = true, enabled = !busy, onSet)
+                GoalField(stringResource(R.string.watch_settings_goal_water_ml), Preferences.GOAL_WATER_ML, settings, allowNone = false, enabled = !busy, onSet)
+            }
             if (on(Preferences.SAMSUNG_AVAILABLE)) {
                 Text(
                     text = stringResource(R.string.watch_settings_samsung_note),
@@ -125,6 +145,46 @@ internal fun WearOsWatchSettingsCard(
         }
     }
 }
+
+/**
+ * One daily goal as the watch holds it (`0` for none): a number to type and a button to send it.
+ * An empty field sends `0` where [allowNone] says the goal may be switched off; a number outside
+ * the goal's range cannot be sent.
+ */
+@Composable
+private fun GoalField(
+    title: String,
+    key: String,
+    settings: Map<String, String>,
+    allowNone: Boolean,
+    enabled: Boolean,
+    onSet: (String, String) -> Unit,
+) {
+    val held = settings[key]
+    val shown = held?.takeIf { it != "0" }.orEmpty()
+    var text by remember(held) { mutableStateOf(shown) }
+    val value = text.ifEmpty { if (allowNone) "0" else null }?.takeIf { WatchGoals.toSetting(key, it) != null }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.lg, vertical = Spacing.xs),
+    ) {
+        OutlinedTextField(
+            value = text,
+            onValueChange = { text = it.filter(Char::isDigit).take(MAX_GOAL_DIGITS) },
+            label = { Text(title) },
+            placeholder = if (allowNone) ({ Text(stringResource(R.string.watch_settings_goal_none)) }) else null,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            singleLine = true,
+            enabled = enabled,
+            modifier = Modifier.weight(1f),
+        )
+        TextButton(onClick = { value?.let { onSet(key, it) } }, enabled = enabled && value != null && text != shown) {
+            Text(stringResource(R.string.action_save))
+        }
+    }
+}
+
+private const val MAX_GOAL_DIGITS = 6
 
 @Composable
 private fun SettingSwitch(title: String, body: String?, checked: Boolean, enabled: Boolean, onChange: (Boolean) -> Unit) {

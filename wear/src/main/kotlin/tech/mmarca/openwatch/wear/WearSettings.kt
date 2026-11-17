@@ -1,8 +1,12 @@
 package tech.mmarca.openwatch.wear
 
 import android.content.Context
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import tech.mmarca.healthcalculations.insights.HeartRateZones
 import tech.mmarca.openwatch.wearlink.HeartRateInterval
+import tech.mmarca.openwatch.wearlink.WearLinkPreferences
 
 /**
  * The choices made on the watch's status screen, kept on the watch.
@@ -33,6 +37,9 @@ internal object WearSettings {
     private const val KEY_HEART_RATE_DAY = "heart_rate_day"
     private const val KEY_HEART_RATE_SOURCE = "heart_rate_source"
     private const val KEY_HRV_SOURCE = "hrv_source"
+    private const val KEY_GOAL_STEPS = "goal_steps"
+    private const val KEY_GOAL_KCAL = "goal_kcal"
+    private const val KEY_GOAL_WATER = "goal_water"
     private const val KEY_SKIN_TEMPERATURE = "skin_temperature"
     private const val KEY_SPO2 = "spo2_at_night"
     private const val KEY_MAX_HEART_RATE = "max_heart_rate"
@@ -138,6 +145,25 @@ internal object WearSettings {
             .apply()
     }
 
+    /** The daily goals until the phone sets others. */
+    const val DEFAULT_STEP_GOAL = 8_000
+    const val DEFAULT_ACTIVE_KCAL_GOAL = 400
+    const val DEFAULT_WATER_GOAL_ML = WearLinkPreferences.DEFAULT_WATER_GOAL_ML
+
+    /** The daily step goal; null when the wearer switched it off. */
+    fun stepGoal(context: Context): Int? = goal(context, KEY_GOAL_STEPS, DEFAULT_STEP_GOAL)
+
+    /** The daily active energy goal in kcal; null when the wearer switched it off. */
+    fun activeKcalGoal(context: Context): Int? = goal(context, KEY_GOAL_KCAL, DEFAULT_ACTIVE_KCAL_GOAL)
+
+    fun waterGoalMl(context: Context): Int = goal(context, KEY_GOAL_WATER, DEFAULT_WATER_GOAL_ML) ?: DEFAULT_WATER_GOAL_ML
+
+    /** A stored goal, [default] before the phone set one, null for a stored `0`. */
+    private fun goal(context: Context, key: String, default: Int): Int? {
+        val prefs = prefs(context)
+        return if (prefs.contains(key)) prefs.getInt(key, 0).takeIf { it > 0 } else default
+    }
+
     /** Every setting in one value, for the phone's `GET_PREF`. */
     fun read(context: Context): WatchPreferences = WatchPreferences(
         heartRateDay = heartRateDay(context),
@@ -151,7 +177,15 @@ internal object WearSettings {
         heightCm = positive(context, KEY_HEIGHT_CM),
         birthYear = positive(context, KEY_BIRTH_YEAR),
         female = when (prefs(context).getString(KEY_SEX, null)) { "f" -> true; "m" -> false; else -> null },
+        stepGoal = stepGoal(context),
+        activeKcalGoal = activeKcalGoal(context),
+        waterGoalMl = waterGoalMl(context),
     )
+
+    private val writes = MutableStateFlow(0)
+
+    /** Counts [write]s in this process, so a screen that shows a setting reads it again. */
+    val changes: StateFlow<Int> = writes.asStateFlow()
 
     /** Stores every setting of [preferences], for the phone's `SET_PREF`. */
     fun write(context: Context, preferences: WatchPreferences) {
@@ -167,7 +201,11 @@ internal object WearSettings {
             .putInt(KEY_HEIGHT_CM, preferences.heightCm ?: 0)
             .putInt(KEY_BIRTH_YEAR, preferences.birthYear ?: 0)
             .putString(KEY_SEX, when (preferences.female) { true -> "f"; false -> "m"; null -> null })
+            .putInt(KEY_GOAL_STEPS, preferences.stepGoal ?: 0)
+            .putInt(KEY_GOAL_KCAL, preferences.activeKcalGoal ?: 0)
+            .putInt(KEY_GOAL_WATER, preferences.waterGoalMl)
             .apply()
+        writes.value++
     }
 
     private fun source(context: Context, key: String): Source {

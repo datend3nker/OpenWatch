@@ -86,7 +86,7 @@ class HeartRateComplicationService : MetricComplicationService() {
     }
 }
 
-/** Today's steps, as a number or as their share of a daily goal of [GOAL_STEPS]. */
+/** Today's steps, as a number or as their share of the daily step goal ([WearSettings.stepGoal]). */
 class StepsComplicationService : MetricComplicationService() {
     override val iconRes: Int = R.drawable.ic_metric_steps
 
@@ -102,14 +102,9 @@ class StepsComplicationService : MetricComplicationService() {
         val description = "${getString(R.string.metric_steps)}: $text"
         return when (type) {
             ComplicationType.SHORT_TEXT -> shortText(text, getString(R.string.unit_steps), description, validUntil)
-            ComplicationType.RANGED_VALUE -> range(steps, GOAL_STEPS, text, description, validUntil)
+            ComplicationType.RANGED_VALUE -> WearSettings.stepGoal(this)?.let { range(steps, it.toDouble(), text, description, validUntil) }
             else -> null
         }
-    }
-
-    private companion object {
-        /** The phone app's default daily step goal. */
-        const val GOAL_STEPS = 8_000.0
     }
 }
 

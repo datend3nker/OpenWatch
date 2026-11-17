@@ -37,6 +37,7 @@ import tech.mmarca.openwatch.wear.R
 import tech.mmarca.openwatch.wear.UnitSystem
 import tech.mmarca.openwatch.wear.MetricTile
 import tech.mmarca.openwatch.wear.DisplayPreferences
+import tech.mmarca.openwatch.wear.WearSettings
 import tech.mmarca.openwatch.wear.WearRoutes
 import tech.mmarca.openwatch.wear.features.measure.Measurement
 import tech.mmarca.openwatch.wear.features.quicklog.EntryLog
@@ -123,7 +124,7 @@ class QuickLogTileService : TileService() {
     ): LayoutElement {
         val preferences = DisplayPreferences()
         val unitSystem = UnitSystem.METRIC
-        val goal = preferences.waterGoalMl.toDouble()
+        val goal = WearSettings.waterGoalMl(this@QuickLogTileService).toDouble()
         val hydration = HydrationColor.toArgb()
         val unit = context.getString(R.string.unit_ml)
 

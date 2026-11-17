@@ -47,7 +47,7 @@ data class DisplayPreferences(
     /** What the heart rate zones rest on, from the phone; null until it sends a maximum, and then no zones are drawn. */
     val zones: ZoneBasis? = null,
     /** Daily water goal in millilitres. */
-    val waterGoalMl: Int = 2_000,
+    val waterGoalMl: Int = WearSettings.DEFAULT_WATER_GOAL_ML,
 )
 
 data class RecordingUiState(

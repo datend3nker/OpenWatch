@@ -171,6 +171,7 @@ internal fun sessionLine(status: LinkSessionStatus): String {
 
 internal fun capabilityLabel(capability: String): Int = when (capability) {
     OpenLink.CAPABILITY_PROFILE -> R.string.connected_apps_capability_profile
+    OpenLink.CAPABILITY_SETTINGS -> R.string.connected_apps_capability_settings
     OpenLink.CAPABILITY_DEVICES -> R.string.connected_apps_capability_devices
     OpenLink.CAPABILITY_RECORDING -> R.string.connected_apps_capability_recording
     else -> R.string.connected_apps_capability_live

@@ -104,6 +104,7 @@ class ConnectedAppsViewModel @Inject constructor(
         val CapabilityOrder = listOf(
             OpenLink.CAPABILITY_DEVICES,
             OpenLink.CAPABILITY_PROFILE,
+            OpenLink.CAPABILITY_SETTINGS,
             OpenLink.CAPABILITY_RECORDING,
             OpenLink.CAPABILITY_LIVE,
         )

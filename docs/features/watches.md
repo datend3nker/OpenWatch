@@ -101,6 +101,7 @@ The phone writes each workout as an exercise session with its route and pauses, 
 
 The watch app's screen and the phone's *Watch settings* card (on the watch's device screen) show the same settings, kept on the watch:
 
+- **Daily goals**: a step goal, an active energy goal and a water goal, which the watch draws its rings against (8 000 steps, 400 kcal and 2 000 ml until others are set; a step or energy goal left empty shows no ring). Set them on the watch's device screen in OpenWatch. An app connected over OpenLink with the `settings` capability shares them both ways: the newer change per goal wins, and the phone sends them to the watch with each sync.
 - **Heart rate outside bedtime mode**: every 10 seconds (the default) or power save, about every 10 minutes. Bedtime mode and a sleep hold always measure every 10 seconds.
 - **Sleep: wake lock or synced wake-ups**: how a sleep hold keeps every minute. Synced wake-ups let the processor sleep between the heart rate sensor's wake-ups and empty every sensor then; they work only with the heart rate from the sensor.
 - **Samsung sources** (only on a watch with the Samsung Health Platform): heart rate and HRV from the platform, skin temperature and SpO2 at night. They need the platform's Developer Mode; without it the platform asks Samsung about this app. A Samsung source that fails falls back to the sensor until a setting changes. Skin temperature and SpO2 also need a permission that only the watch can grant: switch them on once on the watch.

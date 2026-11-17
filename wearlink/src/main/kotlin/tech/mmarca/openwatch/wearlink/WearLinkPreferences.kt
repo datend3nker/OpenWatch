@@ -35,6 +35,17 @@ object WearLinkPreferences {
     const val BIRTH_YEAR: String = "birth_year"
     const val SEX: String = "sex"
 
+    /**
+     * The daily goals the watch draws its rings against: steps, active energy in kcal, water in ml.
+     * `0` is no step or energy goal; a water goal is always there.
+     */
+    const val GOAL_STEPS: String = "goal_steps"
+    const val GOAL_ACTIVE_KCAL: String = "goal_kcal"
+    const val GOAL_WATER_ML: String = "goal_water"
+
+    /** The water goal until another is set. */
+    const val DEFAULT_WATER_GOAL_ML: Int = 2_000
+
     /** Read only: whether the watch has the Samsung Health Platform. [OFF] / [ON]. */
     const val SAMSUNG_AVAILABLE: String = "samsung"
 

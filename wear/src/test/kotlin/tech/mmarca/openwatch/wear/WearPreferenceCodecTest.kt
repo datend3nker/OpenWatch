@@ -22,7 +22,7 @@ class WearPreferenceCodecTest {
         assertEquals(
             mapOf(
                 "hr_day" to "10", "hr_source" to "sensor", "hrv_source" to "sensor",
-                "skin" to "0", "spo2" to "0", "hr_max" to "0", "hr_rest" to "0", "body_hg" to "0", "body_cm" to "0", "birth_year" to "0", "sex" to "0", "samsung" to "1", "skin_granted" to "1", "spo2_granted" to "0",
+                "skin" to "0", "spo2" to "0", "hr_max" to "0", "hr_rest" to "0", "body_hg" to "0", "body_cm" to "0", "birth_year" to "0", "sex" to "0", "goal_steps" to "8000", "goal_kcal" to "400", "goal_water" to "2000", "samsung" to "1", "skin_granted" to "1", "spo2_granted" to "0",
             ),
             WearPreferenceCodec.encode(defaults, samsung),
         )
@@ -66,5 +66,27 @@ class WearPreferenceCodecTest {
         assertEquals("samsung_ppg", WearPreferenceCodec.encode(chosen, granted)["hrv_source"])
         assertNull(WearPreferenceCodec.apply(defaults, samsung, "hrv_source", "samsung_ppg"))
         assertNull(WearPreferenceCodec.apply(defaults, granted, "hr_source", "samsung_ppg"))
+    }
+
+    @Test
+    fun `the daily goals take whole numbers in range, and 0 switches a step or energy goal off`() {
+        val steps = WearPreferenceCodec.apply(defaults, pixel, "goal_steps", "12000")!!
+        assertEquals(12_000, steps.stepGoal)
+        assertEquals("12000", WearPreferenceCodec.encode(steps, pixel)["goal_steps"])
+        assertEquals(null, WearPreferenceCodec.apply(steps, pixel, "goal_steps", "0")!!.stepGoal)
+        assertEquals("0", WearPreferenceCodec.encode(WearPreferenceCodec.apply(steps, pixel, "goal_steps", "0")!!, pixel)["goal_steps"])
+        assertEquals(500, WearPreferenceCodec.apply(defaults, pixel, "goal_kcal", "500")!!.activeKcalGoal)
+        assertEquals(2_500, WearPreferenceCodec.apply(defaults, pixel, "goal_water", "2500")!!.waterGoalMl)
+        assertNull(WearPreferenceCodec.apply(defaults, pixel, "goal_steps", "50"))
+        assertNull(WearPreferenceCodec.apply(defaults, pixel, "goal_kcal", "x"))
+        assertNull(WearPreferenceCodec.apply(defaults, pixel, "goal_water", "0"))
+    }
+
+    @Test
+    fun `the goals start as the defaults`() {
+        val tokens = WearPreferenceCodec.encode(defaults, pixel)
+        assertEquals("8000", tokens["goal_steps"])
+        assertEquals("400", tokens["goal_kcal"])
+        assertEquals("2000", tokens["goal_water"])
     }
 }

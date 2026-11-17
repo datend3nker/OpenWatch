@@ -8,6 +8,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import tech.mmarca.openlink.host.OpenLinkHost
+import tech.mmarca.openwatch.data.repository.LinkSettingsStore
 import tech.mmarca.openwatch.data.repository.contract.BodyProfilePreferences
 
 /**
@@ -21,6 +22,7 @@ class OpenWatchLinkPublisher @Inject constructor(
     private val preferences: BodyProfilePreferences,
     private val profileSync: LinkProfileSync,
     private val streamingNotifier: LinkStreamingNotifier,
+    private val settings: LinkSettingsStore,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var started = false
@@ -37,6 +39,7 @@ class OpenWatchLinkPublisher @Inject constructor(
                 profileSync.onLocalProfile(profile)?.let(host::publishProfile)
             }
         }
+        scope.launch { settings.changes.collect { host.publishSettings(it) } }
         scope.launch { streamingNotifier.run() }
     }
 }

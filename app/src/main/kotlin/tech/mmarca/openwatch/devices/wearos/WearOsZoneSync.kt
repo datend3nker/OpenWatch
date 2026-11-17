@@ -24,6 +24,7 @@ import tech.mmarca.openwatch.wearlink.WearLinkPreferences as Preferences
  * (weight, height, birth year, sex), from [energyProfile]. Extras: a failed
  * read skips only what it was for (a missing weight grant still sends the
  * zones), an old watch app skips both, and neither ever fails the sync.
+ * Also the daily goals the connected apps share ([goals]).
  */
 internal class WearOsZoneSync(
     private val healthConnect: HealthConnectGateway,
@@ -32,6 +33,8 @@ internal class WearOsZoneSync(
     private val energyProfile: suspend () -> BodyProfile,
     private val clock: () -> Instant,
     private val zone: () -> ZoneId,
+    /** The daily goals the connected apps share, as watch settings; a goal never set is not in it. */
+    private val goals: suspend () -> List<Pair<String, String>> = { emptyList() },
 ) {
 
     suspend fun sync(device: BleSensorDevice, retry: WearOsNightSeriesSync.Retry) {
@@ -53,10 +56,11 @@ internal class WearOsZoneSync(
                 Preferences.SEX to when (body.sex) { BiologicalSex.FEMALE -> "f"; BiologicalSex.MALE -> "m"; null -> "0" },
             )
         }
-        for ((key, value) in zones.orEmpty() + body.orEmpty()) {
+        val shared = read("goals") { goals() }
+        for ((key, value) in zones.orEmpty() + body.orEmpty() + shared.orEmpty()) {
             retry.run { nodePort.setWatchSetting(device.address, device.bluetoothName, key, value) }
         }
-        if (zones != null || body != null) WearOsLog.log("zones and profile: sent")
+        if (zones != null || body != null || !shared.isNullOrEmpty()) WearOsLog.log("zones, profile and goals: sent")
     }
 
     /** The settings [settings] reads; null, logged by [what], when a read fails. */

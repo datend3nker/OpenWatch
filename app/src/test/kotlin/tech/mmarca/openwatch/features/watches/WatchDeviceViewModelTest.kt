@@ -23,6 +23,8 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import tech.mmarca.openwatch.data.repository.BleDeviceRepository
+import tech.mmarca.openwatch.data.repository.LinkSettingsStore
+import tech.mmarca.openlink.OpenLinkSettingKeys
 import tech.mmarca.openwatch.devices.FakeSharedPreferences
 import tech.mmarca.openwatch.devices.core.pairing.WatchBondResult
 import tech.mmarca.openwatch.devices.core.sync.AutoSyncInterval
@@ -133,9 +135,11 @@ class WatchDeviceViewModelTest {
     private fun viewModel(
         deviceId: String,
         wearOsCompanionManager: WearOsCompanionManager = mockk(relaxed = true),
+        linkSettings: LinkSettingsStore = mockk(relaxed = true),
     ) = WatchDeviceViewModel(
         savedStateHandle = SavedStateHandle(mapOf(WATCH_DEVICE_ID_ARG to deviceId)),
         deviceRepository = repo,
+        linkSettings = linkSettings,
         stateStore = stateStore,
         syncController = mockk<DeviceSyncController>().also {
             every { it.state } returns MutableStateFlow(DeviceSyncUiState())
@@ -422,5 +426,33 @@ class WatchDeviceViewModelTest {
         coVerify(exactly = 1) {
             manager.checkWearOsWatchStatus("7F:12:34:56:78:9A", "Galaxy Watch8 (3A3B) LE")
         }
+    }
+
+    @Test
+    fun `a goal is shared with the connected apps only once the watch holds it`() = runTest {
+        val watch = repo.addDevice(
+            displayName = "Galaxy Watch8",
+            address = "4A:F1:89:49:3C:85",
+            bluetoothName = "Galaxy Watch8 (89FZ)",
+            capabilities = emptySet(),
+            kind = BleDeviceKind.WATCH,
+            integration = DeviceIntegration.WEAROS,
+        )
+        val manager = mockk<WearOsCompanionManager>(relaxed = true)
+        val linkSettings = mockk<LinkSettingsStore>(relaxed = true)
+        val vm = viewModel(watch.id, manager, linkSettings)
+        backgroundScope.launch { vm.uiState.collect { } }
+        runCurrent()
+
+        // An older watch app, or one that refused the value, reports the goal it had.
+        coEvery { manager.watchSettings(any(), any()) } returns mapOf("goal_steps" to "8000")
+        vm.setWatchSetting("goal_steps", "12000")
+        runCurrent()
+        verify(exactly = 0) { linkSettings.setLocal(any(), any()) }
+
+        coEvery { manager.watchSettings(any(), any()) } returns mapOf("goal_steps" to "12000")
+        vm.setWatchSetting("goal_steps", "12000")
+        runCurrent()
+        verify(exactly = 1) { linkSettings.setLocal(OpenLinkSettingKeys.GOAL_STEPS, listOf(12_000.0)) }
     }
 }
