@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 import tech.mmarca.openwatch.R
 import tech.mmarca.openwatch.core.presentation.ScreenError
+import tech.mmarca.openwatch.devices.core.sync.DeviceSyncOutcome
 import tech.mmarca.openwatch.wearlink.WearLinkProtocol
 
 class WearOsLinkFailureTest {
@@ -28,5 +29,19 @@ class WearOsLinkFailureTest {
             assertEquals(ScreenError.Text(status.messageRes()), failure.toScreenError())
         }
         assertEquals(R.string.settings_watch_wearos_status_pending, WearOsAppStatus.PENDING_CONFIRMATION.messageRes())
+    }
+
+    @Test
+    fun `a watch out of reach is disconnected, one lost after a write is an interruption`() {
+        assertEquals(DeviceSyncOutcome.DISCONNECTED, WearOsLinkFailure.NoAnswer().toSyncFailure(hasWritten = false).outcome)
+        assertEquals(DeviceSyncOutcome.DISCONNECTED, WearOsLinkFailure.BluetoothOff().toSyncFailure(hasWritten = true).outcome)
+        assertEquals(DeviceSyncOutcome.DISCONNECTED, WearOsLinkFailure.NotBonded().toSyncFailure(hasWritten = false).outcome)
+        assertEquals(DeviceSyncOutcome.INTERRUPTED, WearOsLinkFailure.NoAnswer().toSyncFailure(hasWritten = true).outcome)
+        assertEquals(
+            ScreenError.Text(R.string.settings_watch_wearos_fail_partial),
+            WearOsLinkFailure.NoAnswer().toSyncFailure(hasWritten = true).error,
+        )
+        assertEquals(DeviceSyncOutcome.FAILED, WearOsLinkFailure.Protocol("garbage").toSyncFailure(hasWritten = false).outcome)
+        assertEquals(DeviceSyncOutcome.FAILED, WearOsLinkFailure.Refused(WearLinkProtocol.ErrorCode.BUSY).toSyncFailure(hasWritten = false).outcome)
     }
 }

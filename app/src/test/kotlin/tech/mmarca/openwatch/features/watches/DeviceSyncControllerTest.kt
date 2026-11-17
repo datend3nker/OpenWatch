@@ -17,6 +17,7 @@ import org.junit.Test
 import tech.mmarca.openwatch.core.presentation.ScreenError
 import tech.mmarca.openwatch.data.repository.BleDeviceRepository
 import tech.mmarca.openwatch.devices.FakeSharedPreferences
+import tech.mmarca.openwatch.devices.core.sync.DeviceSyncOutcome
 import tech.mmarca.openwatch.devices.core.sync.DeviceSyncPhase
 import tech.mmarca.openwatch.devices.core.sync.DeviceSyncPort
 import tech.mmarca.openwatch.devices.core.sync.DeviceSyncProgress
@@ -294,19 +295,33 @@ class DeviceSyncControllerTest {
 
         port.result = DeviceSyncResult.Failed("Could not connect: timeout")
         controller.syncDevice(watch.id)!!.join()
-        assertEquals(SyncAttempt(SyncAttempt.Outcome.FAILED, attemptAt), controller.lastAttempts.value[watch.id])
+        assertEquals(SyncAttempt(DeviceSyncOutcome.FAILED, attemptAt), controller.lastAttempts.value[watch.id])
 
         port.result = DeviceSyncResult.Succeeded(3)
         controller.syncDevice(watch.id)!!.join()
-        assertEquals(SyncAttempt.Outcome.SUCCEEDED, controller.lastAttempts.value[watch.id]?.outcome)
+        assertEquals(DeviceSyncOutcome.SUCCEEDED, controller.lastAttempts.value[watch.id]?.outcome)
     }
 
     @Test
-    fun `a missing grant, as a failure or as a series left out, is a missing permission`() {
-        assertEquals(SyncAttempt.Outcome.PERMISSION_MISSING, SyncAttempt.outcomeOf(DeviceSyncResult.Failed(ScreenError.PermissionDenied)))
+    fun `a port's outcome is kept, and a grant that throws out of the port is a missing permission`() = runTest {
+        val watch = addWatch()
+        val controller = controller()
+
+        port.result = DeviceSyncResult.Failed("Imported 2 file(s), but sync was interrupted: timeout", DeviceSyncOutcome.INTERRUPTED)
+        controller.syncDevice(watch.id)!!.join()
+        assertEquals(DeviceSyncOutcome.INTERRUPTED, controller.lastAttempts.value[watch.id]?.outcome)
+
+        port.thrown = SecurityException("Caller doesn't have android.permission.health.WRITE_STEPS")
+        controller.syncDevice(watch.id)!!.join()
+        assertEquals(DeviceSyncOutcome.PERMISSION_MISSING, controller.lastAttempts.value[watch.id]?.outcome)
+    }
+
+    @Test
+    fun `a series left out for want of a grant is a missing permission`() {
         assertEquals(
-            SyncAttempt.Outcome.PERMISSION_MISSING,
-            SyncAttempt.outcomeOf(DeviceSyncResult.Succeeded(1, withheldPermissions = setOf("android.permission.health.WRITE_HEART_RATE"))),
+            DeviceSyncOutcome.PERMISSION_MISSING,
+            DeviceSyncResult.Succeeded(1, withheldPermissions = setOf("android.permission.health.WRITE_HEART_RATE")).outcome,
         )
+        assertEquals(DeviceSyncOutcome.SUCCEEDED, DeviceSyncResult.Succeeded(1).outcome)
     }
 }

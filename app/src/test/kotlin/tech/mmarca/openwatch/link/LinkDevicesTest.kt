@@ -11,6 +11,7 @@ import tech.mmarca.openlink.OpenLinkSampleType
 import tech.mmarca.openlink.OpenLinkSyncResult
 import org.junit.Assert.assertNull
 import tech.mmarca.openwatch.features.watches.SyncAttempt
+import tech.mmarca.openwatch.devices.core.sync.DeviceSyncOutcome
 import tech.mmarca.openwatch.devices.wearos.WearOsAppStatus
 import tech.mmarca.openwatch.devices.wearos.WearOsLinkSnapshot
 import tech.mmarca.openwatch.devices.xiaomi.ScaleListenerStatus
@@ -97,7 +98,7 @@ class LinkDevicesTest {
             wearOs = emptyMap(),
             scale = XiaomiScaleConfig(),
             scaleStatus = ScaleListenerStatus.OFF,
-            attempts = mapOf("venu" to SyncAttempt(SyncAttempt.Outcome.PERMISSION_MISSING, now)),
+            attempts = mapOf("venu" to SyncAttempt(DeviceSyncOutcome.PERMISSION_MISSING, now)),
         )
 
         val venu = devices.single { it.id == "venu" }

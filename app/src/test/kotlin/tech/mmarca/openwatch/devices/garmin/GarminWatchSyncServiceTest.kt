@@ -24,6 +24,7 @@ import org.junit.rules.TemporaryFolder
 import tech.mmarca.openwatch.data.repository.BleDeviceRepository
 import tech.mmarca.openwatch.devices.FakeSharedPreferences
 import tech.mmarca.openwatch.devices.core.sync.DeviceSyncProgress
+import tech.mmarca.openwatch.devices.core.sync.DeviceSyncOutcome
 import tech.mmarca.openwatch.devices.core.sync.DeviceSyncResult
 import tech.mmarca.openwatch.domain.model.BleDeviceKind
 import tech.mmarca.openwatch.domain.model.BleSensorDevice
@@ -134,7 +135,7 @@ class GarminWatchSyncServiceTest {
 
         val result = service().sync(WATCH, Duration.ZERO, null)
 
-        assertEquals(DeviceSyncResult.Failed("Imported 1 file(s), but sync was interrupted: the link dropped"), result)
+        assertEquals(DeviceSyncResult.Failed("Imported 1 file(s), but sync was interrupted: the link dropped", DeviceSyncOutcome.INTERRUPTED), result)
         // The files did land, so they are imported before the failure is reported.
         coVerify(exactly = 1) { downloadImport.import(WATCH.id, pullResult.files) }
     }
@@ -145,7 +146,7 @@ class GarminWatchSyncServiceTest {
 
         val result = service().sync(WATCH, Duration.ZERO, null)
 
-        assertEquals(DeviceSyncResult.Failed("the watch went away"), result)
+        assertEquals(DeviceSyncResult.Failed("the watch went away", DeviceSyncOutcome.DISCONNECTED), result)
     }
 
     @Test

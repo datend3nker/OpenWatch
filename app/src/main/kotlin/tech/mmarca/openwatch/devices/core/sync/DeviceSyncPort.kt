@@ -17,8 +17,18 @@ data class DeviceSyncProgress(
 /** A series a sync left out for want of a Health Connect grant, so the screen can say which. */
 enum class UnwrittenSeries { STEPS, WALKING_ENERGY, RESTING_HEART_RATE, HEART_RATE_VARIABILITY, RESPIRATORY_RATE, OXYGEN_SATURATION, SKIN_TEMPERATURE, WORKOUTS, BODY_COMPOSITION }
 
+/**
+ * How a sync ended, as an app connected over OpenLink learns it. [INTERRUPTED]: the link dropped
+ * after part was written; [DISCONNECTED]: the device was not reachable; [PERMISSION_MISSING]: a
+ * grant (Bluetooth or a Health Connect write) was missing, also for a series left out.
+ */
+enum class DeviceSyncOutcome { SUCCEEDED, INTERRUPTED, PERMISSION_MISSING, DISCONNECTED, FAILED }
+
 /** The outcome of a whole sync-and-persist run. */
 sealed class DeviceSyncResult {
+
+    /** How the run ended, for OpenLink's `lastSyncResult`. */
+    abstract val outcome: DeviceSyncOutcome
 
     /**
      * The sync finished with [fileCount] files, or samples for an
@@ -38,15 +48,22 @@ sealed class DeviceSyncResult {
         val weightReadWithheld: Boolean = false,
         val unwritten: Set<UnwrittenSeries> = emptySet(),
         val withheldPermissions: Set<String> = emptySet(),
-    ) : DeviceSyncResult()
+    ) : DeviceSyncResult() {
+        override val outcome: DeviceSyncOutcome
+            get() = if (unwritten.isEmpty() && withheldPermissions.isEmpty()) DeviceSyncOutcome.SUCCEEDED else DeviceSyncOutcome.PERMISSION_MISSING
+    }
 
     /**
      * The sync failed. [error] is what the screen shows; an integration with
      * a sentence already in hand passes it as a [ScreenError.Message], one
      * with a typed cause passes a [ScreenError.Text] or [ScreenError.PermissionDenied].
      */
-    data class Failed(val error: ScreenError) : DeviceSyncResult() {
-        constructor(message: String) : this(ScreenError.Message(message))
+    data class Failed(
+        val error: ScreenError,
+        /** What kind of failure, which only the port can tell; [DeviceSyncOutcome.FAILED] when it cannot. */
+        override val outcome: DeviceSyncOutcome = DeviceSyncOutcome.FAILED,
+    ) : DeviceSyncResult() {
+        constructor(message: String, outcome: DeviceSyncOutcome = DeviceSyncOutcome.FAILED) : this(ScreenError.Message(message), outcome)
 
         /** The rendered sentence, for a message-shaped error; the resource id's name otherwise. */
         val message: String

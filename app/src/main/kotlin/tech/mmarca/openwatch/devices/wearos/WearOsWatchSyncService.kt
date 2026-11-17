@@ -31,6 +31,7 @@ import tech.mmarca.openwatch.data.repository.BleDeviceRepository
 import tech.mmarca.openwatch.data.repository.BodyProfileProvider
 import tech.mmarca.openwatch.data.repository.LinkSettingsStore
 import tech.mmarca.openwatch.data.repository.OpenWatchPreferences
+import tech.mmarca.openwatch.devices.core.sync.DeviceSyncOutcome
 import tech.mmarca.openwatch.devices.core.sync.DeviceSyncPhase
 import tech.mmarca.openwatch.devices.core.sync.DeviceSyncPort
 import tech.mmarca.openwatch.devices.core.sync.DeviceSyncProgress
@@ -218,17 +219,11 @@ class WearOsWatchSyncService(
         } catch (failure: WearOsLinkFailure) {
             linkStore.record(device.id, WearOsLinkSnapshot(failure.toAppStatus(), checkedAt = clock()))
             WearOsLog.log("sync failed: ${failure.message}")
-            return DeviceSyncResult.Failed(
-                if (progress.hasWritten && failure is WearOsLinkFailure.NoAnswer) {
-                    ScreenError.Text(R.string.settings_watch_wearos_fail_partial)
-                } else {
-                    failure.toScreenError()
-                },
-            )
+            return failure.toSyncFailure(progress.hasWritten)
         } catch (error: SecurityException) {
-            return DeviceSyncResult.Failed(permissionError(error))
+            return permissionFailure(error)
         } catch (error: Exception) {
-            if (error.isPermissionFailure()) return DeviceSyncResult.Failed(permissionError(error))
+            if (error.isPermissionFailure()) return permissionFailure(error)
             WearOsLog.log("sync failed: $error")
             return DeviceSyncResult.Failed(ScreenError.Text(R.string.settings_watch_wearos_fail_generic))
         }
@@ -726,16 +721,18 @@ class WearOsWatchSyncService(
 
     private fun notPaired(device: BleSensorDevice): DeviceSyncResult.Failed {
         linkStore.record(device.id, WearOsLinkSnapshot(WearOsAppStatus.NOT_PAIRED, checkedAt = clock()))
-        return DeviceSyncResult.Failed(ScreenError.Text(R.string.settings_watch_wearos_bt_not_paired))
+        return WearOsLinkFailure.NotBonded().toSyncFailure(hasWritten = false)
     }
 
     /** The Bluetooth grant shows as the grant affordance; a Health Connect refusal names the write. */
-    private fun permissionError(error: Throwable): ScreenError =
+    private fun permissionFailure(error: Throwable) = DeviceSyncResult.Failed(
         if (error is SecurityException && error.message?.contains("BLUETOOTH", ignoreCase = true) == true) {
             ScreenError.PermissionDenied
         } else {
             ScreenError.Text(R.string.settings_watch_wearos_fail_health_connect)
-        }
+        },
+        DeviceSyncOutcome.PERMISSION_MISSING,
+    )
 
     private class Holdings(val foreign: Boolean, val own: Boolean)
 

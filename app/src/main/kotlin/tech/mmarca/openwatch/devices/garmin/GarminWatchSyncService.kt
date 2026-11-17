@@ -25,6 +25,8 @@ import tech.mmarca.openwatch.devices.core.RadioLeaseBusyException
 import tech.mmarca.openwatch.devices.core.RadioLeaseOwner
 import tech.mmarca.openwatch.devices.core.sync.DeviceSyncPort
 import tech.mmarca.openwatch.devices.core.sync.DeviceSyncProgress
+import tech.mmarca.openwatch.core.presentation.isPermissionFailure
+import tech.mmarca.openwatch.devices.core.sync.DeviceSyncOutcome
 import tech.mmarca.openwatch.devices.core.sync.DeviceSyncResult
 import tech.mmarca.openwatch.devices.core.withRadioLease
 import tech.mmarca.openwatch.domain.model.BleSensorDevice
@@ -118,7 +120,7 @@ class GarminWatchSyncService @Inject constructor(
         } catch (error: Exception) {
             // The write path is down. Pulling more now would only queue more behind it.
             GarminLog.log("[GARMIN-SYNC] pending import failed: $error")
-            return DeviceSyncResult.Failed(describe(error))
+            return failure(error)
         }
 
         val pull = try {
@@ -131,7 +133,7 @@ class GarminWatchSyncService @Inject constructor(
             return DeviceSyncResult.Failed("The watch is busy (${error.holder}). Try again in a moment.")
         } catch (error: Exception) {
             GarminLog.log("[GARMIN-SYNC] failed: $error")
-            return DeviceSyncResult.Failed(describe(error))
+            return failure(error)
         }
 
         val downloaded = pull.files
@@ -146,7 +148,7 @@ class GarminWatchSyncService @Inject constructor(
                 // Reaching here means the write path itself is unavailable.
                 GarminLog.log("[GARMIN-SYNC] import failed: $error")
                 // Nothing reached Health Connect, so the next run must fetch again.
-                return DeviceSyncResult.Failed(describe(error))
+                return failure(error)
             }
         }
 
@@ -155,6 +157,8 @@ class GarminWatchSyncService @Inject constructor(
             return DeviceSyncResult.Failed(
                 if (downloaded.isEmpty()) incompleteReason
                 else "Imported ${downloaded.size} file(s), but sync was interrupted: $incompleteReason",
+                // Nothing landed: the watch went away before it sent anything.
+                if (downloaded.isEmpty()) DeviceSyncOutcome.DISCONNECTED else DeviceSyncOutcome.INTERRUPTED,
             )
         }
 
@@ -234,6 +238,12 @@ class GarminWatchSyncService @Inject constructor(
                 "The next sync fetches them again."
         else -> null
     }
+
+    /** A missing grant (Health Connect's or Bluetooth's) is told apart; the rest is a failure. */
+    private fun failure(error: Throwable): DeviceSyncResult.Failed = DeviceSyncResult.Failed(
+        describe(error),
+        if (error.isPermissionFailure()) DeviceSyncOutcome.PERMISSION_MISSING else DeviceSyncOutcome.FAILED,
+    )
 
     private fun describe(error: Throwable): String {
         if (error is GarminGattClientException) {

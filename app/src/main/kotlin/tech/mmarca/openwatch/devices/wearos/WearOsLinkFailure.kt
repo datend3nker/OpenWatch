@@ -2,6 +2,8 @@ package tech.mmarca.openwatch.devices.wearos
 
 import tech.mmarca.openwatch.R
 import tech.mmarca.openwatch.core.presentation.ScreenError
+import tech.mmarca.openwatch.devices.core.sync.DeviceSyncOutcome
+import tech.mmarca.openwatch.devices.core.sync.DeviceSyncResult
 import tech.mmarca.openwatch.wearlink.WearLinkProtocol
 
 /**
@@ -53,6 +55,14 @@ sealed class WearOsLinkFailure(message: String, cause: Throwable? = null) : Exce
 
     /** The sentence the screen shows for this failure. */
     fun toScreenError(): ScreenError = ScreenError.Text(toAppStatus().messageRes())
+
+    /** A sync that ended on this failure; [hasWritten]: part of it reached Health Connect first. */
+    fun toSyncFailure(hasWritten: Boolean): DeviceSyncResult.Failed = when {
+        hasWritten && this is NoAnswer ->
+            DeviceSyncResult.Failed(ScreenError.Text(R.string.settings_watch_wearos_fail_partial), DeviceSyncOutcome.INTERRUPTED)
+        this is NoAnswer || this is BluetoothOff || this is NotBonded -> DeviceSyncResult.Failed(toScreenError(), DeviceSyncOutcome.DISCONNECTED)
+        else -> DeviceSyncResult.Failed(toScreenError())
+    }
 }
 
 /** The sentence for a status that is not success. */

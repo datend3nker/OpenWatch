@@ -28,6 +28,7 @@ import androidx.health.connect.client.records.SpeedRecord
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.StepsCadenceRecord
 import androidx.health.connect.client.records.TotalCaloriesBurnedRecord
+import androidx.health.connect.client.records.Vo2MaxRecord
 import androidx.health.connect.client.records.WeightRecord
 import androidx.health.connect.client.records.WheelchairPushesRecord
 import androidx.health.connect.client.records.Record
@@ -50,13 +51,12 @@ data class HealthConnectWrite(val recordTypes: Set<String>, val from: Instant, v
 
     companion object {
         /** Null for no records. The names survive R8: `proguard-rules.pro` keeps them. */
-        fun of(records: List<Record>): HealthConnectWrite? {
+        fun of(records: List<Record>, now: Instant = Instant.now()): HealthConnectWrite? {
             if (records.isEmpty()) return null
             val types = records.mapNotNullTo(mutableSetOf()) { it::class.simpleName?.removeSuffix("Record") }
             val times = records.flatMap(::timesOf)
             if (types.isEmpty()) return null
             // A type missing from timesOf still counts; alone, it covers the moment of the write.
-            val now = Instant.now()
             return HealthConnectWrite(types, times.minOrNull() ?: now, times.maxOrNull() ?: now)
         }
 
@@ -94,6 +94,7 @@ data class HealthConnectWrite(val recordTypes: Set<String>, val from: Instant, v
             is OxygenSaturationRecord -> listOf(record.time)
             is RespiratoryRateRecord -> listOf(record.time)
             is RestingHeartRateRecord -> listOf(record.time)
+            is Vo2MaxRecord -> listOf(record.time)
             is WeightRecord -> listOf(record.time)
             else -> emptyList()
         }

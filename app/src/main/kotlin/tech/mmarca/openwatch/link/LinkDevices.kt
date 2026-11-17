@@ -17,6 +17,7 @@ import tech.mmarca.openlink.OpenLinkIntegration
 import tech.mmarca.openlink.OpenLinkSampleType
 import tech.mmarca.openlink.OpenLinkSyncResult
 import tech.mmarca.openwatch.data.repository.BleDeviceRepository
+import tech.mmarca.openwatch.devices.core.sync.DeviceSyncOutcome
 import tech.mmarca.openwatch.devices.wearos.WearOsAppStatus
 import tech.mmarca.openwatch.devices.wearos.WearOsLinkSnapshot
 import tech.mmarca.openwatch.devices.wearos.WearOsLinkStore
@@ -108,11 +109,12 @@ internal fun linkDevices(
     return watches + listOfNotNull(scaleDevice)
 }
 
-private fun linkSyncResult(outcome: SyncAttempt.Outcome): OpenLinkSyncResult = when (outcome) {
-    SyncAttempt.Outcome.SUCCEEDED -> OpenLinkSyncResult.SUCCEEDED
-    SyncAttempt.Outcome.INTERRUPTED -> OpenLinkSyncResult.INTERRUPTED
-    SyncAttempt.Outcome.PERMISSION_MISSING -> OpenLinkSyncResult.PERMISSION_MISSING
-    SyncAttempt.Outcome.FAILED -> OpenLinkSyncResult.FAILED
+private fun linkSyncResult(outcome: DeviceSyncOutcome): OpenLinkSyncResult = when (outcome) {
+    DeviceSyncOutcome.SUCCEEDED -> OpenLinkSyncResult.SUCCEEDED
+    DeviceSyncOutcome.INTERRUPTED -> OpenLinkSyncResult.INTERRUPTED
+    DeviceSyncOutcome.PERMISSION_MISSING -> OpenLinkSyncResult.PERMISSION_MISSING
+    DeviceSyncOutcome.DISCONNECTED -> OpenLinkSyncResult.DISCONNECTED
+    DeviceSyncOutcome.FAILED -> OpenLinkSyncResult.FAILED
 }
 
 internal const val SCALE_ID_PREFIX = "xiaomi-scale:"
