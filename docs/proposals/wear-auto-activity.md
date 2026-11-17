@@ -34,7 +34,7 @@ Per clock minute, for a week: steps, height climbed, heart rate, and the movemen
 A detector over the last minutes of the watch's own minute rows, run when a minute row closes:
 
 - **Walking/running/hiking**: step cadence above a floor for N consecutive minutes (cadence tells walk from run; a run is clearly higher). Heart rate above resting by a margin makes it stronger evidence, but is not required (a slow walk).
-- **Cycling**: a steady heart rate raise **with a still wrist and few steps**; the steps stay low while the heart rate rises. Needs the barometer or later GPS to say outdoors from a spin bike.
+- **Cycling**: a steady heart rate raise **with a still wrist and few steps**; the steps stay low while the heart rate rises. Needs the barometer or later GPS to say outdoors from a spin bike. Built without the wrist and the barometer (`ActivityDetector.detectRide`): ten minutes, one miss allowed, each with fewer than 30 steps and a median heart rate at or above zone 3's lower bound (the ACSM's moderate intensity, so only once the phone sent a maximum heart rate), offered as a ride without GPS. Power save, a sample every ten minutes, sees no ride. Not tuned on data yet.
 - **Ending**: the cadence or heart rate drops below the floor for a few minutes.
 - **First action**: a notification ("Looks like a walk, 12 min. Keep recording?") and the minutes already recorded are credited to the workout from the minute rows, as Fitbit and Samsung do. The numbers (N, the cadence floor, the margin) are not set here: they come from the data below, not from a paper.
 

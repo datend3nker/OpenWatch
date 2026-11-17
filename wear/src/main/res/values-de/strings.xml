@@ -335,5 +335,7 @@
     <string name="detected_walk">Sieht nach einem Spaziergang aus</string>
     <string name="detected_run">Sieht nach einem Lauf aus</string>
     <string name="detected_body">%1$d min, %2$d Schritte. Aufzeichnen?</string>
+    <string name="detected_ride">Sieht nach einer Radfahrt aus</string>
+    <string name="detected_ride_body">%1$d min bei etwa %2$d Schlägen pro Minute. Aufzeichnen?</string>
     <string name="detected_start">Aufzeichnen</string>
 </resources>

@@ -168,6 +168,8 @@
     <string name="detected_walk">Looks like a walk</string>
     <string name="detected_run">Looks like a run</string>
     <string name="detected_body">%1$d min, %2$d steps. Record it?</string>
+    <string name="detected_ride">Looks like a ride</string>
+    <string name="detected_ride_body">%1$d min at about %2$d bpm. Record it?</string>
     <string name="detected_start">Record</string>
     <string name="metric_body_fat">Body fat</string>
     <string name="metric_respiratory_rate">Breathing rate</string>
