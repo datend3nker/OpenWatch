@@ -32,6 +32,7 @@ import tech.mmarca.openlink.OpenLinkDevice
 import tech.mmarca.openlink.OpenLinkIntegration
 import tech.mmarca.openlink.OpenLinkLiveBatch
 import tech.mmarca.openlink.OpenLinkLiveSubscription
+import tech.mmarca.openlink.OpenLinkRecordingMode
 import tech.mmarca.openlink.OpenLinkRecordingPhase
 import tech.mmarca.openlink.OpenLinkRecordingRequest
 import tech.mmarca.openlink.OpenLinkRecordingState
@@ -81,8 +82,18 @@ class LinkLiveSessions @Inject constructor(
     /** Each running session's devices and live types, by session id. */
     val activity: StateFlow<Map<String, LinkSessionActivity>> = _activity.asStateFlow()
 
+    /** [owner]: the caller's package, which a recorded workout's report names. */
     @Synchronized
-    fun startRecording(request: OpenLinkRecordingRequest) {
+    fun startRecording(request: OpenLinkRecordingRequest, owner: String) {
+        // A recorded workout (version 2) has the watch record and OpenWatch save it; neither watch
+        // can do that yet, so it is refused rather than streamed, which would save nothing.
+        if (request.mode == OpenLinkRecordingMode.RECORD) {
+            publish(
+                OpenLinkRecordingState(request.sessionId, request.deviceId.orEmpty(), OpenLinkRecordingPhase.FAILED, OpenLinkRecordingState.REASON_UNSUPPORTED, now()),
+                owner,
+            )
+            return
+        }
         if (request.sessionId in recordings) return
         val targets = targets(request.deviceId)
         if (targets.isEmpty()) {
@@ -230,8 +241,8 @@ class LinkLiveSessions @Inject constructor(
         )
     }
 
-    private fun publish(state: OpenLinkRecordingState) {
-        runCatching { host.get().publishRecordingState(state) }.onFailure { Log.w(TAG, "publishing a session state failed", it) }
+    private fun publish(state: OpenLinkRecordingState, owner: String? = null) {
+        runCatching { host.get().publishRecordingState(state, owner) }.onFailure { Log.w(TAG, "publishing a session state failed", it) }
     }
 
     private fun now(): Long = System.currentTimeMillis()
