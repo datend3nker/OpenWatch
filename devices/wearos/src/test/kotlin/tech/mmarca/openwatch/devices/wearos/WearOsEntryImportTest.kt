@@ -4,10 +4,12 @@ import androidx.health.connect.client.records.BloodGlucoseRecord
 import androidx.health.connect.client.records.BloodPressureRecord
 import androidx.health.connect.client.records.BodyFatRecord
 import androidx.health.connect.client.records.BodyTemperatureRecord
+import androidx.health.connect.client.records.BodyWaterMassRecord
 import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.HeartRateVariabilityRmssdRecord
 import androidx.health.connect.client.records.HeightRecord
 import androidx.health.connect.client.records.HydrationRecord
+import androidx.health.connect.client.records.LeanBodyMassRecord
 import androidx.health.connect.client.records.MindfulnessSessionRecord
 import androidx.health.connect.client.records.OxygenSaturationRecord
 import androidx.health.connect.client.records.RespiratoryRateRecord
@@ -79,6 +81,19 @@ class WearOsEntryImportTest {
         val height = WearOsEntryImport.record(WearLinkEntry.of(at, Type.HEIGHT, 178.0), zone) as HeightRecord
         assertEquals(1.78, height.height.inMeters, 1e-9)
         assertEquals("wearos_entry_height_$at", height.metadata.clientRecordId)
+    }
+
+    @Test
+    fun `a body composition's lean mass and body water are kilograms, measured, under ids of their own`() {
+        val lean = WearOsEntryImport.record(WearLinkEntry.of(at, Type.LEAN_BODY_MASS, 61.25, measured = true), zone) as LeanBodyMassRecord
+        val water = WearOsEntryImport.record(WearLinkEntry.of(at, Type.BODY_WATER, 44.5, measured = true), zone) as BodyWaterMassRecord
+        assertEquals(61.25, lean.mass.inKilograms, 1e-9)
+        assertEquals(44.5, water.mass.inKilograms, 1e-9)
+        assertEquals(Metadata.RECORDING_METHOD_ACTIVELY_RECORDED, lean.metadata.recordingMethod)
+        assertEquals("wearos_entry_lean_$at", lean.metadata.clientRecordId)
+        assertEquals("wearos_entry_bodywater_$at", water.metadata.clientRecordId)
+        assertEquals("android.permission.health.WRITE_LEAN_BODY_MASS", WearOsEntryImport.writePermission(Type.LEAN_BODY_MASS))
+        assertEquals("android.permission.health.WRITE_BODY_WATER_MASS", WearOsEntryImport.writePermission(Type.BODY_WATER))
     }
 
     @Test

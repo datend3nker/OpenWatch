@@ -16,6 +16,8 @@
     <string name="health_data_note_wearos_hrv">Nachts, auf einer Uhr, die sie messen kann.</string>
     <string name="health_data_note_wearos_workout">Ein Training, das du auf der Uhr aufzeichnest, mit Route und Distanz.</string>
     <string name="health_data_note_wearos_entry">Was du auf der Uhr von Hand einträgst.</string>
+    <string name="health_data_note_wearos_body_composition">Eine Körperzusammensetzung, die du mit einer Samsung-Uhr misst.</string>
+    <string name="health_data_note_wearos_entry_or_body_composition">Was du auf der Uhr von Hand einträgst, und eine Körperzusammensetzung, die du mit einer Samsung-Uhr misst.</string>
     <string name="health_data_note_wearos_mindfulness">Eine Atemübung auf der Uhr, wo Health Connect sie speichert.</string>
     <string name="health_data_note_wearos_skin">Nur von einer Samsung-Uhr, wenn „Hauttemperatur in der Nacht“ für diese Uhr eingeschaltet ist. Ein Eintrag pro Nacht: die Abweichung von deiner eigenen üblichen Nacht.</string>
     <string name="health_data_note_scale_estimate">Auf dem Telefon aus der Messung der Waage und deinem Körperprofil geschätzt.</string>

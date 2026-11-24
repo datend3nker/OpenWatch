@@ -47,6 +47,7 @@ val Type.icon: ImageVector
         Type.BODY_TEMPERATURE -> Icons.Outlined.Thermostat
         Type.BLOOD_GLUCOSE -> Icons.Outlined.Opacity
         Type.HEIGHT -> Icons.Outlined.Straighten
+        Type.LEAN_BODY_MASS, Type.BODY_WATER -> Icons.Outlined.MonitorWeight
     }
 
 val Type.color: Color
@@ -63,13 +64,15 @@ val Type.color: Color
         Type.BODY_TEMPERATURE -> ActiveCaloriesColor
         Type.BLOOD_GLUCOSE -> ActiveCaloriesColor
         Type.HEIGHT -> WeightColor
+        Type.LEAN_BODY_MASS, Type.BODY_WATER -> WeightColor
     }
 
 /** The entry's value with its unit, such as "72.4 kg" or "121/79 mmHg", in [unitSystem]. */
 @Composable
 fun formatEntry(entry: WearLinkEntry, unitSystem: UnitSystem): String = when (entry.type) {
     Type.WATER -> metricValue(MetricTile.HYDRATION, entry.value, unitSystem)
-    Type.WEIGHT -> metricValue(MetricTile.WEIGHT, entry.value, unitSystem)
+    // A mass, as the weight is shown.
+    Type.WEIGHT, Type.LEAN_BODY_MASS, Type.BODY_WATER -> metricValue(MetricTile.WEIGHT, entry.value, unitSystem)
     Type.HEART_RATE -> metricValue(MetricTile.HEART_RATE, entry.value, unitSystem)
     Type.HRV -> metricValue(MetricTile.HRV, entry.value, unitSystem)
     Type.MINDFULNESS -> entry.value.roundToInt().let { pluralStringResource(R.plurals.quicklog_minutes, it, it) }

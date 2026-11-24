@@ -109,7 +109,9 @@ The complete list, by Health Connect permission. The app shows the same list und
 | `WRITE_WEIGHT` | What you log on the watch, by hand. |
 | `WRITE_BLOOD_PRESSURE` | What you log on the watch, by hand. |
 | `WRITE_MINDFULNESS` | A breathing session you do on the watch, where Health Connect keeps them. |
-| `WRITE_BODY_FAT` | What you log on the watch, by hand. |
+| `WRITE_BODY_FAT` | What you log on the watch, by hand, and a body composition you measure on a Samsung watch. |
+| `WRITE_LEAN_BODY_MASS` | A body composition you measure on a Samsung watch. |
+| `WRITE_BODY_WATER_MASS` | A body composition you measure on a Samsung watch. |
 | `WRITE_BODY_TEMPERATURE` | What you log on the watch, by hand. |
 | `WRITE_BLOOD_GLUCOSE` | What you log on the watch, by hand. |
 | `WRITE_HEIGHT` | What you log on the watch, by hand. |
