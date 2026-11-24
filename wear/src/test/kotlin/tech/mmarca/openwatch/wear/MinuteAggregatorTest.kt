@@ -177,4 +177,83 @@ class MinuteAggregatorTest {
         assertEquals(listOf(minute0 + 60_000L, minute0 + 120_000L), second.map { it.epochMillis })
         assertTrue(aggregator.close(minute0 + 600_000L).isEmpty())
     }
+
+    @Test
+    fun `a pulse that comes after its minute closed does not open the minute again`() {
+        heartRateRecording = false
+        val aggregator = aggregator()
+        burst(aggregator, minute0, 60)
+        still(aggregator, minute0 + 12_000L, 48)
+        val first = aggregator.close(minute0 + 90_000L).single()
+        assertEquals(null, first.bpm)
+        assertTrue(first.movement10 > 0)
+
+        // The platform hands the minute's heart rate over ten minutes later.
+        pulse(aggregator, minute0, bpm = 57)
+
+        assertTrue(aggregator.close(minute0 + 20 * 60_000L).isEmpty())
+        val late = aggregator.takeLateHeartRates()
+        assertEquals(setOf(minute0), late.keys)
+        assertEquals(6, late.getValue(minute0).size)
+        assertTrue(aggregator.takeLateHeartRates().isEmpty())
+
+        val merged = MinuteAggregator.withHeartRate(first, late.getValue(minute0))
+        assertEquals(57, merged.bpm)
+        assertEquals(6, merged.heartRateSamples)
+        assertEquals(first.sampleCount, merged.sampleCount)
+        assertEquals(first.movement10, merged.movement10)
+        assertEquals(first.flags, merged.flags)
+    }
+
+    @Test
+    fun `late samples pool with the ones the row already counted`() {
+        val aggregator = aggregator()
+        still(aggregator, minute0, 60)
+        aggregator.onHeartRate(minute0 + 5_000L, 50)
+        aggregator.onHeartRate(minute0 + 15_000L, 54)
+        val stored = aggregator.close(minute0 + 90_000L).single()
+
+        val merged = MinuteAggregator.withHeartRate(stored, listOf(58, 62))
+
+        assertEquals(56, merged.bpm)
+        assertEquals(4, merged.heartRateSamples)
+        // 50, 54, 58, 62: population sd 4.47.
+        assertEquals(45, merged.heartRateSd10)
+    }
+
+    @Test
+    fun `a minute unmeasurable only for want of a pulse is raw once the pulse came`() {
+        val aggregator = aggregator()
+        still(aggregator, minute0, 60)
+        val stored = aggregator.close(minute0 + 90_000L).single()
+        assertEquals(WearLinkProtocol.MinuteKind.UNMEASURABLE, stored.kind)
+
+        assertEquals(WearLinkProtocol.MinuteKind.RAW, MinuteAggregator.withHeartRate(stored, listOf(55)).kind)
+    }
+
+    @Test
+    fun `a closed minute nothing was stored for gets a row of its pulse alone`() {
+        heartRateRecording = false
+        val aggregator = aggregator()
+        still(aggregator, minute0 + 120_000L, 60)
+        aggregator.close(minute0 + 210_000L)
+
+        val row = aggregator.heartRateOnly(minute0, listOf(60, 62))
+
+        assertEquals(minute0, row.epochMillis)
+        assertEquals(0, row.sampleCount)
+        assertEquals(61, row.bpm)
+        assertTrue(row.hasFlag(WearLinkProtocol.FLAG_SPARSE))
+    }
+
+    @Test
+    fun `a minute the motion sensors watched says so`() {
+        val watched = MinuteAggregator(offsetSecondsAt = { 7200 }, isHeartRateRecording = { true }, watchedMotion = { it == minute0 })
+        pulse(watched, minute0)
+        pulse(watched, minute0 + 60_000L)
+
+        val rows = watched.close(minute0 + 150_000L)
+
+        assertEquals(listOf(true, false), rows.map { it.hasFlag(WearLinkProtocol.FLAG_MOTION_WATCHED) })
+    }
 }

@@ -79,4 +79,55 @@ class SamsungIbiWindowTest {
     private companion object {
         const val WINDOW = 5.0 * 60 * 1000
     }
+
+    /** A batch of [seconds] points a second apart from [from], every interval on the point at [carrier]. */
+    private fun batch(from: Long, seconds: Int, carrier: Int, vararg intervals: Int) =
+        List(seconds) { if (it == carrier) point(from + it * 1000L, *intervals) else point(from + it * 1000L) }
+
+    @Test
+    fun `a flushed batch's intervals are timed back from its end`() {
+        // Five minutes of points; 299 beats a second apart, all on the first point.
+        val flushed = batch(t0, 300, carrier = 0, *IntArray(299) { 1000 })
+        // As it came, they all fall before the batch, so its own window is empty.
+        assertEquals(1, SamsungIbiWindow.intervals(flushed, t0, t0 + 299_000).size)
+        val placed = SamsungIbiWindow.placeLump(flushed)
+        assertEquals(299, SamsungIbiWindow.intervals(placed, t0, t0 + 299_000).size)
+        assertEquals(300, placed.size)
+        assertTrue(placed.first().intervalsMillis.isEmpty())
+    }
+
+    @Test
+    fun `a batch with its intervals spread over the points is left as it came`() {
+        val spread = List(300) { point(t0 + it * 1000L, 1000) }
+        assertTrue(SamsungIbiWindow.placeLump(spread) === spread)
+        assertNull(SamsungIbiWindow.lumpCarrier(spread))
+    }
+
+    @Test
+    fun `the history one point brings at a start is left as it came`() {
+        val history = listOf(point(t0, *IntArray(535) { 1000 }))
+        assertTrue(SamsungIbiWindow.placeLump(history) === history)
+        assertNull(SamsungIbiWindow.lumpCarrier(history))
+    }
+
+    @Test
+    fun `a lump that does not add up to its batch is left as it came`() {
+        // Beats are missing: 200 seconds of intervals for 300 seconds of points.
+        val short = batch(t0, 300, carrier = 0, *IntArray(200) { 1000 })
+        assertTrue(SamsungIbiWindow.placeLump(short) === short)
+        assertNotNull(SamsungIbiWindow.lumpCarrier(short))
+        // History from before the batch: ten minutes of intervals on five of points.
+        val long = batch(t0, 300, carrier = 0, *IntArray(600) { 1000 })
+        assertTrue(SamsungIbiWindow.placeLump(long) === long)
+    }
+
+    @Test
+    fun `a lump keeps its flags and the points keep their rates`() {
+        val points = List(60) {
+            IbiPoint(t0 + it * 1000L, if (it == 0) IntArray(59) { 1000 } else IntArray(0), if (it == 0) IntArray(59) { i -> if (i == 3) -1 else 0 } else IntArray(0), bpm = 50 + it, heartRateStatus = 1)
+        }
+        val placed = SamsungIbiWindow.placeLump(points)
+        assertEquals(points.map { it.bpm }, placed.map { it.bpm })
+        assertEquals(1, SamsungIbiWindow.intervals(placed, t0, t0 + 59_000).count { it.isNaN() })
+    }
 }

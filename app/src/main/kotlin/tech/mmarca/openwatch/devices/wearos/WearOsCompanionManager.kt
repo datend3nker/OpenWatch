@@ -29,6 +29,10 @@ class WearOsCompanionManager @Inject constructor(
     suspend fun setWatchSetting(targetAddress: String?, targetName: String?, key: String, value: String): Boolean =
         nodePort.setWatchSetting(targetAddress, targetName, key, value)
 
+    /** One connection for a recorded workout; see [WearOsNodePort.withWorkoutLink]. */
+    suspend fun <T> withWorkoutLink(targetAddress: String?, targetName: String?, block: (WearOsWorkoutLink) -> T): T? =
+        nodePort.withWorkoutLink(targetAddress, targetName, block)
+
     /**
      * The watch's heart rate as it happens, for as long as it is collected:
      * each reading's bpm, and null whenever the stream pauses (the watch is

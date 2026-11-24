@@ -53,12 +53,15 @@ class SleepMinuteRecorder(
      * before would count as one without heart rate.
      */
     private val extraCloseLagMillis: () -> Long = { 0L },
+    /** Whether the wake-up motion sensors watched a whole minute; see [MinuteAggregator]. */
+    watchedMotion: (minuteStartMillis: Long) -> Boolean = { false },
 ) : SensorEventListener2 {
 
     private val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
     private val aggregator = MinuteAggregator(
         offsetSecondsAt = { TimeZone.getDefault().getOffset(it) / 1000 },
         isHeartRateRecording = isHeartRateRecording,
+        watchedMotion = watchedMotion,
     )
     private var thread: HandlerThread? = null
     private var handler: Handler? = null
@@ -284,14 +287,31 @@ class SleepMinuteRecorder(
         return hour in DAY_START_HOUR until DAY_END_HOUR
     }
 
+    /**
+     * The stored rows of closed minutes with the heart rate that came after
+     * they closed added; a minute nothing was stored for gets a row of its
+     * heart rate alone. Handler thread.
+     */
+    private fun lateRows(): List<WearLinkProtocol.SleepMinute> =
+        aggregator.takeLateHeartRates().map { (start, rates) ->
+            val stored = store.since(WearMetrics.SLEEP_MINUTES, start - 1, 1).firstOrNull()?.takeIf { it.epochMillis == start }
+            if (stored != null) MinuteAggregator.withHeartRate(stored, rates) else aggregator.heartRateOnly(start, rates)
+        }
+
     private fun closeMinutes(now: Long) {
         if (wakeLock.isHeld) applyHold()
         val closed = aggregator.close(now - extraCloseLagMillis())
-        if (closed.isEmpty()) return
-        feedAutoHold(closed)
-        applyHold()
-        store.putAll(WearMetrics.SLEEP_MINUTES, closed)
-        Log.d(TAG, "Stored ${closed.size} minute(s) up to ${closed.last().epochMillis}")
+        val late = lateRows()
+        if (closed.isEmpty() && late.isEmpty()) return
+        // Only the minutes that just closed, in order: a late pulse is no news about now.
+        if (closed.isNotEmpty()) {
+            feedAutoHold(closed)
+            applyHold()
+        }
+        store.putAll(WearMetrics.SLEEP_MINUTES, late + closed)
+        DebugProtocol.count("minutes.closed", closed.size.toLong())
+        DebugProtocol.count("minutes.latePulse", late.size.toLong())
+        Log.d(TAG, "Stored ${closed.size} minute(s), ${late.size} with a late pulse")
         if (now - lastPrunedAt > PRUNE_EVERY_MILLIS) {
             lastPrunedAt = now
             store.prune(WearMetrics.SLEEP_MINUTES, now)

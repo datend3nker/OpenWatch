@@ -180,6 +180,29 @@ class WearLinkServer(
                 for (entry in page.items) writer.line(WearLinkDaily.formatEntry(entry))
                 writer.line(WearLinkProtocol.formatEnd(page.items.size, page.more))
             }
+            is WearLinkProtocol.Request.Plan -> {
+                val kept = handler.plan(request.line)
+                writer.line(if (kept) WearLinkPlan.OK else WearLinkProtocol.formatError(WearLinkProtocol.ErrorCode.BAD_REQUEST))
+            }
+            is WearLinkProtocol.Request.WorkoutStart -> {
+                val started = handler.startWorkout(request.sessionId, request.sportId)
+                writer.line(if (started) WearLinkRecordedWorkout.OK else WearLinkProtocol.formatError(WearLinkProtocol.ErrorCode.BAD_REQUEST))
+            }
+            is WearLinkProtocol.Request.WorkoutPause -> {
+                val done = handler.pauseWorkout(request.sessionId)
+                writer.line(if (done) WearLinkRecordedWorkout.OK else WearLinkProtocol.formatError(WearLinkProtocol.ErrorCode.BAD_REQUEST))
+            }
+            is WearLinkProtocol.Request.WorkoutResume -> {
+                val done = handler.resumeWorkout(request.sessionId)
+                writer.line(if (done) WearLinkRecordedWorkout.OK else WearLinkProtocol.formatError(WearLinkProtocol.ErrorCode.BAD_REQUEST))
+            }
+            is WearLinkProtocol.Request.WorkoutStatus -> {
+                writer.line("${WearLinkRecordedWorkout.STATE} ${handler.workoutPhase(request.sessionId).word}")
+            }
+            is WearLinkProtocol.Request.WorkoutStop -> {
+                val stopped = handler.stopWorkout(request.sessionId)
+                writer.line(if (stopped) WearLinkRecordedWorkout.OK else WearLinkProtocol.formatError(WearLinkProtocol.ErrorCode.BAD_REQUEST))
+            }
             is WearLinkProtocol.Request.SkinSince -> {
                 val page = handler.skinSince(request.sinceEpochMillis, request.limit)
                 for (minute in page.items) writer.line(WearLinkProtocol.formatSkinMinute(minute))

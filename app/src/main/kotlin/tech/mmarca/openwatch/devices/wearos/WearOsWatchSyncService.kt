@@ -103,6 +103,8 @@ class WearOsWatchSyncService(
     private val writeSleepBesideOthers: () -> Boolean = { true },
     /** The body profile for the watch's heart rate zones and a workout's calories: sex, age and weight. */
     private val profile: suspend () -> BodyProfile = { BodyProfile() },
+    /** The plan a recorded workout ran with, whose done exercises become segments of its session. */
+    private val workoutPlans: WorkoutPlanSource = WorkoutPlanSource.None,
 ) : DeviceSyncPort {
 
     @Inject
@@ -115,6 +117,7 @@ class WearOsWatchSyncService(
         linkStore: WearOsLinkStore,
         bodyProfile: BodyProfileProvider,
         preferences: OpenWatchPreferences,
+        workoutPlans: WorkoutPlanSource,
     ) : this(
         nodePort, cursors, importRepository, bleDeviceRepository, healthConnect, linkStore,
         // Strict by construction: a failed Health Connect read throws, it never passes for "no weight".
@@ -123,6 +126,7 @@ class WearOsWatchSyncService(
         { preferences.writeRespiratoryRate },
         { preferences.writeSleepBesideOthers },
         { bodyProfile.resolve() },
+        workoutPlans,
     )
 
     private val syncMutex = Mutex()
@@ -145,6 +149,7 @@ class WearOsWatchSyncService(
         granted = { healthConnect.grantedPermissions() },
         zone = zone,
         summarize = WearOsWorkoutFigures(healthConnect, profile, zone)::summarize,
+        plans = workoutPlans,
     )
 
     private val workoutEnergy = WearOsWorkoutEnergy(

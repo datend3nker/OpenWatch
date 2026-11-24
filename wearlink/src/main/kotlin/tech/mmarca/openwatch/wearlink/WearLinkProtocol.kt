@@ -177,6 +177,9 @@ object WearLinkProtocol {
     /** The watch takes `GET_PREF` and `SET_PREF`: the phone can show and change its settings. */
     const val CAP_PREFERENCES: String = "pref"
 
+    /** The watch takes `PLAN_*` (a workout plan to show, see [WearLinkPlan]) and `WO_START` / `WO_STOP`. */
+    const val CAP_PLAN: String = "pl"
+
     const val NO_CAPABILITIES: String = "-"
 
     /** The phone's opening line. */
@@ -231,6 +234,12 @@ object WearLinkProtocol {
         data class LiveHeartRate(val seconds: Int) : Request()
         data class PutDay(val day: DaySummary) : Request()
         data class EntriesSince(val sinceEpochMillis: Long, val limit: Int) : Request()
+        data class Plan(val line: WearLinkPlan.Line) : Request()
+        data class WorkoutStart(val sessionId: String, val sportId: String) : Request()
+        data class WorkoutStop(val sessionId: String) : Request()
+        data class WorkoutPause(val sessionId: String) : Request()
+        data class WorkoutResume(val sessionId: String) : Request()
+        data class WorkoutStatus(val sessionId: String) : Request()
     }
 
     fun formatHello(hello: Hello): String =
@@ -298,6 +307,10 @@ object WearLinkProtocol {
         is Request.LiveHeartRate -> "$HEART_RATE_LIVE ${request.seconds.coerceIn(1, MAX_LIVE_SECONDS)}"
         is Request.PutDay -> WearLinkDaily.formatPutDay(request.day)
         is Request.EntriesSince -> "$ENTRIES_SINCE ${request.sinceEpochMillis} ${request.limit.coerceIn(1, MAX_WINDOWS_PER_REQUEST)}"
+        is Request.WorkoutStart, is Request.WorkoutStop, is Request.WorkoutPause, is Request.WorkoutResume, is Request.WorkoutStatus ->
+            WearLinkRecordedWorkout.format(request)
+        // A plan is several requests, one per line of WearLinkPlan.lineObjects.
+        is Request.Plan -> WearLinkPlan.format(request.line)
     }
 
     /** Null unless [line] is a well-formed request. */
@@ -324,6 +337,8 @@ object WearLinkProtocol {
         parseLiveRequest(line)?.let { return Request.LiveHeartRate(it) }
         WearLinkDaily.parsePutDay(line)?.let { return Request.PutDay(it) }
         parseSinceRequest(line, ENTRIES_SINCE, MAX_WINDOWS_PER_REQUEST)?.let { (since, limit) -> return Request.EntriesSince(since, limit) }
+        WearLinkPlan.parse(line)?.let { return Request.Plan(it) }
+        WearLinkRecordedWorkout.parse(line)?.let { return it }
         return null
     }
 
@@ -443,6 +458,14 @@ object WearLinkProtocol {
     const val FLAG_HR_NO_CONTACT: Int = 8
     const val FLAG_HR_RECORDING: Int = 16
     const val FLAG_SPARSE: Int = 32
+
+    /**
+     * The watch's wake-up motion sensors watched the whole minute, so a
+     * minute without an accelerometer reading is a still one. Without this
+     * flag such a minute says nothing about movement: the processor slept
+     * and nothing would have woken it.
+     */
+    const val FLAG_MOTION_WATCHED: Int = 64
 
     /**
      * One minute of sleep input, as the wire carries it: integers, with the

@@ -499,6 +499,7 @@
     <string name="connected_apps_capability_devices">See your watches and scale, their battery and last sync, and start a sync</string>
     <string name="connected_apps_capability_profile">Share your body profile (birth year, sex, height, weight) with OpenWatch, both ways</string>
     <string name="connected_apps_capability_recording">Keep your watch streaming while it records an activity</string>
+    <string name="connected_apps_capability_workout">Show its workout on your watch: exercise names, sets and weights, while it runs</string>
     <string name="connected_apps_capability_live">Receive your watch\'s heart rate and steps while it records</string>
     <string name="hc_setup_missing_title">Not granted yet:</string>
     <string name="hc_setup_missing_extra">Background and history access sit on their own page: open Health Connect settings, then OpenWatch, then Additional access.</string>

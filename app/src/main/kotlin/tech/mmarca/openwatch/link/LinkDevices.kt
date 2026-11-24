@@ -25,6 +25,8 @@ import tech.mmarca.openwatch.devices.xiaomi.XiaomiScaleListener
 import tech.mmarca.openwatch.devices.xiaomi.XiaomiScaleStore
 import tech.mmarca.openwatch.domain.model.BleSensorDevice
 import tech.mmarca.openwatch.features.watches.DeviceSyncController
+import tech.mmarca.openlink.OpenLinkRecordingFeature
+import tech.mmarca.openwatch.wearlink.WorkoutSport
 
 /**
  * The paired devices as OpenLink shows them: watches and bike computers from the device
@@ -89,6 +91,17 @@ internal fun linkDevices(
             supportsSync = true,
             supportsRecording = true,
             liveSampleTypes = live,
+            // A workout the phone starts on a Wear OS watch records heart rate and shows the plan, with no route.
+            recordingFeatures = if (integration == OpenLinkIntegration.WEAROS) {
+                setOf(OpenLinkRecordingFeature.HEART_RATE, OpenLinkRecordingFeature.PAUSE, OpenLinkRecordingFeature.WORKOUT_PLAN)
+            } else {
+                emptySet()
+            },
+            exerciseTypes = if (integration == OpenLinkIntegration.WEAROS) {
+                WorkoutSport.entries.filter { !it.gps }.map { it.exerciseType }.toSet()
+            } else {
+                emptySet()
+            },
         )
     }
     val scaleDevice = scale.address?.takeIf { scale.isSetUp }?.let { address ->

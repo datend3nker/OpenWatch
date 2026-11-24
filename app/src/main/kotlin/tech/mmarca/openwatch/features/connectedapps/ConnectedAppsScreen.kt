@@ -173,6 +173,7 @@ internal fun capabilityLabel(capability: String): Int = when (capability) {
     OpenLink.CAPABILITY_PROFILE -> R.string.connected_apps_capability_profile
     OpenLink.CAPABILITY_DEVICES -> R.string.connected_apps_capability_devices
     OpenLink.CAPABILITY_RECORDING -> R.string.connected_apps_capability_recording
+    OpenLink.CAPABILITY_WORKOUT -> R.string.connected_apps_capability_workout
     else -> R.string.connected_apps_capability_live
 }
 

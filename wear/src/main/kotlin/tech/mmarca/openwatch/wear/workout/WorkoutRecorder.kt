@@ -31,10 +31,14 @@ import tech.mmarca.openwatch.wearlink.WearLinkWorkoutLines
  * [WorkoutStore] keeps the result. No Health Services and no Google Play
  * services. Every sensor callback runs on the recorder's own thread.
  *
- * A partial wake lock is held while a workout runs, so the GPS and the
- * sensors keep delivering with the screen off. A checkpoint every
- * [CHECKPOINT_MILLIS] lets [recoverInterrupted] save a workout whose app was
- * killed. Not yet verified on a watch.
+ * A partial wake lock is held only while the workout reads the GPS, the
+ * step counter or the barometer itself ([holdsProcessor]): those deliver only
+ * to an awake processor. Every other sport records the heart rate alone, and
+ * its batches wake the watch by themselves, so the processor sleeps between
+ * them with the screen off; the one-second tick and the checkpoint then run
+ * at each batch, since a handler's timer waits while the processor sleeps. A
+ * checkpoint every [CHECKPOINT_MILLIS] lets [recoverInterrupted] save a
+ * workout whose app was killed.
  */
 class WorkoutRecorder(
     private val context: Context,
@@ -69,11 +73,26 @@ class WorkoutRecorder(
     var usesGps: Boolean = false
         private set
 
-    /** Starts [sport]. [useGps] is false when the wearer did not allow location. False if one is already running. */
+    /** True from the moment of a pause until the resume; read by the phone's link, so it is set before the handler runs. */
+    @Volatile
+    var isPaused: Boolean = false
+        private set
+
+    /** The recorded session of the phone's client this workout runs for, or null for one the wearer started. */
+    @Volatile
+    var sessionId: String? = null
+        private set
+
+    /**
+     * Starts [sport]. [useGps] is false when the wearer did not allow location. [sessionId] names the recorded
+     * session of the phone's client that asked for it. False if one is already running. Any thread.
+     */
     @SuppressLint("WakelockTimeout")
-    fun start(sport: WorkoutSport, useGps: Boolean): Boolean {
+    fun start(sport: WorkoutSport, useGps: Boolean, sessionId: String? = null): Boolean {
         if (isActive) return false
         isActive = true
+        this.sessionId = sessionId
+        isPaused = false
         usesGps = useGps && sport.gps
         val worker = HandlerThread("WorkoutRecorder").apply { start() }
         val h = Handler(worker.looper)
@@ -83,26 +102,34 @@ class WorkoutRecorder(
         val t = WorkoutTracker(sport, now, usesGps)
         tracker = t
         ascent = AscentMinuteCounter(null)
-        wakeLock = context.getSystemService(PowerManager::class.java)
-            .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "OpenVitals:workout").apply { acquire() }
+        if (holdsProcessor(sport, usesGps)) {
+            wakeLock = context.getSystemService(PowerManager::class.java)
+                .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "OpenVitals:workout").apply { acquire() }
+        }
         DebugProtocol.event("Workout", "start", "sport" to sport.id, "gps" to usesGps)
         h.post { registerSensors(sport, now) }
         h.post(tick)
         WorkoutState.update { WorkoutUiState(sport = sport, running = true, snapshot = t.snapshot(now)) }
-        onActiveChange()
+        mainHandler.post(onActiveChange)
         return true
     }
 
-    fun pause() = post {
-        DebugProtocol.event("Workout", "pause")
-        it.pause(System.currentTimeMillis())
-        publish(it)
+    fun pause() {
+        if (isActive) isPaused = true
+        post {
+            DebugProtocol.event("Workout", "pause")
+            it.pause(System.currentTimeMillis())
+            publish(it)
+        }
     }
 
-    fun resume() = post {
-        DebugProtocol.event("Workout", "resume")
-        it.resume(System.currentTimeMillis())
-        publish(it)
+    fun resume() {
+        isPaused = false
+        post {
+            DebugProtocol.event("Workout", "resume")
+            it.resume(System.currentTimeMillis())
+            publish(it)
+        }
     }
 
     fun noteHeartRate(epochMillis: Long, bpm: Int) {
@@ -264,6 +291,9 @@ class WorkoutRecorder(
         ascent = null
         isActive = false
         usesGps = false
+        sessionId = null
+        isPaused = false
+        WearPlanState.clear()
         wakeLock?.takeIf { it.isHeld }?.release()
         wakeLock = null
         thread?.quitSafely()
@@ -273,15 +303,22 @@ class WorkoutRecorder(
         mainHandler.post(onActiveChange)
     }
 
-    private companion object {
-        const val TAG = "WorkoutRecorder"
-        const val GPS_INTERVAL_MILLIS = 1_000L
-        const val CHECKPOINT_MILLIS = 10_000L
+    internal companion object {
+        /**
+         * Whether a workout of [sport] must keep the processor awake: with the
+         * GPS, or with a step counter or barometer of its own. None of them
+         * wakes the watch, so asleep their readings would wait or be lost.
+         */
+        fun holdsProcessor(sport: WorkoutSport, usesGps: Boolean): Boolean = usesGps || sport.steps || sport.elevation
+
+        private const val TAG = "WorkoutRecorder"
+        private const val GPS_INTERVAL_MILLIS = 1_000L
+        private const val CHECKPOINT_MILLIS = 10_000L
 
         /** Two minutes after the stop: Cole et al. took the fall after one, the second shows its course. */
-        const val RECOVERY_MILLIS = 2 * 60_000L
-        const val RECOVERY_SETTLE_MILLIS = 5_000L
-        const val RECOVERY_LOOKBACK_MILLIS = 15_000L
-        const val RECOVERY_ROWS = 1_000
+        private const val RECOVERY_MILLIS = 2 * 60_000L
+        private const val RECOVERY_SETTLE_MILLIS = 5_000L
+        private const val RECOVERY_LOOKBACK_MILLIS = 15_000L
+        private const val RECOVERY_ROWS = 1_000
     }
 }

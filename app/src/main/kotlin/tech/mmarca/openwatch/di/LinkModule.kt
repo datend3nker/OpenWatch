@@ -15,6 +15,8 @@ import tech.mmarca.openlink.host.OpenLinkHostCore
 import tech.mmarca.openlink.host.OpenLinkTrustStore
 import tech.mmarca.openlink.host.SharedPreferencesTrustStorage
 import tech.mmarca.openwatch.MainActivity
+import tech.mmarca.openwatch.devices.wearos.WorkoutPlanSource
+import tech.mmarca.openwatch.link.LinkWorkoutPlans
 import tech.mmarca.openwatch.link.FirstPartyApps
 import tech.mmarca.openwatch.link.OpenWatchLinkCapabilities
 
@@ -22,6 +24,9 @@ import tech.mmarca.openwatch.link.OpenWatchLinkCapabilities
 @Module
 @InstallIn(SingletonComponent::class)
 object LinkModule {
+
+    @Provides
+    fun provideWorkoutPlanSource(plans: LinkWorkoutPlans): WorkoutPlanSource = plans
 
     @Provides
     @Singleton

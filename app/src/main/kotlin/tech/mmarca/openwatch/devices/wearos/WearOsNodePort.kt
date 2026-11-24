@@ -1,6 +1,8 @@
 package tech.mmarca.openwatch.devices.wearos
 
 import tech.mmarca.openwatch.wearlink.DaySummary
+import tech.mmarca.openwatch.wearlink.WearPlan
+import tech.mmarca.openwatch.wearlink.WearWorkoutPhase
 import tech.mmarca.openwatch.wearlink.WatchEntry
 import java.time.Instant
 import tech.mmarca.openwatch.domain.model.WearSleepMinute
@@ -330,4 +332,26 @@ interface WearOsNodePort {
      * other failure throws [WearOsLinkFailure].
      */
     suspend fun pullEntries(targetAddress: String?, targetName: String?, since: Instant): WearOsEntryPage?
+
+    /**
+     * One connection to the watch for a recorded workout: [block] runs on an IO thread, may block, and talks to the
+     * watch through the [WearOsWorkoutLink]. The connection closes when [block] returns or after about eight
+     * minutes, whichever is first; a longer workout opens another. Null when no bonded watch matches or the watch
+     * app takes no plan or workout commands. Failures throw [WearOsLinkFailure], from [block] too.
+     */
+    suspend fun <T> withWorkoutLink(targetAddress: String?, targetName: String?, block: (WearOsWorkoutLink) -> T): T? = null
+}
+
+/**
+ * The calls of a recorded workout over one connection ([WearOsNodePort.withWorkoutLink]), all blocking. A watch that
+ * has no workout for the session answers [WearOsLinkFailure.Refused] (`bad_request`) to a stop, pause, resume or plan.
+ */
+interface WearOsWorkoutLink {
+    fun start(sessionId: String, sportId: String)
+    fun stop(sessionId: String)
+    fun pause(sessionId: String)
+    fun resume(sessionId: String)
+    fun phase(sessionId: String): WearWorkoutPhase
+    fun pushPlan(plan: WearPlan)
+    fun clearPlan(sessionId: String)
 }

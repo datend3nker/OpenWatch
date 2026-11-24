@@ -7,7 +7,8 @@ import org.junit.Test
  * [HeartRateRecorder] itself needs a real `Context`, `SensorManager` and
  * `AlarmManager`, so it is not instantiated here. This covers the one piece
  * of the power-save window that is pure: how long to wait before the next
- * window, the number [AlarmManager.setAndAllowWhileIdle] is scheduled with.
+ * window, the number [AlarmManager.setAndAllowWhileIdle] is scheduled with,
+ * and how long the hub may hold a reading.
  */
 class HeartRateRecorderTest {
 
@@ -29,5 +30,20 @@ class HeartRateRecorderTest {
     @Test
     fun `the off interval waits zero too, not a negative number`() {
         assertEquals(0L, nextWindowDelayMillis(elapsedSinceOpenMillis = 1_000L, intervalSeconds = 0))
+    }
+
+    @Test
+    fun `a workout with the screen off stays batched, so the processor sleeps`() {
+        assertEquals(40_000_000, reportLatencyMicros(workout = true, live = false, batchedMicros = 40_000_000))
+    }
+
+    @Test
+    fun `a workout the wearer looks at delivers each reading at once`() {
+        assertEquals(0, reportLatencyMicros(workout = true, live = true, batchedMicros = 40_000_000))
+    }
+
+    @Test
+    fun `outside a workout the screen changes nothing`() {
+        assertEquals(40_000_000, reportLatencyMicros(workout = false, live = true, batchedMicros = 40_000_000))
     }
 }

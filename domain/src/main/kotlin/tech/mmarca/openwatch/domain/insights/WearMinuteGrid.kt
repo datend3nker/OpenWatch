@@ -44,6 +44,14 @@ class WearMinuteGrid private constructor(
 
     fun zoneOffsetAt(index: Int): ZoneOffset = ZoneOffset.ofTotalSeconds(offsetSeconds[index])
 
+    /**
+     * True when the minute says something about movement: the accelerometer
+     * delivered a reading, or the watch's motion sensors watched it and saw
+     * none. A minute the processor slept through unwatched has neither, and
+     * its movement of zero is no still arm: it can never count as sleep.
+     */
+    fun hasMotionEvidence(index: Int): Boolean = present[index] && (sampleCount[index] > 0 || flags[index].isMotionWatched)
+
     /** True when the minute carried at least one heart rate sample. */
     fun hasPulse(index: Int): Boolean = heartRateSamples[index] > 0 && !heartRate[index].isNaN()
 

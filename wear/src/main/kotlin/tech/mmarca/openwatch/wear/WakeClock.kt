@@ -94,6 +94,13 @@ class WakeClock(
     private var configured = false
     private var motionRegistered = false
 
+    // Wall times of the motion sensors' current or last watch; zero for none, or for one still running.
+    @Volatile
+    private var motionWatchedFrom = 0L
+
+    @Volatile
+    private var motionWatchedUntil = 0L
+
     /** The heart rate batch latency asked for last; [DENSE_PERIOD_MILLIS] outside a quiet stretch. */
     @Volatile
     var batchLatencyMillis: Long = DENSE_PERIOD_MILLIS
@@ -108,6 +115,17 @@ class WakeClock(
     /** Whether a sleep hold may do without a lasting lock: a dense or a quiet beat runs. */
     val restsOnBeat: Boolean
         get() = mode != Mode.SPARSE && (external || ownSource)
+
+    /**
+     * Whether the wake-up motion sensors watched the whole minute that starts
+     * at [minuteStartMillis]: a movement in it would have woken the watch, so
+     * a minute the accelerometer has no reading for was a still one. Any thread.
+     */
+    fun watchedMotion(minuteStartMillis: Long): Boolean {
+        val from = motionWatchedFrom
+        val until = motionWatchedUntil
+        return from != 0L && from <= minuteStartMillis && (until == 0L || until >= minuteStartMillis + MINUTE_MILLIS)
+    }
 
     /** Called on the clock's thread at every beat with the beat's wall time. */
     fun addListener(listener: (Long) -> Unit) {
@@ -156,10 +174,17 @@ class WakeClock(
     /** Starts or ends a quiet stretch: motion sensors on, the beat stretched while still. Clock thread. */
     private fun setQuiet(quiet: Boolean) {
         handler.removeCallbacks(stillCheck)
-        if (quiet && !motionRegistered) motionRegistered = registerMotion()
+        if (quiet && !motionRegistered) {
+            motionRegistered = registerMotion()
+            if (motionRegistered) {
+                motionWatchedUntil = 0L
+                motionWatchedFrom = System.currentTimeMillis()
+            }
+        }
         if (!quiet && motionRegistered) {
             sensorManager.unregisterListener(motionListener)
             motionRegistered = false
+            motionWatchedUntil = System.currentTimeMillis()
         }
         // Without a motion sensor nothing would bring the dense beat back: stay dense.
         setLatency(if (quiet && motionRegistered) QUIET_PERIOD_MILLIS else DENSE_PERIOD_MILLIS)
@@ -276,6 +301,7 @@ class WakeClock(
 
         private const val BATCH_GAP_MILLIS = 2_000L
         private const val MIN_BEAT_GAP_MILLIS = 5_000L
+        private const val MINUTE_MILLIS = 60_000L
     }
 }
 

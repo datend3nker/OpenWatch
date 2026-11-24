@@ -18,6 +18,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.PowerManager
 import android.os.SystemClock
 import android.util.Log
 import androidx.core.app.NotificationCompat
@@ -38,8 +39,10 @@ import tech.mmarca.openwatch.wear.workout.stopwatchBaseMillis
 import tech.mmarca.openwatch.wear.features.quicklog.EntryLog
 import tech.mmarca.openwatch.wear.samsung.SamsungHeartRateFeed
 import tech.mmarca.openwatch.wear.workout.MetricStoreWorkoutRows
+import tech.mmarca.openwatch.wear.workout.WearPlanState
 import tech.mmarca.openwatch.wear.workout.WorkoutRecorder
 import tech.mmarca.openwatch.wear.workout.WorkoutStore
+import tech.mmarca.openwatch.wearlink.WearWorkoutPhase
 import tech.mmarca.openwatch.wearlink.WorkoutSport
 import tech.mmarca.openwatch.wearlink.HeartRateInterval
 
@@ -105,6 +108,11 @@ class WearAppService : Service() {
         }
     }
 
+    /** The screen went on or off: a running workout's heart rate turns live or batched. */
+    private val screenReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) = reconcileLive()
+    }
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
@@ -115,7 +123,7 @@ class WearAppService : Service() {
         wakeSync = SensorWakeSync(this)
         clock = WakeClock(this, wakeSync, onBatchLatency = { recorder.setBatchLatency(it) })
         workout = WorkoutRecorder(this, store) {
-            // The location type is held only while a workout reads the GPS; the heart rate runs at the full rate.
+            // The location type is held only while a workout reads the GPS; the heart rate keeps every reading.
             if (isForeground) startInForeground()
             reconcileRecorders()
         }
@@ -138,6 +146,7 @@ class WearAppService : Service() {
             // A synced hold rests on the dense beat; without one it keeps the lasting lock.
             syncedHold = { holdOnBeat() && clock.restsOnBeat },
             extraCloseLagMillis = { clock.batchLatencyMillis - WakeClock.DENSE_PERIOD_MILLIS },
+            watchedMotion = clock::watchedMotion,
         )
         recorder = HeartRateRecorder(
             this,
@@ -183,6 +192,12 @@ class WearAppService : Service() {
             workouts = WorkoutStore(MetricStoreWorkoutRows(store))::workoutsSince,
             putDay = DaySummaryStore(this)::put,
             entries = EntryLog(this)::entriesSince,
+            plan = { line -> WearPlanState.accept(line, workout.sessionId) },
+            startWorkout = ::startRemoteWorkout,
+            stopWorkout = ::stopRemoteWorkout,
+            pauseWorkout = { sessionId -> remoteWorkoutIs(sessionId).also { if (it) workout.pause() } },
+            resumeWorkout = { sessionId -> remoteWorkoutIs(sessionId).also { if (it) workout.resume() } },
+            workoutPhase = ::remoteWorkoutPhase,
             localName = ::localName,
         )
         isForeground = startInForeground()
@@ -199,6 +214,10 @@ class WearAppService : Service() {
         } else {
             registerReceiver(bluetoothReceiver, filter)
         }
+        registerReceiver(screenReceiver, IntentFilter().apply {
+            addAction(Intent.ACTION_SCREEN_ON)
+            addAction(Intent.ACTION_SCREEN_OFF)
+        })
         WearLinkState.update { it.copy(bluetoothOn = getSystemService(BluetoothManager::class.java)?.adapter?.isEnabled == true) }
         link.start()
         refreshBondLost()
@@ -410,6 +429,7 @@ class WearAppService : Service() {
         val before = Triple(recorder.interval, recorder.source, clock.mode)
         // A synced hold takes the heart rate from the sensor: its batches are the beat.
         val beatHold = minuteRecorder.isSleepHolding && holdOnBeat()
+        reconcileLive()
         recorder.setPlan(wanted, if (beatHold) WearSettings.Source.RAW_SENSOR else WearSettings.heartRateSource(this), workout = active)
         reconcileClock()
         // Skin temperature and SpO2 come only from the Samsung platform, at night, each switched on by itself.
@@ -420,6 +440,18 @@ class WearAppService : Service() {
         // A fresh start in the morning also keeps the night's weather drift out of the ascent.
         if (minuteRecorder.isSleepHolding && !active) ascentRecorder.stop() else ascentRecorder.start()
         if (before != Triple(recorder.interval, recorder.source, clock.mode)) debugSnapshots.write("plan")
+    }
+
+    /**
+     * Whether a workout's heart rate arrives reading by reading: while the
+     * screen is on, and for the two minutes of a recovery, whose falls are
+     * read right after it. With the screen off it comes in batches and the
+     * processor sleeps in between. Main thread.
+     */
+    private fun reconcileLive() {
+        if (!::workout.isInitialized || !::recorder.isInitialized) return
+        val screenOn = getSystemService(PowerManager::class.java).isInteractive
+        recorder.setLive(workout.isRecovering || (workout.isActive && screenOn))
     }
 
     /**
@@ -503,6 +535,32 @@ class WearAppService : Service() {
         "baro" to ascentRecorder.isRunning,
     )
 
+    /**
+     * The phone's client starts a recorded workout: the sport by id, no GPS. False when one runs or the
+     * sport is unknown. The session is set when this returns, so the plan lines that follow are taken.
+     */
+    private fun startRemoteWorkout(sessionId: String, sportId: String): Boolean {
+        val sport = WorkoutSport.fromId(sportId) ?: return false
+        return workout.start(sport, useGps = false, sessionId = sessionId)
+    }
+
+    /** Whether the running workout is the one the phone's client started as [sessionId]. */
+    private fun remoteWorkoutIs(sessionId: String): Boolean = workout.isActive && workout.sessionId == sessionId
+
+    /** What the phone's client reads of its workout: it follows a pause, resume or stop made on the watch. */
+    private fun remoteWorkoutPhase(sessionId: String): WearWorkoutPhase = when {
+        !remoteWorkoutIs(sessionId) -> WearWorkoutPhase.NONE
+        workout.isPaused -> WearWorkoutPhase.PAUSED
+        else -> WearWorkoutPhase.RUNNING
+    }
+
+    /** The phone's client ends the workout it started; any other is the wearer's alone. */
+    private fun stopRemoteWorkout(sessionId: String): Boolean {
+        if (!remoteWorkoutIs(sessionId)) return false
+        workout.stop(measureRecovery = false)
+        return true
+    }
+
     /** The watch's Bluetooth name, as the phone will show it. */
     @SuppressLint("MissingPermission")
     private fun localName(): String {
@@ -529,6 +587,7 @@ class WearAppService : Service() {
         getSystemService(NotificationManager::class.java).cancel(WORKOUT_NOTIFICATION_ID)
         if (isForeground) {
             unregisterReceiver(bluetoothReceiver)
+            unregisterReceiver(screenReceiver)
             wornMonitor.stop()
             bedtimeMonitor.stop()
             debugSnapshots.stop()

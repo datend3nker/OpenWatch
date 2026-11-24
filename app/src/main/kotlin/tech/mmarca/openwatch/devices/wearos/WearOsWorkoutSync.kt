@@ -24,6 +24,8 @@ internal class WearOsWorkoutSync(
     private val zone: () -> ZoneId,
     /** The workout's figures from its heart rate, route and the profile; null when they cannot be worked out. */
     private val summarize: suspend (WearOsWorkout) -> WorkoutMetrics.Summary? = { null },
+    /** The plan a recorded workout ran with, for its exercise segments. */
+    private val plans: WorkoutPlanSource = WorkoutPlanSource.None,
 ) {
 
     /** [written] sessions, and the grants that [withheld] some workouts. */
@@ -52,11 +54,15 @@ internal class WearOsWorkoutSync(
                     WearOsLog.log("workout: figures not worked out: ${error.javaClass.simpleName}")
                     null
                 }
+                val exerciseSegments = plans.planFor(deviceId, workout.start)
+                    ?.let { WearOsPlanSegments.segments(it, workout.start, workout.end, workout.pauses) }
+                    .orEmpty()
                 val records = if (summary == null) {
-                    WearOsWorkoutImport.records(workout, zone())
+                    WearOsWorkoutImport.records(workout, zone(), exerciseSegments = exerciseSegments)
                 } else {
                     WearOsWorkoutImport.records(
                         workout, zone(), WearOsWorkoutMetrics.laps(workout, summary), WearOsWorkoutMetrics.notes(summary),
+                        exerciseSegments,
                     ) + WearOsWorkoutMetrics.records(workout, summary, zone(), granted())
                 }
                 try {

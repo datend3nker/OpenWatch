@@ -54,24 +54,45 @@ object WearOsWorkoutImport {
         if (distance(workout) != null) add(distancePermission)
     }
 
-    fun records(workout: WearOsWorkout, zone: ZoneId, laps: List<ExerciseLap> = emptyList(), notes: String? = null): List<Record> {
+    /**
+     * [exerciseSegments] are the exercises of a recorded plan ([WearOsPlanSegments]). Health Connect refuses a
+     * session whose segment does not fit its exercise type, so the session is written without them rather than
+     * not at all.
+     */
+    fun records(
+        workout: WearOsWorkout,
+        zone: ZoneId,
+        laps: List<ExerciseLap> = emptyList(),
+        notes: String? = null,
+        exerciseSegments: List<ExerciseSegment> = emptyList(),
+    ): List<Record> {
         val startOffset = zone.rules.getOffset(workout.start)
         val endOffset = zone.rules.getOffset(workout.end)
         val route = route(workout)
-        val session = ExerciseSessionRecord(
+        val pauseSegments = workout.pauses
+            .filter { it.start >= workout.start && it.endInclusive <= workout.end && it.start < it.endInclusive }
+            .map { ExerciseSegment(it.start, it.endInclusive, ExerciseSegment.EXERCISE_SEGMENT_TYPE_PAUSE) }
+        fun session(segments: List<ExerciseSegment>) = ExerciseSessionRecord(
             startTime = workout.start,
             startZoneOffset = startOffset,
             endTime = workout.end,
             endZoneOffset = endOffset,
             metadata = metadata(importKey(workout.start)),
             exerciseType = workout.exerciseType,
-            segments = workout.pauses
-                .filter { it.start >= workout.start && it.endInclusive <= workout.end && it.start < it.endInclusive }
-                .map { ExerciseSegment(it.start, it.endInclusive, ExerciseSegment.EXERCISE_SEGMENT_TYPE_PAUSE) },
+            segments = segments,
             exerciseRoute = route.takeIf { it.isNotEmpty() }?.let(::ExerciseRoute),
             laps = laps,
             notes = notes,
         )
+        val session = if (exerciseSegments.isEmpty()) {
+            session(pauseSegments)
+        } else {
+            try {
+                session((pauseSegments + exerciseSegments).sortedBy { it.startTime })
+            } catch (_: IllegalArgumentException) {
+                session(pauseSegments)
+            }
+        }
         val distance = distance(workout)?.let {
             DistanceRecord(
                 startTime = workout.start,

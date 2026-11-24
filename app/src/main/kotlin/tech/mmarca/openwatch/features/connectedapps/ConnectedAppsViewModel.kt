@@ -105,6 +105,7 @@ class ConnectedAppsViewModel @Inject constructor(
             OpenLink.CAPABILITY_DEVICES,
             OpenLink.CAPABILITY_PROFILE,
             OpenLink.CAPABILITY_RECORDING,
+            OpenLink.CAPABILITY_WORKOUT,
             OpenLink.CAPABILITY_LIVE,
         )
     }

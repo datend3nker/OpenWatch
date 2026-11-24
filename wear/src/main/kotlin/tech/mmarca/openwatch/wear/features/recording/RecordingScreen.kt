@@ -22,6 +22,7 @@ import androidx.compose.material.icons.outlined.Stop
 import androidx.compose.material.icons.outlined.Straighten
 import androidx.compose.material.icons.outlined.Terrain
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -47,6 +48,10 @@ import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.ScreenScaffold
 import androidx.wear.compose.material3.Text
 import tech.mmarca.openwatch.wear.R
+import tech.mmarca.openwatch.wear.workout.WearPlanState
+import tech.mmarca.openwatch.wearlink.WearPlanPosition
+import tech.mmarca.openwatch.wearlink.WearPlanSet
+import tech.mmarca.openwatch.wearlink.WearPlanWeightUnit
 import tech.mmarca.openwatch.wear.RecordingUiState
 import tech.mmarca.openwatch.wear.UnitSystem
 import tech.mmarca.openwatch.wear.MetricTile
@@ -70,7 +75,7 @@ import tech.mmarca.openwatch.wear.ui.theme.HeartZoneColors
 import tech.mmarca.openwatch.wear.ui.theme.OpenWatchWearTheme
 import tech.mmarca.openwatch.wear.ui.theme.WorkoutColor
 
-private enum class WorkoutPage { CONTROLS, OVERVIEW, HEART, PACE }
+private enum class WorkoutPage { CONTROLS, OVERVIEW, PLAN, HEART, PACE }
 
 /**
  * A running workout, laid out like the watch makers' own: the overview in
@@ -86,10 +91,14 @@ fun RecordingScreen(
     onTogglePause: () -> Unit,
     onStop: () -> Unit,
 ) {
-    val pages = remember(fields) {
+    val plan by WearPlanState.plan.collectAsState()
+    val position = plan?.current()
+    val hasPlan = plan != null
+    val pages = remember(fields, hasPlan) {
         buildList {
             add(WorkoutPage.CONTROLS)
             add(WorkoutPage.OVERVIEW)
+            if (hasPlan) add(WorkoutPage.PLAN)
             if (WorkoutField.HEART_RATE in fields) add(WorkoutPage.HEART)
             if (fields.any { it == WorkoutField.PACE || it == WorkoutField.SPEED || it == WorkoutField.ELEVATION }) {
                 add(WorkoutPage.PACE)
@@ -113,6 +122,7 @@ fun RecordingScreen(
                 when (pages[page]) {
                     WorkoutPage.CONTROLS -> ControlsPage(state, onTogglePause, onStop = { confirmStop = true })
                     WorkoutPage.OVERVIEW -> OverviewPage(state, fields, unitSystem, zones)
+                    WorkoutPage.PLAN -> PlanPage(position)
                     WorkoutPage.HEART -> HeartPage(state, zones)
                     WorkoutPage.PACE -> PacePage(state, fields, unitSystem)
                 }
@@ -316,6 +326,51 @@ private fun ControlsPage(state: RecordingUiState, onTogglePause: () -> Unit, onS
             }
         }
     }
+}
+
+/** The plan's next set, display only: its exercise, its place, its target and weight, and how far the plan is. */
+@Composable
+private fun PlanPage(position: WearPlanPosition?) {
+    PageColumn {
+        if (position == null) {
+            Text(text = stringResource(R.string.plan_all_done), style = MaterialTheme.typography.titleMedium)
+            return@PageColumn
+        }
+        Text(
+            text = position.exercise.label,
+            style = MaterialTheme.typography.titleLarge,
+            maxLines = 2,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        )
+        Text(
+            text = stringResource(R.string.plan_set_of, position.setNumber, position.setsInExercise),
+            style = MaterialTheme.typography.labelLarge,
+            color = WorkoutColor,
+        )
+        planTarget(position.set)?.let { Text(text = it, style = MaterialTheme.typography.displaySmall) }
+        Text(
+            text = stringResource(R.string.plan_sets_done, position.doneSets, position.totalSets),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** "8–10 reps · 60 kg", "45 s", "400 m": what the set asks, or null when it asks nothing. */
+@Composable
+private fun planTarget(set: WearPlanSet): String? {
+    val work = when {
+        set.repsMin != null && set.repsMax != null && set.repsMin != set.repsMax -> stringResource(R.string.plan_reps_range, set.repsMin!!, set.repsMax!!)
+        set.repsMax != null || set.repsMin != null -> stringResource(R.string.plan_reps, (set.repsMax ?: set.repsMin)!!)
+        set.targetSeconds != null -> stringResource(R.string.plan_seconds, set.targetSeconds!!)
+        set.targetMeters != null -> stringResource(R.string.plan_meters, set.targetMeters!!)
+        else -> null
+    }
+    val weight = set.weightTenths?.takeIf { it > 0 }?.let { tenths ->
+        val value = if (tenths % 10 == 0) (tenths / 10).toString() else "%d.%d".format(tenths / 10, tenths % 10)
+        stringResource(R.string.plan_weight, value, if (set.unit == WearPlanWeightUnit.LB) "lb" else "kg")
+    }
+    return listOfNotNull(work, weight).joinToString(" · ").ifEmpty { null }
 }
 
 @Composable

@@ -14,6 +14,10 @@ import kotlin.math.abs
  * history (535 intervals on the Galaxy Watch7), and with the screen off the
  * points arrive in batches long after their time; both are why a window is
  * cut by these reconstructed times, never by arrival.
+ *
+ * One kind of batch breaks that rule and is put right before anyone reads it
+ * ([SamsungIbiWindow.placeLump]): the points a flush brings carry every
+ * interval of the batch on its first point.
  */
 internal class IbiPoint(
     val epochMillis: Long,
@@ -88,6 +92,47 @@ internal object SamsungIbiWindow {
         return times.toDoubleArray() to values.toDoubleArray()
     }
 
+    /**
+     * The one point of [delivery] that carries all of its intervals without
+     * being its last, or null. A batch the platform hands over by itself
+     * spreads its intervals over its points, at most a few each; the batch a
+     * flush brings has them all on its first point. Seen on a Galaxy Watch7
+     * in the nights of 2026-11-10 to 13: a flushed batch of five minutes
+     * carried as many intervals as one of ten carried twice over (0.84 a
+     * point either way), so they are the batch's own beats, not the minutes
+     * before it.
+     */
+    fun lumpCarrier(delivery: List<IbiPoint>): IbiPoint? {
+        if (delivery.size < LUMP_MIN_POINTS) return null
+        val carrier = delivery.singleOrNull { it.intervalsMillis.isNotEmpty() } ?: return null
+        return carrier.takeIf { it.epochMillis < delivery.maxOf { point -> point.epochMillis } }
+    }
+
+    /**
+     * [delivery] with a lump's intervals moved to its last point, so they are
+     * timed back from the end of the batch they were measured in; timed back
+     * from the first point they would all fall before it, and a window read
+     * from a flushed batch had no interval at all. Only when the intervals
+     * add up to the batch's length within [LUMP_TOLERANCE]: a shorter sum
+     * means beats are missing somewhere and their times cannot be told, a
+     * longer one is history from before the batch. Every other delivery, and
+     * such a lump, is returned as it came (the same list).
+     */
+    fun placeLump(delivery: List<IbiPoint>): List<IbiPoint> {
+        val carrier = lumpCarrier(delivery) ?: return delivery
+        val last = delivery.maxBy { it.epochMillis }
+        val span = last.epochMillis - delivery.minOf { it.epochMillis }
+        val sum = carrier.intervalsMillis.sumOf { it.toLong() }
+        if (abs(sum - span) > LUMP_TOLERANCE * span) return delivery
+        return delivery.map { point ->
+            when {
+                point === carrier -> IbiPoint(point.epochMillis, IntArray(0), IntArray(0), point.bpm, point.heartRateStatus)
+                point === last -> IbiPoint(point.epochMillis, carrier.intervalsMillis, carrier.statuses, point.bpm, point.heartRateStatus)
+                else -> point
+            }
+        }
+    }
+
     private fun endTimes(point: IbiPoint): LongArray {
         val ends = LongArray(point.intervalsMillis.size)
         var end = point.epochMillis
@@ -99,4 +144,10 @@ internal object SamsungIbiWindow {
     }
 
     private const val STATUS_GOOD = 0
+
+    /** Half a minute of points: a short delivery with one carrier is a live point or the history a start brings. */
+    private const val LUMP_MIN_POINTS = 30
+
+    /** How far a lump's intervals may differ from its batch's length and still be timed by it. This app's own choice. */
+    private const val LUMP_TOLERANCE = 0.1
 }

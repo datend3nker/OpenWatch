@@ -185,8 +185,14 @@ internal class SamsungHeartRateFeed private constructor(private val context: Con
         )
     }
 
-    private fun deliverHeartRate(points: List<IbiPoint>) {
-        if (points.isEmpty()) return
+    private fun deliverHeartRate(delivery: List<IbiPoint>) {
+        if (delivery.isEmpty()) return
+        // A flushed batch has all its intervals on one point; every reader gets them timed right.
+        val points = SamsungIbiWindow.placeLump(delivery)
+        when {
+            points !== delivery -> DebugProtocol.count("samsung.lumps")
+            SamsungIbiWindow.lumpCarrier(delivery) != null -> DebugProtocol.count("samsung.lumpsLeft")
+        }
         val now = System.currentTimeMillis()
         firstDelivery(SamsungHealthPlatform.TRACKER_HEART_RATE, points.size, points.sumOf { it.intervalsMillis.size })
         DebugProtocol.count("samsung.deliveries")

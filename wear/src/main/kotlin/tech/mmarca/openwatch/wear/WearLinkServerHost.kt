@@ -11,6 +11,8 @@ import tech.mmarca.openwatch.wearlink.Page
 import tech.mmarca.openwatch.wearlink.WearLinkConnection
 import tech.mmarca.openwatch.wearlink.DaySummary
 import tech.mmarca.openwatch.wearlink.WatchEntry
+import tech.mmarca.openwatch.wearlink.WearLinkPlan
+import tech.mmarca.openwatch.wearlink.WearWorkoutPhase
 import tech.mmarca.openwatch.wearlink.WearLinkProtocol
 import tech.mmarca.openwatch.wearlink.WearLinkWorkout
 import tech.mmarca.openwatch.wearlink.WearLinkRequestHandler
@@ -43,10 +45,27 @@ class WearLinkServerHost(
     putDay: (DaySummary) -> Unit,
     /** The entries made on the watch, oldest first, that the phone pulls. Called on the link's thread. */
     entries: (sinceEpochMillis: Long, limit: Int) -> Page<WatchEntry>,
+    /** A line of a workout plan from the phone. Called on the link's thread. */
+    plan: (WearLinkPlan.Line) -> Boolean,
+    /** Starts the workout for a recorded session; false when refused. Called on the link's thread. */
+    startWorkout: (sessionId: String, sportId: String) -> Boolean,
+    /** Ends the workout of a recorded session; false when none runs for it. Called on the link's thread. */
+    stopWorkout: (sessionId: String) -> Boolean,
+    /** Pauses or resumes the workout of a recorded session; false when none runs for it. Called on the link's thread. */
+    pauseWorkout: (sessionId: String) -> Boolean,
+    resumeWorkout: (sessionId: String) -> Boolean,
+    /** What the watch holds of the workout of a recorded session. Called on the link's thread. */
+    workoutPhase: (sessionId: String) -> WearWorkoutPhase,
     private val localName: () -> String,
     private val state: WearLinkState = WearLinkState,
 ) {
-    private val server = WearLinkServer(trust, Handler(store, live, hrvAvailable, skinAvailable, onPhoneActive, heldPreferences, setPreference, workouts, putDay, entries, localName))
+    private val server = WearLinkServer(
+        trust,
+        Handler(
+            store, live, hrvAvailable, skinAvailable, onPhoneActive, heldPreferences, setPreference, workouts, putDay, entries,
+            plan, startWorkout, stopWorkout, pauseWorkout, resumeWorkout, workoutPhase, localName,
+        ),
+    )
 
     @Volatile
     private var serverSocket: BluetoothServerSocket? = null
@@ -136,6 +155,12 @@ class WearLinkServerHost(
         private val workouts: (Long, Int) -> Page<WearLinkWorkout>,
         private val putDay: (DaySummary) -> Unit,
         private val entries: (Long, Int) -> Page<WatchEntry>,
+        private val plan: (WearLinkPlan.Line) -> Boolean,
+        private val startWorkout: (String, String) -> Boolean,
+        private val stopWorkout: (String) -> Boolean,
+        private val pauseWorkout: (String) -> Boolean,
+        private val resumeWorkout: (String) -> Boolean,
+        private val workoutPhase: (String) -> WearWorkoutPhase,
         private val localName: () -> String,
     ) : WearLinkRequestHandler {
         override fun localName(): String = localName.invoke()
@@ -154,6 +179,7 @@ class WearLinkServerHost(
             add(WearLinkProtocol.CAP_PREFERENCES)
             add(WearLinkProtocol.CAP_DAY_SUMMARY)
             add(WearLinkProtocol.CAP_ENTRIES)
+            add(WearLinkProtocol.CAP_PLAN)
             // The metric list holds the workouts' pauses and route too; only the header key is a capability.
             remove("wp")
             remove("wr")
@@ -183,6 +209,18 @@ class WearLinkServerHost(
         }
 
         override fun entriesSince(sinceEpochMillis: Long, limit: Int): Page<WatchEntry> = entries(sinceEpochMillis, limit)
+
+        override fun plan(line: WearLinkPlan.Line): Boolean = plan.invoke(line)
+
+        override fun startWorkout(sessionId: String, sportId: String): Boolean = startWorkout.invoke(sessionId, sportId)
+
+        override fun stopWorkout(sessionId: String): Boolean = stopWorkout.invoke(sessionId)
+
+        override fun pauseWorkout(sessionId: String): Boolean = pauseWorkout.invoke(sessionId)
+
+        override fun resumeWorkout(sessionId: String): Boolean = resumeWorkout.invoke(sessionId)
+
+        override fun workoutPhase(sessionId: String): WearWorkoutPhase = workoutPhase.invoke(sessionId)
 
         override fun setPreference(key: String, value: String): Boolean = setPreference.invoke(key, value)
 

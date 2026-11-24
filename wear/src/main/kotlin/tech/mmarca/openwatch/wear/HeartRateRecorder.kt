@@ -37,6 +37,12 @@ import tech.mmarca.openwatch.wearlink.WearLinkProtocol
  * and batching; the interval only switches it on and off. One stored sample
  * every ten seconds, as from the sensor.
  *
+ * During a workout the sensor is read whatever the source, and every reading
+ * of its one a second is kept. With the screen off it stays batched, so the
+ * hub holds the readings and the processor sleeps between two batches; while
+ * the wearer can look at it ([setLive]) it is unbatched and each reading
+ * arrives at once.
+ *
  * [setPlan] is the only entry point; the service calls it with the plan in
  * force, and an unchanged one does nothing. The listener and the timers run
  * on the recorder's own thread, where the SQLite write is allowed.
@@ -99,9 +105,13 @@ internal class HeartRateRecorder(
     private val commitTask = Runnable { commit() }
     private var lastStoredAt = 0L
 
-    /** True while a workout runs: the raw sensor, unbatched, every reading kept. */
+    /** True while a workout runs: the raw sensor, every reading kept. */
     @Volatile
     private var workoutMode = false
+
+    /** True while a workout's readings must arrive at once; [setLive] sets it. */
+    @Volatile
+    private var live = false
     private var lastPrunedAt = 0L
     private var subscribedAt = 0L
     private var lastArrivalAt = 0L
@@ -129,7 +139,7 @@ internal class HeartRateRecorder(
         requestedSource = wantedSource
         workoutMode = workout
         if (wanted == HeartRateInterval.OFF) return true
-        // A workout reads the sensor live: the platform batches its points minutes late with the screen off.
+        // A workout reads the sensor: the platform batches its points minutes late with the screen off.
         val started = if (!workout && wantedSource == WearSettings.Source.SAMSUNG_PLATFORM && samsungFeed.isAvailable && !samsungFailed) {
             startSamsung(wanted)
         } else {
@@ -191,10 +201,10 @@ internal class HeartRateRecorder(
         return workerHandler
     }
 
-    /** Registration for the continuous interval: one reading a second, batched; unbatched during a workout. */
+    /** Registration for the continuous interval: one reading a second, batched; unbatched for a live workout. */
     private fun registerBatched(found: Sensor, workerHandler: Handler): Boolean =
         try {
-            val latency = if (workoutMode) 0 else batchLatencyMicros
+            val latency = reportLatencyMicros(workoutMode, live, batchLatencyMicros)
             sensorManager.registerListener(this, found, SAMPLING_PERIOD_MICROS, latency, workerHandler)
         } catch (e: SecurityException) {
             // The grant was revoked between the check and the registration.
@@ -238,17 +248,39 @@ internal class HeartRateRecorder(
             if (micros == batchLatencyMicros) return@post
             batchLatencyMicros = micros
             if (interval != HeartRateInterval.EVERY_10_SECONDS || source != WearSettings.Source.RAW_SENSOR) return@post
-            relatchPending = true
-            if (!sensorManager.flush(this)) relatch()
+            relatchAfterFlush()
             DebugProtocol.event("HeartRate", "latency", "sec" to millis / 1000)
         }
+    }
+
+    /**
+     * Whether a workout's readings arrive at once ([wanted]) or in batches:
+     * live while the wearer can look at them, batched with the screen off, so
+     * the processor sleeps between two batches and no reading is lost. Without
+     * a workout it only takes effect when the next one starts. Any thread.
+     */
+    fun setLive(wanted: Boolean) {
+        if (wanted == live) return
+        // Set at once: a plan that starts the sensor before the post below runs registers with it.
+        live = wanted
+        handler?.post {
+            if (!workoutMode || interval != HeartRateInterval.EVERY_10_SECONDS || source != WearSettings.Source.RAW_SENSOR) return@post
+            relatchAfterFlush()
+            DebugProtocol.event("HeartRate", "live", "on" to wanted)
+        }
+    }
+
+    /** Registers the sensor again once its buffer is emptied, so the change of latency loses nothing. Recorder thread. */
+    private fun relatchAfterFlush() {
+        relatchPending = true
+        if (!sensorManager.flush(this)) relatch()
     }
 
     override fun onFlushCompleted(sensor: Sensor) {
         if (relatchPending) relatch()
     }
 
-    /** Registers the batched sensor again with [batchLatencyMicros]. Recorder thread. */
+    /** Registers the continuous sensor again with the latency now in force. Recorder thread. */
     private fun relatch() {
         relatchPending = false
         val workerHandler = handler ?: return
@@ -463,6 +495,14 @@ internal fun isUsableHeartRate(accuracy: Int, bpm: Int): Boolean =
     accuracy != SensorManager.SENSOR_STATUS_NO_CONTACT &&
         accuracy != SensorManager.SENSOR_STATUS_UNRELIABLE &&
         bpm in WearLinkProtocol.MIN_BPM..WearLinkProtocol.MAX_BPM
+
+/**
+ * How long the hub may hold the continuous sensor's readings: not at all for
+ * a workout the wearer is looking at, [batchedMicros] otherwise. A workout
+ * with the screen off stays batched, so the processor sleeps between batches.
+ */
+internal fun reportLatencyMicros(workout: Boolean, live: Boolean, batchedMicros: Int): Int =
+    if (workout && live) 0 else batchedMicros
 
 /**
  * How long to wait, from now, before a power-save window should next open:

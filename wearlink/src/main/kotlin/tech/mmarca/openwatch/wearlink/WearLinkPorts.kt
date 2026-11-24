@@ -96,4 +96,25 @@ interface WearLinkRequestHandler {
      * once when the watch is off the wrist or cannot measure.
      */
     fun liveHeartRate(seconds: Int, emit: (WearLinkProtocol.HeartRateSample) -> Unit): Int
+
+    /**
+     * A line of a workout plan the phone pushed, in order. False for one that does not follow or breaks a
+     * limit, which the phone sees as `ERROR bad_request`. Only called when the watch advertised [WearLinkProtocol.CAP_PLAN].
+     */
+    fun plan(line: WearLinkPlan.Line): Boolean = false
+
+    /** Starts [sportId]'s workout for the recorded session [sessionId]. False when one runs or the sport is unknown. Only called with [WearLinkProtocol.CAP_PLAN]. */
+    fun startWorkout(sessionId: String, sportId: String): Boolean = false
+
+    /** Pauses the workout of [sessionId]. False when none runs for it. Only called with [WearLinkProtocol.CAP_PLAN]. */
+    fun pauseWorkout(sessionId: String): Boolean = false
+
+    /** Resumes the workout of [sessionId]. False when none runs for it. Only called with [WearLinkProtocol.CAP_PLAN]. */
+    fun resumeWorkout(sessionId: String): Boolean = false
+
+    /** What the watch holds of the workout of [sessionId]: running, paused, or none. Only called with [WearLinkProtocol.CAP_PLAN]. */
+    fun workoutPhase(sessionId: String): WearWorkoutPhase = WearWorkoutPhase.NONE
+
+    /** Ends the workout of [sessionId] and keeps it, as the wearer's stop does. False when none runs for it. Only called with [WearLinkProtocol.CAP_PLAN]. */
+    fun stopWorkout(sessionId: String): Boolean = false
 }

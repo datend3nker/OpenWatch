@@ -78,6 +78,12 @@ The angle of the watch's z axis against the horizontal, the HDCZA input (van Hee
 | 3 | 8 | `HR_NO_CONTACT` | the heart rate sensor reported no contact, unreliable, or 0 bpm during the minute |
 | 4 | 16 | `HR_RECORDING` | heart rate was being recorded when the minute closed |
 | 5 | 32 | `SPARSE` | `n < 150`, half the nominal budget: the sensor hub dropped part of the minute |
+| 6 | 64 | `MOTION_WATCHED` | the wake-up motion sensors watched the whole minute (a quiet sleep hold) |
+
+A minute with `n = 0` carries no movement, only the absence of readings. With `MOTION_WATCHED` that absence
+is a still arm: a movement would have woken the watch. Without it the processor slept unwatched, and the
+phone takes the minute as unknown, never as still (2026-11-14: an hour awake before bedtime mode, with
+`n = 0` and a resting pulse, was written as a nap).
 
 ## Kind
 

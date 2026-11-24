@@ -170,6 +170,44 @@ class WearLinkSession internal constructor(
             if (line.trim() == WearLinkProtocol.DAY_OK) Reply.Done(Unit) else Reply.Unexpected
         }
 
+    /** Hands the watch one line of a workout plan; send the lines of [WearLinkPlan.lineObjects] in order. Only call when the peer advertised [WearLinkProtocol.CAP_PLAN]. */
+    fun putPlanLine(line: WearLinkPlan.Line): WearLinkOutcome<Unit> =
+        exchange(WearLinkProtocol.Request.Plan(line)) { reply ->
+            if (reply.trim() == WearLinkPlan.OK) Reply.Done(Unit) else Reply.Unexpected
+        }
+
+    /** Starts the workout of [sportId] for the recorded session [sessionId] on the watch. Only call when the peer advertised [WearLinkProtocol.CAP_PLAN]. */
+    fun startWorkout(sessionId: String, sportId: String): WearLinkOutcome<Unit> =
+        exchange(WearLinkProtocol.Request.WorkoutStart(sessionId, sportId)) { reply ->
+            if (reply.trim() == WearLinkRecordedWorkout.OK) Reply.Done(Unit) else Reply.Unexpected
+        }
+
+    /** Pauses the workout of [sessionId] on the watch. */
+    fun pauseWorkout(sessionId: String): WearLinkOutcome<Unit> =
+        exchange(WearLinkProtocol.Request.WorkoutPause(sessionId)) { reply ->
+            if (reply.trim() == WearLinkRecordedWorkout.OK) Reply.Done(Unit) else Reply.Unexpected
+        }
+
+    /** Resumes the workout of [sessionId] on the watch. */
+    fun resumeWorkout(sessionId: String): WearLinkOutcome<Unit> =
+        exchange(WearLinkProtocol.Request.WorkoutResume(sessionId)) { reply ->
+            if (reply.trim() == WearLinkRecordedWorkout.OK) Reply.Done(Unit) else Reply.Unexpected
+        }
+
+    /** What the watch holds of the workout of [sessionId]. */
+    fun workoutPhase(sessionId: String): WearLinkOutcome<WearWorkoutPhase> =
+        exchange(WearLinkProtocol.Request.WorkoutStatus(sessionId)) { reply ->
+            val parts = reply.trim().split(' ')
+            val phase = if (parts.size == 2 && parts[0] == WearLinkRecordedWorkout.STATE) WearWorkoutPhase.fromWord(parts[1]) else null
+            if (phase != null) Reply.Done(phase) else Reply.Unexpected
+        }
+
+    /** Ends the workout of [sessionId] on the watch, which keeps it. Only call when the peer advertised [WearLinkProtocol.CAP_PLAN]. */
+    fun stopWorkout(sessionId: String): WearLinkOutcome<Unit> =
+        exchange(WearLinkProtocol.Request.WorkoutStop(sessionId)) { reply ->
+            if (reply.trim() == WearLinkRecordedWorkout.OK) Reply.Done(Unit) else Reply.Unexpected
+        }
+
     /** The entries made on the watch after [sinceEpochMillis]; a line this side cannot read is skipped. */
     fun pullEntries(sinceEpochMillis: Long, limit: Int): WearLinkOutcome<Page<WatchEntry>> {
         val items = ArrayList<WatchEntry>()

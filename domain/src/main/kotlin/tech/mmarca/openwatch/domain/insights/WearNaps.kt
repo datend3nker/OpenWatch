@@ -31,8 +31,8 @@ data class WearNap(val session: EstimatedSleepSession) {
  * lasts at most [Config.maxNapMinutes]; a longer one is a night the night
  * estimator has not found yet. Short gaps join two runs. A run within
  * [Config.nightGuardMinutes] of a night session is part of that night.
- * Between 22:00 and 06:00 a run counts only when a night session exists
- * in the minutes, with the smaller drop of [Config.nightDropBpm], so the
+ * Between 22:00 and 06:00 a run counts only when the night it falls in has a
+ * session in the minutes, with the smaller drop of [Config.nightDropBpm], so the
  * first hours of a night nobody estimated yet are not written as a nap.
  *
  * [Config.minNapMinutes] (20) is the one number here with a literature match:
@@ -147,10 +147,9 @@ object WearNaps {
         val labels = SleepWakeScorer.score(grid, wear, config.scorer)
         val rate = FloatArray(grid.size) { if (wear.isWorn(it)) grid.heartRate[it] else Float.NaN }
         val smooth = SptWindowDetector.rollingMedian(rate, config.heartRateMedianHalf)
-        val hasNight = nights.isNotEmpty()
         val quiet = BooleanArray(grid.size) { index ->
             val daytime = isDaytime(grid, index, config)
-            (daytime || hasNight) && !guarded[index] && wear.isWorn(index) && labels[index] == SleepLabels.Sleep &&
+            (daytime || hasOwnNight(grid, index, nights)) && !guarded[index] && wear.isWorn(index) && labels[index] == SleepLabels.Sleep &&
                 !smooth[index].isNaN() && smooth[index] <= baseline - drop(baseline, daytime, config)
         }
         val naps = runs(quiet, wear, config).mapNotNull { run ->
@@ -190,12 +189,25 @@ object WearNaps {
         var start = run.first
         while (start > 0 && run.first - start < config.onsetLookbackMinutes) {
             val at = start - 1
-            val still = wear.isWorn(at) && grid.movement[at] <= 0f && !smooth[at].isNaN() && smooth[at] <= baseline - config.onsetLookbackDropBpm
+            val still = wear.isWorn(at) && grid.hasMotionEvidence(at) && grid.movement[at] <= 0f && !smooth[at].isNaN() && smooth[at] <= baseline - config.onsetLookbackDropBpm
             if (!still) break
             start = at
         }
         for (index in start until run.first) labels[index] = SleepLabels.Sleep
         return start..run.last
+    }
+
+    /**
+     * Whether the night the minute belongs to has a session among [nights]. An
+     * earlier night's session does not count: during a sync in the small hours
+     * it is there while tonight's is not, and tonight's first hours were
+     * written as a nap (2026-11-14).
+     */
+    private fun hasOwnNight(grid: WearMinuteGrid, index: Int, nights: List<EstimatedSleepSession>): Boolean {
+        val offset = grid.zoneOffsetAt(index)
+        val night = SleepStageEstimator.nightDateOf(grid.timeAt(index), offset) ?: return false
+        val (from, to) = sleepNightWindow(night, offset)
+        return nights.any { !it.onset.isBefore(from) && it.onset.isBefore(to) }
     }
 
     private fun isDaytime(grid: WearMinuteGrid, index: Int, config: Config): Boolean {

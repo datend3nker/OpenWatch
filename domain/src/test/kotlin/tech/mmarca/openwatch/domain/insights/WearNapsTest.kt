@@ -177,4 +177,47 @@ class WearNapsTest {
         assertEquals(WearNaps.ofDay(rows, date, offset), WearNaps.ofDayWithReasons(rows, date, offset).naps.map { it.nap })
         assertEquals(emptyList<WearNaps.NapReason>(), WearNaps.ofDayWithReasons(rows, date.plusDays(1), offset).naps)
     }
+
+    /** A minute the watch slept through: no accelerometer reading, only the pulse. */
+    private fun unmeasured(index: Int, time: java.time.Instant, watched: Boolean = false): WearSleepMinute =
+        nap(index, time).copy(
+            sampleCount = 0,
+            flags = tech.mmarca.openwatch.domain.model.WearMinuteFlags(
+                tech.mmarca.openwatch.domain.model.WearMinuteFlags.SPARSE or
+                    if (watched) tech.mmarca.openwatch.domain.model.WearMinuteFlags.MOTION_WATCHED else 0,
+            ),
+            zAngleMin = null, zAngleMax = null, zAngleDelta = null,
+        )
+
+    @Test
+    fun `minutes without an accelerometer reading are not a nap, however quiet the pulse`() {
+        val rows = WearSleepFixtures.minutes(morning, 120) { i, t -> awake(i, t) } +
+            WearSleepFixtures.minutes(morning.plusSeconds(120 * 60L), 45) { i, t -> unmeasured(i, t) } +
+            WearSleepFixtures.minutes(morning.plusSeconds(165 * 60L), 240) { i, t -> awake(i, t) }
+
+        assertEquals(emptyList<WearNap>(), WearNaps.ofDay(rows, date, offset))
+    }
+
+    @Test
+    fun `minutes the motion sensors watched count as still`() {
+        val rows = WearSleepFixtures.minutes(morning, 120) { i, t -> awake(i, t) } +
+            WearSleepFixtures.minutes(morning.plusSeconds(120 * 60L), 45) { i, t -> unmeasured(i, t, watched = true) } +
+            WearSleepFixtures.minutes(morning.plusSeconds(165 * 60L), 240) { i, t -> awake(i, t) }
+
+        assertEquals(1, WearNaps.ofDay(rows, date, offset).size)
+    }
+
+    @Test
+    fun `last night's session does not make tonight's first hours a nap`() {
+        // A night, a day, and the first ninety minutes of the next night, synced before that night is found.
+        val firstNight = date.minusDays(1).atTime(22, 30).toInstant(offset)
+        val rows = WearSleepFixtures.wornNight(firstNight) +
+            WearSleepFixtures.minutes(morning, 15 * 60) { i, t -> awake(i, t) } +
+            WearSleepFixtures.minutes(date.atTime(23, 0).toInstant(offset), 90) { i, t ->
+                WearSleepFixtures.worn(t, movement = 0f, heartRate = 56f + i % 2)
+            }
+        assertNotNull(WearNight.estimate(rows, date, offset))
+
+        assertEquals(emptyList<WearNap>(), WearNaps.detectAll(rows, offset))
+    }
 }

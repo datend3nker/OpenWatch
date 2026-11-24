@@ -240,6 +240,14 @@
     <string name="recording_pause">Pause</string>
     <string name="recording_resume">Resume</string>
     <string name="recording_stop">Stop</string>
+    <string name="plan_set_of">Set %1$d of %2$d</string>
+    <string name="plan_reps_range">%1$d–%2$d reps</string>
+    <string name="plan_reps">%1$d reps</string>
+    <string name="plan_seconds">%1$d s</string>
+    <string name="plan_meters">%1$d m</string>
+    <string name="plan_weight">%1$s %2$s</string>
+    <string name="plan_sets_done">%1$d of %2$d sets done</string>
+    <string name="plan_all_done">Plan finished</string>
     <string name="recording_stop_confirm">End workout?</string>
     <string name="recording_pace">Pace</string>
     <string name="recording_speed">Speed</string>

@@ -7,6 +7,7 @@ import org.junit.Test
 import tech.mmarca.openlink.OpenLinkConnection
 import tech.mmarca.openlink.OpenLinkDeviceKind
 import tech.mmarca.openlink.OpenLinkIntegration
+import tech.mmarca.openlink.OpenLinkRecordingFeature
 import tech.mmarca.openlink.OpenLinkSampleType
 import tech.mmarca.openwatch.devices.wearos.WearOsAppStatus
 import tech.mmarca.openwatch.devices.wearos.WearOsLinkSnapshot
@@ -65,6 +66,12 @@ class LinkDevicesTest {
         assertEquals(setOf(OpenLinkSampleType.HEART_RATE, OpenLinkSampleType.STEPS), garmin.liveSampleTypes)
         assertEquals(OpenLinkConnection.CONNECTED, devices[1].connection)
         assertEquals(setOf(OpenLinkSampleType.HEART_RATE), devices[1].liveSampleTypes)
+        // Only the Wear OS watch records a workout the phone starts, and without a route; Garmin only streams.
+        assertEquals(emptySet<OpenLinkRecordingFeature>(), garmin.recordingFeatures)
+        assertEquals(setOf(OpenLinkRecordingFeature.HEART_RATE, OpenLinkRecordingFeature.PAUSE, OpenLinkRecordingFeature.WORKOUT_PLAN), devices[1].recordingFeatures)
+        assertTrue(70 in devices[1].exerciseTypes)
+        assertTrue(78 in devices[1].exerciseTypes)
+        assertTrue(56 !in devices[1].exerciseTypes)
         val scale = devices[2]
         assertEquals(OpenLinkDeviceKind.SCALE, scale.kind)
         assertEquals("Bathroom", scale.displayName)

@@ -22,6 +22,9 @@ import tech.mmarca.openwatch.domain.model.WearSleepMinute
 import tech.mmarca.openwatch.wearlink.WearLinkClient
 import tech.mmarca.openwatch.wearlink.WearLinkConnection
 import tech.mmarca.openwatch.wearlink.WearLinkOutcome
+import tech.mmarca.openwatch.wearlink.WearLinkPlan
+import tech.mmarca.openwatch.wearlink.WearPlan
+import tech.mmarca.openwatch.wearlink.WearWorkoutPhase
 import tech.mmarca.openwatch.wearlink.WearLinkProtocol
 import tech.mmarca.openwatch.wearlink.WearLinkWorkout
 import tech.mmarca.openwatch.wearlink.WearLinkSession
@@ -245,6 +248,27 @@ class BluetoothWearOsNodePort @Inject constructor(
             }
         }
 
+    override suspend fun <T> withWorkoutLink(targetAddress: String?, targetName: String?, block: (WearOsWorkoutLink) -> T): T? =
+        withContext(Dispatchers.IO) {
+            val match = bondedWatchOrNull(targetAddress, targetName) ?: return@withContext null
+            withSession(match, targetAddress, WORKOUT_LINK_MS + PING_TIMEOUT_MS) { session ->
+                if (WearLinkProtocol.CAP_PLAN !in session.peer.capabilities) return@withSession null
+                block(
+                    object : WearOsWorkoutLink {
+                        override fun start(sessionId: String, sportId: String) = unwrap(session.startWorkout(sessionId, sportId))
+                        override fun stop(sessionId: String) = unwrap(session.stopWorkout(sessionId))
+                        override fun pause(sessionId: String) = unwrap(session.pauseWorkout(sessionId))
+                        override fun resume(sessionId: String) = unwrap(session.resumeWorkout(sessionId))
+                        override fun phase(sessionId: String): WearWorkoutPhase = unwrap(session.workoutPhase(sessionId))
+                        override fun pushPlan(plan: WearPlan) {
+                            for (line in WearLinkPlan.lineObjects(plan)) unwrap(session.putPlanLine(line))
+                        }
+                        override fun clearPlan(sessionId: String) = unwrap(session.putPlanLine(WearLinkPlan.Line.Clear(sessionId)))
+                    },
+                )
+            }
+        }
+
     override suspend fun pullEntries(targetAddress: String?, targetName: String?, since: Instant): WearOsEntryPage? =
         withContext(Dispatchers.IO) {
             val match = bondedWatchOrNull(targetAddress, targetName) ?: return@withContext null
@@ -394,6 +418,9 @@ class BluetoothWearOsNodePort @Inject constructor(
 
         /** A full page over RFCOMM is well under a second; the connect dominates. */
         private const val PULL_TIMEOUT_MS = 30_000L
+
+        /** A recorded workout's connection: well inside the watch's 10-minute limit on a connection. */
+        private const val WORKOUT_LINK_MS = 7L * 60 * 1000
 
         /** One live connection: well inside the watch's 10-minute limit on a connection. */
         private const val LIVE_SESSION_MS = 8L * 60 * 1000

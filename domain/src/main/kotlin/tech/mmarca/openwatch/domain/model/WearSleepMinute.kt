@@ -13,6 +13,9 @@ data class WearMinuteFlags(val bits: Int) {
     val heartRateRecording: Boolean get() = bits and HR_RECORDING != 0
     val isSparse: Boolean get() = bits and SPARSE != 0
 
+    /** The wake-up motion sensors watched the minute: no accelerometer reading then means a still arm. */
+    val isMotionWatched: Boolean get() = bits and MOTION_WATCHED != 0
+
     companion object {
         const val CHARGING = 1
         const val OFF_BODY = 2
@@ -20,6 +23,7 @@ data class WearMinuteFlags(val bits: Int) {
         const val HR_NO_CONTACT = 8
         const val HR_RECORDING = 16
         const val SPARSE = 32
+        const val MOTION_WATCHED = 64
         val NONE = WearMinuteFlags(0)
     }
 }

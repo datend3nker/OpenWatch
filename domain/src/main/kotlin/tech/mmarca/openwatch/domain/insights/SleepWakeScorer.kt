@@ -85,6 +85,11 @@ object SleepWakeScorer {
                 labels[index] = SleepLabels.Wake
                 continue
             }
+            // Nothing measured the arm: unknown, as if the watch had not been worn.
+            if (!grid.hasMotionEvidence(index)) {
+                labels[index] = SleepLabels.Gap
+                continue
+            }
             var weighted = 0f
             for (offset in config.weights.indices) {
                 val at = index + offset - config.centre

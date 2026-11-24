@@ -13,12 +13,13 @@ import tech.mmarca.openwatch.wear.RespiratoryRate
  * for a night-time HRV window, read from the shared [SamsungHeartRateFeed].
  * The source subscribes only for the window (the feed may already run for
  * the heart rate recorder). With the screen off the platform hands its
- * points over in batches up to ten minutes late, and a flush does not hurry
- * them (on a Galaxy Watch7 the flush answered in 0.2 s and the window's own
- * points were not among those delivered). So after the window the source
- * stays subscribed until a point stamped after the window's end arrives,
- * at most [BATCH_WAIT_MILLIS], and keeps the intervals that ended inside the
- * window ([SamsungIbiWindow]).
+ * points over in batches up to ten minutes late, and a flush hurries them
+ * only sometimes (on a Galaxy Watch7 it brought the window's own points at
+ * once in most windows, with their intervals on one point, which the feed
+ * puts right; in others it answered and delivered nothing). So after the
+ * window the source stays subscribed until a point stamped after the
+ * window's end arrives, at most [BATCH_WAIT_MILLIS], and keeps the intervals
+ * that ended inside the window ([SamsungIbiWindow]).
  */
 internal class SamsungIbiSource(private val feed: SamsungHeartRateFeed) : HrvWindowSource, SamsungHeartRateFeed.Subscriber {
 
