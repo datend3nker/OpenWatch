@@ -13,12 +13,14 @@ import tech.mmarca.openlink.OpenLinkConnection
 import tech.mmarca.openlink.OpenLinkDevice
 import tech.mmarca.openlink.OpenLinkDeviceKind
 import tech.mmarca.openlink.OpenLinkIntegration
+import tech.mmarca.openlink.OpenLinkRecordingFeature
 import tech.mmarca.openlink.OpenLinkSampleType
 import tech.mmarca.openlink.OpenLinkSyncResult
 import tech.mmarca.openwatch.core.performance.ApplicationScope
 import tech.mmarca.openwatch.data.repository.BleDeviceRepository
 import tech.mmarca.openwatch.devices.core.DeviceFamilies
 import tech.mmarca.openwatch.devices.core.DeviceFeature
+import tech.mmarca.openwatch.devices.core.RecordedWorkoutPort
 import tech.mmarca.openwatch.devices.core.sync.DeviceSyncController
 import tech.mmarca.openwatch.devices.core.sync.DeviceSyncResult
 import tech.mmarca.openwatch.devices.core.sync.SkipReason
@@ -37,6 +39,7 @@ class LinkDevices @Inject constructor(
     deviceRepository: BleDeviceRepository,
     syncController: DeviceSyncController,
     families: DeviceFamilies,
+    recordedWorkouts: Set<@JvmSuppressWildcards RecordedWorkoutPort>,
     @ApplicationScope appScope: CoroutineScope,
 ) {
     private val scope = appScope
@@ -46,7 +49,9 @@ class LinkDevices @Inject constructor(
         syncController.state,
         families.connections,
     ) { registered, sync, connections ->
-        linkDevices(registered, sync.syncingDeviceIds, families, connections, sync.attempts)
+        linkDevices(registered, sync.syncingDeviceIds, families, connections, sync.attempts) { device ->
+            recordedWorkouts.firstOrNull { it.canRecord(device) }?.exerciseTypes.orEmpty()
+        }
     }.distinctUntilChanged().stateIn(scope, SharingStarted.Eagerly, emptyList())
 }
 
@@ -57,6 +62,8 @@ internal fun linkDevices(
     families: DeviceFamilies,
     connections: Map<String, Boolean>,
     attempts: Map<String, SyncAttempt> = emptyMap(),
+    /** The sports [device] records a workout of for an app (`RECORD`); empty where it records none. */
+    recordedExerciseTypes: (BleSensorDevice) -> Set<Int> = { emptySet() },
 ): List<OpenLinkDevice> =
     registered.mapNotNull { device ->
         val family = families.of(device) ?: return@mapNotNull null
@@ -85,6 +92,9 @@ internal fun linkDevices(
                 if (DeviceFeature.LIVE_HEART_RATE in features) add(OpenLinkSampleType.HEART_RATE)
                 if (DeviceFeature.LIVE_STEPS in features) add(OpenLinkSampleType.STEPS)
             },
+            // Whether the device has GPS the phone does not know, so it is not offered.
+            recordingFeatures = if (recordedExerciseTypes(device).isEmpty()) emptySet() else RECORDED_WORKOUT_FEATURES,
+            exerciseTypes = recordedExerciseTypes(device),
             lastSyncResult = attempts[device.id]?.result?.let(::linkSyncResult),
             lastSyncAttemptAtMillis = attempts[device.id]?.atMillis,
         )
@@ -105,3 +115,5 @@ internal fun linkSyncResult(result: DeviceSyncResult): OpenLinkSyncResult = when
         else -> OpenLinkSyncResult.FAILED
     }
 }
+
+private val RECORDED_WORKOUT_FEATURES = setOf(OpenLinkRecordingFeature.HEART_RATE, OpenLinkRecordingFeature.PAUSE, OpenLinkRecordingFeature.AUTO_PAUSE)

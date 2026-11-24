@@ -4,6 +4,7 @@
     <string name="link_streaming_heart_rate">Streaming heart rate to %1$s</string>
     <string name="link_streaming_heart_rate_steps">Streaming heart rate and steps to %1$s</string>
     <string name="link_streaming_keeping">Keeping your watch streaming for %1$s</string>
+    <string name="link_recording_workout">Your watch records a workout for %1$s</string>
     <string name="link_streaming_waiting">Waiting for your watch, for %1$s</string>
     <string name="link_streaming_from">From %1$s</string>
     <string name="link_streaming_waiting_for">Waiting for a reading from %1$s</string>

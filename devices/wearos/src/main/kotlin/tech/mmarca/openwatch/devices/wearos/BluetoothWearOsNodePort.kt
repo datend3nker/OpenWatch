@@ -16,17 +16,18 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.withContext
+import tech.mmarca.openwatch.core.performance.DefaultDispatcherProvider
+import tech.mmarca.openwatch.core.performance.DispatcherProvider
 import tech.mmarca.openwatch.wearlink.DaySummary
 import tech.mmarca.openwatch.wearlink.Page
 import tech.mmarca.openwatch.wearlink.WearLinkClient
 import tech.mmarca.openwatch.wearlink.WearLinkConnection
 import tech.mmarca.openwatch.wearlink.WearLinkOutcome
 import tech.mmarca.openwatch.wearlink.WearLinkProtocol
-import tech.mmarca.openwatch.wearlink.WearLinkWorkout
 import tech.mmarca.openwatch.wearlink.WearLinkSession
 import tech.mmarca.openwatch.wearlink.WearLinkSince
-import tech.mmarca.openwatch.core.performance.DefaultDispatcherProvider
-import tech.mmarca.openwatch.core.performance.DispatcherProvider
+import tech.mmarca.openwatch.wearlink.WearLinkWorkout
+import tech.mmarca.openwatch.wearlink.WearLinkWorkoutControl
 
 /**
  * Bluetooth Classic RFCOMM implementation of [WearOsNodePort], on AOSP APIs
@@ -112,6 +113,19 @@ class BluetoothWearOsNodePort internal constructor(
     override suspend fun setWatchSetting(targetAddress: String?, targetName: String?, key: String, value: String): Boolean = onIo { owner ->
         val match = bondedWatchOrNull(targetAddress, targetName) ?: return@onIo false
         exchange(owner, match, targetAddress, PING_TIMEOUT_MS, WearLinkProtocol.CAP_PREFERENCES) { it.setPreference(key, value) } is WearLinkOutcome.Ok
+    }
+
+    override suspend fun controlWorkout(
+        targetAddress: String?,
+        targetName: String?,
+        control: WearLinkWorkoutControl.Control,
+        background: Boolean,
+    ): WearLinkWorkoutControl.State? = onIo { owner ->
+        val match = bondedWatchOrNull(targetAddress, targetName) ?: return@onIo null
+        val outcome = exchange(owner, match, targetAddress, PING_TIMEOUT_MS, WearLinkWorkoutControl.CAPABILITY, background) {
+            it.workoutControl(control)
+        } ?: return@onIo WearLinkWorkoutControl.State(control.sessionId, WearLinkWorkoutControl.Phase.FAILED, 0L, WearLinkWorkoutControl.REASON_UNSUPPORTED)
+        unwrap(outcome)
     }
 
     override suspend fun notifyPhoneActive(targetAddress: String?, targetName: String?, at: Instant): Boolean = onIo { owner ->

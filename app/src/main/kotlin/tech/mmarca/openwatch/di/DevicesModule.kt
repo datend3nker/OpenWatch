@@ -17,6 +17,7 @@ import tech.mmarca.openwatch.data.repository.RegisteredFamilies
 import tech.mmarca.openwatch.devices.core.DeviceClassifier
 import tech.mmarca.openwatch.devices.core.DeviceFamily
 import tech.mmarca.openwatch.devices.core.DeviceScanClassifier
+import tech.mmarca.openwatch.devices.core.RecordedWorkoutPort
 import tech.mmarca.openwatch.devices.core.measure.DeviceMeasurementSink
 import tech.mmarca.openwatch.devices.core.measure.MeasurementRecords
 import tech.mmarca.openwatch.devices.core.measure.MeasurementSink
@@ -68,6 +69,10 @@ abstract class DevicesModule {
     /** Each family that pushes measurements binds its mapping by its persisted name; none may. */
     @Multibinds
     abstract fun measurementRecords(): Map<String, MeasurementRecords>
+
+    /** Each family whose devices record a workout for an app (OpenLink's `RECORD`) binds its port; none may. */
+    @Multibinds
+    abstract fun recordedWorkoutPorts(): Set<RecordedWorkoutPort>
 
     companion object {
         @Provides

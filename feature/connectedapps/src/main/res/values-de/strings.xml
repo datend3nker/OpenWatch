@@ -6,6 +6,7 @@
     <string name="connected_apps_session_heart_rate">Aufzeichnung: Herzfrequenz von %1$s wird übertragen</string>
     <string name="connected_apps_session_heart_rate_steps">Aufzeichnung: Herzfrequenz und Schritte von %1$s werden übertragen</string>
     <string name="connected_apps_session_keeping">Aufzeichnung: %1$s bleibt verbunden</string>
+    <string name="connected_apps_session_workout">Aufzeichnung: %1$s zeichnet das Training auf</string>
     <string name="connected_apps_session_waiting">Aufzeichnung: warte auf einen Messwert von %1$s</string>
     <string name="connected_apps_intro">Diese Apps möchten OpenWatch nutzen. Jede sieht nur, was du hier erlaubst, und nichts verlässt das Telefon.</string>
     <string name="connected_apps_empty">Noch hat keine App angefragt. OpenVitals verbindet sich, sobald beide Apps installiert sind.</string>

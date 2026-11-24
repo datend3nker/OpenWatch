@@ -13,6 +13,7 @@ import tech.mmarca.openwatch.wearlink.WearLinkConnection
 import tech.mmarca.openwatch.wearlink.WearLinkProtocol
 import tech.mmarca.openwatch.wearlink.WearLinkWorkout
 import tech.mmarca.openwatch.wearlink.WearLinkRequestHandler
+import tech.mmarca.openwatch.wearlink.WearLinkWorkoutControl
 import tech.mmarca.openwatch.wearlink.WearLinkServer
 import tech.mmarca.openwatch.wearlink.WearLinkSince
 
@@ -41,10 +42,12 @@ class WearLinkServerHost(
     workouts: (sinceEpochMillis: Long, limit: Int) -> Page<WearLinkWorkout>,
     /** Keeps the phone's figures for a day (`PUT_DAY`); false when refused. Called on the link's thread. */
     putDay: (DaySummary) -> Boolean,
+    /** A workout recorded for an app on the phone ([WearLinkWorkoutControl]). Called on the link's thread. */
+    workoutControl: (WearLinkWorkoutControl.Control) -> WearLinkWorkoutControl.State,
     private val localName: () -> String,
     private val state: WearLinkState,
 ) {
-    private val server = WearLinkServer(trust, Handler(store, live, hrvAvailable, skinAvailable, onPhoneActive, heldPreferences, setPreference, workouts, putDay, localName))
+    private val server = WearLinkServer(trust, Handler(store, live, hrvAvailable, skinAvailable, onPhoneActive, heldPreferences, setPreference, workouts, putDay, workoutControl, localName))
 
     @Volatile
     private var serverSocket: BluetoothServerSocket? = null
@@ -133,6 +136,7 @@ class WearLinkServerHost(
         private val setPreference: (String, String) -> Boolean,
         private val workouts: (Long, Int) -> Page<WearLinkWorkout>,
         private val putDay: (DaySummary) -> Boolean,
+        private val workoutControl: (WearLinkWorkoutControl.Control) -> WearLinkWorkoutControl.State,
         private val localName: () -> String,
     ) : WearLinkRequestHandler {
         override fun localName(): String = localName.invoke()
@@ -150,6 +154,7 @@ class WearLinkServerHost(
             add(WearLinkProtocol.CAP_PHONE_ACTIVE)
             add(WearLinkProtocol.CAP_PREFERENCES)
             add(WearLinkProtocol.CAP_DAY_SUMMARY)
+            add(WearLinkWorkoutControl.CAPABILITY)
             // The metric list holds the workouts' pauses and route too; only the header key is a capability.
             remove("wp")
             remove("wr")
@@ -175,6 +180,8 @@ class WearLinkServerHost(
         override fun setPreference(key: String, value: String): Boolean = setPreference.invoke(key, value)
 
         override fun putDay(day: DaySummary): Boolean = putDay.invoke(day)
+
+        override fun workoutControl(control: WearLinkWorkoutControl.Control): WearLinkWorkoutControl.State = workoutControl.invoke(control)
 
         override fun liveHeartRate(seconds: Int, emit: (WearLinkProtocol.HeartRateSample) -> Unit): Int =
             live.window(seconds, emit)

@@ -122,6 +122,12 @@ class WearLinkSession internal constructor(
         }
     }
 
+    /** A workout the watch records for an app on the phone: the state after [control]. Only for a watch announcing `wc`. */
+    fun workoutControl(control: WearLinkWorkoutControl.Control): WearLinkOutcome<WearLinkWorkoutControl.State> =
+        exchange(WearLinkProtocol.Request.WorkoutControl(control)) { line ->
+            WearLinkWorkoutControl.parseState(line)?.let { Reply.Done(it) } ?: Reply.Unexpected
+        }
+
     /** Closes the connection; the watch is waiting for exactly this. */
     fun close() = connection.close()
 

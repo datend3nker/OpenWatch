@@ -53,6 +53,8 @@ import java.util.UUID
  * - `PHONE_ACTIVE <epochMillis>` → `END 0 0`. The wearer unlocked the phone at
  *   that time: they are awake, so the watch ends a sleep hold it started by
  *   itself. Only a watch announcing `pa` serves it.
+ * - `WO_CTL …` → one `WS` line: a workout recorded for an app on the phone
+ *   ([WearLinkWorkoutControl]). Only a watch announcing `wc` serves it.
  * - `HR_LIVE <seconds>` → for up to `seconds` (at most [MAX_LIVE_SECONDS],
  *   less than the watch's idle timeout), one `HR` line as each reading
  *   arrives, then `END <count> 0`. Only a watch announcing `hl` serves it; a
@@ -224,6 +226,7 @@ object WearLinkProtocol {
         data class LiveHeartRate(val seconds: Int) : Request()
         data class SeriesSince(val key: String, val cursor: String, val limit: Int) : Request()
         data class PutDay(val day: DaySummary) : Request()
+        data class WorkoutControl(val control: WearLinkWorkoutControl.Control) : Request()
     }
 
     fun formatHello(hello: Hello): String =
@@ -287,6 +290,7 @@ object WearLinkProtocol {
         is Request.LiveHeartRate -> "$HEART_RATE_LIVE ${request.seconds.coerceIn(1, MAX_LIVE_SECONDS)}"
         is Request.SeriesSince -> WearLinkSince.formatRequest(request)
         is Request.PutDay -> WearLinkDaily.format(request.day)
+        is Request.WorkoutControl -> WearLinkWorkoutControl.formatControl(request.control)
     }
 
     /** Null unless [line] is a well-formed request. */
@@ -299,6 +303,7 @@ object WearLinkProtocol {
         parsePreferenceRequest(line)?.let { return it }
         parseLiveRequest(line)?.let { return Request.LiveHeartRate(it) }
         WearLinkDaily.parse(line)?.let { return Request.PutDay(it) }
+        WearLinkWorkoutControl.parseControl(line)?.let { return Request.WorkoutControl(it) }
         return null
     }
 

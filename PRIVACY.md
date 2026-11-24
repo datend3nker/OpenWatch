@@ -210,8 +210,9 @@ works only inside the phone. OpenVitals is the first. Nothing travels over a net
   weight), shared both ways so you enter it once; the list of your watches and scale with
   their battery, last sync and how it ended, and a request to sync one; your daily goals (steps, active
   energy, water), shared both ways and sent to your Wear OS watch for its rings; keeping your
-  watch streaming while the app records an activity; and the watch's heart rate and steps
-  while it does.
+  watch streaming while the app records an activity, or having your Wear OS watch record the
+  workout itself, which OpenWatch then writes to Health Connect; and the watch's heart rate and
+  steps while it does.
 - An app allowed to see your devices also hears when OpenWatch wrote new data to Health
   Connect: which kinds of record (for example heart rate or weight) and the time they cover,
   never a value, so it knows when to read Health Connect again. The kinds alone say what your

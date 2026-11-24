@@ -11,6 +11,7 @@ import dagger.multibindings.StringKey
 import javax.inject.Singleton
 import tech.mmarca.openwatch.StartupActor
 import tech.mmarca.openwatch.devices.core.DeviceFamily
+import tech.mmarca.openwatch.devices.core.RecordedWorkoutPort
 import tech.mmarca.openwatch.devices.core.sync.DeviceSyncPort
 
 /**
@@ -37,6 +38,11 @@ abstract class WearOsModule {
     @Binds
     @Singleton
     abstract fun bindWearOsNodePort(impl: BluetoothWearOsNodePort): WearOsNodePort
+
+    // The watch app records a workout for an app on the phone; the link host asks each port bound here.
+    @Binds
+    @IntoSet
+    abstract fun bindWearOsRecordedWorkouts(impl: WearOsRecordedWorkouts): RecordedWorkoutPort
 
     companion object {
         @Provides

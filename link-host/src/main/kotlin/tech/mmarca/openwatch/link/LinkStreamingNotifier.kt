@@ -29,10 +29,14 @@ class LinkStreamingNotifier @Inject constructor(
     private val host: OpenLinkHost,
     private val sessions: LinkLiveSessions,
     private val connectedApps: ConnectedAppsIntent,
+    private val recorded: LinkRecordedWorkouts,
 ) {
     /** Runs for the app's life, from [OpenWatchLinkPublisher]. */
     suspend fun run() {
-        combine(host.activeSessions, sessions.activity, ::linkSessionStatuses)
+        combine(host.activeSessions, sessions.activity, recorded.activity) { active, live, workouts ->
+            // A recorded workout and its live subscription share a session: the workout is what the line says.
+            linkSessionStatuses(active, live + workouts)
+        }
             .distinctUntilChanged()
             .collect(::show)
     }
@@ -54,6 +58,7 @@ class LinkStreamingNotifier @Inject constructor(
             LinkSessionStatus.Kind.HEART_RATE -> context.getString(R.string.link_streaming_heart_rate, app)
             LinkSessionStatus.Kind.HEART_RATE_AND_STEPS -> context.getString(R.string.link_streaming_heart_rate_steps, app)
             LinkSessionStatus.Kind.KEEPING_STREAMING -> context.getString(R.string.link_streaming_keeping, app)
+            LinkSessionStatus.Kind.RECORDING_WORKOUT -> context.getString(R.string.link_recording_workout, app)
             LinkSessionStatus.Kind.WAITING -> context.getString(R.string.link_streaming_waiting, app)
         }
         val text = if (first.kind == LinkSessionStatus.Kind.WAITING) {

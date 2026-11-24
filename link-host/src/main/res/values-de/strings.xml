@@ -4,6 +4,7 @@
     <string name="link_streaming_heart_rate">Herzfrequenz wird an %1$s übertragen</string>
     <string name="link_streaming_heart_rate_steps">Herzfrequenz und Schritte werden an %1$s übertragen</string>
     <string name="link_streaming_keeping">Uhr bleibt für %1$s verbunden</string>
+    <string name="link_recording_workout">Deine Uhr zeichnet ein Training für %1$s auf</string>
     <string name="link_streaming_waiting">Warte auf die Uhr, für %1$s</string>
     <string name="link_streaming_from">Von %1$s</string>
     <string name="link_streaming_waiting_for">Warte auf einen Messwert von %1$s</string>

@@ -6,6 +6,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
+import tech.mmarca.openwatch.wearlink.WearLinkWorkoutControl
 
 /**
  * High-level manager to query whether a Wear OS watch is paired and whether
@@ -28,6 +29,14 @@ class WearOsCompanionManager @Inject constructor(
     /** Changes one of the watch's settings. False when the watch refused it or is not found. */
     suspend fun setWatchSetting(targetAddress: String?, targetName: String?, key: String, value: String): Boolean =
         nodePort.setWatchSetting(targetAddress, targetName, key, value)
+
+    /** See [WearOsNodePort.controlWorkout]. */
+    suspend fun controlWorkout(
+        targetAddress: String?,
+        targetName: String?,
+        control: WearLinkWorkoutControl.Control,
+        background: Boolean = false,
+    ): WearLinkWorkoutControl.State? = nodePort.controlWorkout(targetAddress, targetName, control, background)
 
     /**
      * The watch's heart rate as it happens, for as long as it is collected:

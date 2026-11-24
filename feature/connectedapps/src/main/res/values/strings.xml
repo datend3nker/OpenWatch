@@ -24,5 +24,6 @@
     <string name="connected_apps_session_heart_rate">Recording: streaming heart rate from %1$s</string>
     <string name="connected_apps_session_heart_rate_steps">Recording: streaming heart rate and steps from %1$s</string>
     <string name="connected_apps_session_keeping">Recording: keeping %1$s streaming</string>
+    <string name="connected_apps_session_workout">Recording: %1$s records the workout</string>
     <string name="connected_apps_session_waiting">Recording: waiting for a reading from %1$s</string>
 </resources>
