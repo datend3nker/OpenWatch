@@ -44,10 +44,12 @@ class WearLinkServerHost(
     putDay: (DaySummary) -> Boolean,
     /** A workout recorded for an app on the phone ([WearLinkWorkoutControl]). Called on the link's thread. */
     workoutControl: (WearLinkWorkoutControl.Control) -> WearLinkWorkoutControl.State,
+    /** The watch has a GPS receiver, for a recorded workout's route. */
+    hasGps: () -> Boolean = { false },
     private val localName: () -> String,
     private val state: WearLinkState,
 ) {
-    private val server = WearLinkServer(trust, Handler(store, live, hrvAvailable, skinAvailable, onPhoneActive, heldPreferences, setPreference, workouts, putDay, workoutControl, localName))
+    private val server = WearLinkServer(trust, Handler(store, live, hrvAvailable, skinAvailable, onPhoneActive, heldPreferences, setPreference, workouts, putDay, workoutControl, hasGps, localName))
 
     @Volatile
     private var serverSocket: BluetoothServerSocket? = null
@@ -137,6 +139,7 @@ class WearLinkServerHost(
         private val workouts: (Long, Int) -> Page<WearLinkWorkout>,
         private val putDay: (DaySummary) -> Boolean,
         private val workoutControl: (WearLinkWorkoutControl.Control) -> WearLinkWorkoutControl.State,
+        private val hasGps: () -> Boolean,
         private val localName: () -> String,
     ) : WearLinkRequestHandler {
         override fun localName(): String = localName.invoke()
@@ -155,6 +158,7 @@ class WearLinkServerHost(
             add(WearLinkProtocol.CAP_PREFERENCES)
             add(WearLinkProtocol.CAP_DAY_SUMMARY)
             add(WearLinkWorkoutControl.CAPABILITY)
+            if (hasGps()) add(WearLinkWorkoutControl.CAPABILITY_GPS)
             // The metric list holds the workouts' pauses and route too; only the header key is a capability.
             remove("wp")
             remove("wr")

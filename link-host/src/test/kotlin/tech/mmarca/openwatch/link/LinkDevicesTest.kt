@@ -9,6 +9,7 @@ import tech.mmarca.openlink.OpenLinkConnection
 import tech.mmarca.openlink.OpenLinkDeviceKind
 import tech.mmarca.openlink.OpenLinkIntegration
 import tech.mmarca.openlink.OpenLinkSampleType
+import tech.mmarca.openlink.OpenLinkRecordingFeature
 import tech.mmarca.openlink.OpenLinkSyncResult
 import tech.mmarca.openwatch.devices.core.DeviceFamilies
 import tech.mmarca.openwatch.devices.core.DeviceFeature
@@ -153,5 +154,16 @@ class LinkDevicesTest {
         assertEquals(OpenLinkSyncResult.PERMISSION_MISSING, linkSyncResult(DeviceSyncResult.Failed(SyncFailure.HealthConnectPermission)))
         assertEquals(OpenLinkSyncResult.DISCONNECTED, linkSyncResult(DeviceSyncResult.Failed(SyncFailure.Unreachable)))
         assertEquals(OpenLinkSyncResult.FAILED, linkSyncResult(DeviceSyncResult.Failed(SyncFailure.RadioBusy)))
+    }
+
+    @Test
+    fun `a watch that records a workout for an app offers its sports, and GPS only when its last hello said it has it`() {
+        val watch = device("Galaxy Watch8", BleDeviceKind.WATCH, DeviceIntegration.WEAROS)
+        val plain = linkDevices(listOf(watch), emptySet(), families, emptyMap(), recordedExerciseTypes = { setOf(8, 56) }).single()
+        assertEquals(setOf(8, 56), plain.exerciseTypes)
+        assertEquals(setOf(OpenLinkRecordingFeature.HEART_RATE, OpenLinkRecordingFeature.PAUSE, OpenLinkRecordingFeature.AUTO_PAUSE), plain.recordingFeatures)
+        val withGps = linkDevices(listOf(watch), emptySet(), families, emptyMap(), recordedExerciseTypes = { setOf(8) }, recordsRoute = { true }).single()
+        assertTrue(OpenLinkRecordingFeature.GPS in withGps.recordingFeatures)
+        assertTrue(linkDevices(listOf(watch), emptySet(), families, emptyMap()).single().recordingFeatures.isEmpty())
     }
 }

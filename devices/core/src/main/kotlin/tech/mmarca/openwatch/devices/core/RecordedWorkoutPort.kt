@@ -8,8 +8,29 @@ enum class RecordedWorkoutCommand { START, PAUSE, RESUME, STOP, STATE }
 /** Where a recorded workout stands on the device; [NONE]: the device holds none for the session. */
 enum class RecordedWorkoutPhase { RECORDING, PAUSED, STOPPED, FAILED, NONE }
 
-/** A recorded workout's phase, since when by the device's clock, and why it stopped or failed (null for no reason). */
-data class RecordedWorkoutState(val phase: RecordedWorkoutPhase, val atMillis: Long, val reason: String? = null)
+/**
+ * A recorded workout's phase, since when by the device's clock, why it stopped or failed (null for
+ * no reason), and for a stopped one its [summary].
+ */
+data class RecordedWorkoutState(
+    val phase: RecordedWorkoutPhase,
+    val atMillis: Long,
+    val reason: String? = null,
+    val summary: RecordedWorkoutSummary? = null,
+)
+
+/**
+ * What a stopped workout gives beyond its Health Connect session: the seconds in each heart rate
+ * zone and each zone's lowest bpm, zone 1 first, Banister's TRIMP, and the heart rate's fall one and
+ * two minutes after the stop. Every part optional.
+ */
+data class RecordedWorkoutSummary(
+    val zoneSeconds: List<Int> = emptyList(),
+    val zoneLowerBoundsBpm: List<Int> = emptyList(),
+    val trimp: Double? = null,
+    val recovery1MinBpm: Int? = null,
+    val recovery2MinBpm: Int? = null,
+)
 
 /**
  * A device family whose devices record a workout themselves for an app on the phone, steered from
@@ -23,6 +44,9 @@ interface RecordedWorkoutPort {
 
     /** The sports a device it claims can record, as Health Connect's exercise types. */
     val exerciseTypes: Set<Int>
+
+    /** Whether [device] records a route with a workout: it has a GPS receiver, as far as the phone last heard. */
+    fun recordsRoute(device: BleSensorDevice): Boolean
 
     /**
      * Sends [command] for [sessionId] ([exerciseType], Health Connect's, for a start) and returns

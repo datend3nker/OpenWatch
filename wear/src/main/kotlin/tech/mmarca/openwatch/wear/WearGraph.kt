@@ -23,12 +23,14 @@ import tech.mmarca.openwatch.wear.workout.ActivityDetectionMonitor
 import tech.mmarca.openwatch.wear.workout.MetricStoreWorkoutRows
 import tech.mmarca.openwatch.wear.workout.RecoveryAtStop
 import tech.mmarca.openwatch.wear.workout.RemoteWorkout
+import tech.mmarca.openwatch.wear.workout.WorkoutFigures
 import tech.mmarca.openwatch.wear.workout.WorkoutRecorder
 import tech.mmarca.openwatch.wear.workout.WorkoutState
 import tech.mmarca.openwatch.wear.workout.WorkoutStore
 import tech.mmarca.openwatch.wearlink.Page
 import tech.mmarca.openwatch.wearlink.WearLinkEntry
 import tech.mmarca.openwatch.wearlink.WearLinkWorkout
+import tech.mmarca.openwatch.wearlink.WearLinkWorkoutControl
 import tech.mmarca.openwatch.wearlink.WorkoutSport
 
 /**
@@ -317,6 +319,7 @@ internal class WearGraph(private val app: Application) {
             workouts = ::workoutsPulled,
             putDay = { day -> phoneDays.put(day) },
             workoutControl = remoteWorkout::control,
+            hasGps = { sensors.gps },
             localName = ::localName,
             state = linkState,
         )
@@ -336,6 +339,25 @@ internal class WearGraph(private val app: Application) {
                 override fun stop() = WearAppService.stopWorkout(app, RecoveryAtStop.NONE)
             },
             workoutState.state,
+            summaryOf = ::remoteWorkoutSummary,
+        )
+    }
+
+    /**
+     * A recorded workout's summary for the app, from the figures the watch's own summary shows
+     * ([WorkoutFigures]): the time in each zone and the zones' bounds, the TRIMP, and the recovery
+     * once the two minutes after the stop are worked out. Link thread.
+     */
+    private fun remoteWorkoutSummary(workoutStartMillis: Long): WearLinkWorkoutControl.Summary? {
+        val figures = WorkoutFigures(store, { settings.value }).of(workoutStartMillis) ?: return null
+        val state = workoutState.state.value
+        val recovery = state.recovery?.falls?.takeIf { state.startMillis == workoutStartMillis }
+        return WearLinkWorkoutControl.Summary(
+            zoneSeconds = figures.zoneSeconds.map { it.toInt() },
+            zoneLowerBoundsBpm = settings.value.zoneBasis()?.boundsBpm.orEmpty().takeIf { figures.zoneSeconds.isNotEmpty() }.orEmpty(),
+            trimp = figures.trimp,
+            recovery1MinBpm = recovery?.oneMinuteBpm,
+            recovery2MinBpm = recovery?.twoMinutesBpm,
         )
     }
 

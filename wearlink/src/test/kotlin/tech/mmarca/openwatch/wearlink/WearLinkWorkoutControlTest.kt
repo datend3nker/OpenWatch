@@ -45,4 +45,16 @@ class WearLinkWorkoutControlTest {
         assertEquals(WearLinkOutcome.Ok(State("ride-1", Phase.FAILED, 0L, WearLinkWorkoutControl.REASON_UNSUPPORTED)), answer)
         session.close()
     }
+
+    @Test
+    fun `a stopped workout's summary rides on its state, every part optional`() {
+        val full = WearLinkWorkoutControl.State(
+            "ride-1", WearLinkWorkoutControl.Phase.STOPPED, 9_000L, "stopped_on_device",
+            WearLinkWorkoutControl.Summary(listOf(60, 600, 1200, 300, 0), listOf(98, 118, 137, 157, 177), 61.234, 24, 41),
+        )
+        assertEquals(full, WearLinkWorkoutControl.parseState(WearLinkWorkoutControl.formatState(full)))
+        val bare = full.copy(summary = WearLinkWorkoutControl.Summary())
+        assertEquals(bare, WearLinkWorkoutControl.parseState(WearLinkWorkoutControl.formatState(bare)))
+        assertEquals(null, WearLinkWorkoutControl.parseState("WS cmlkZS0x stopped 9000 - 1,x - - - -"))
+    }
 }

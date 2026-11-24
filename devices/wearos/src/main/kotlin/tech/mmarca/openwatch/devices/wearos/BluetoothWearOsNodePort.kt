@@ -249,6 +249,7 @@ class BluetoothWearOsNodePort internal constructor(
             WearOsClock.check(session.peer.clockMillis, System.currentTimeMillis())
             // The bond's Classic address is the surest way to find this watch again.
             linkStore.setLinkAddress(registeredAddress, match.address)
+            linkStore.setCapabilities(registeredAddress, session.peer.capabilities.toSet())
             return session
         } catch (error: Throwable) {
             // The watch waits for this close after a refusal.

@@ -16,6 +16,7 @@ import kotlinx.coroutines.sync.withLock
 import tech.mmarca.openlink.OpenLinkRecordingPhase
 import tech.mmarca.openlink.OpenLinkRecordingRequest
 import tech.mmarca.openlink.OpenLinkRecordingState
+import tech.mmarca.openlink.OpenLinkWorkoutSummary
 import tech.mmarca.openlink.host.OpenLinkHost
 import tech.mmarca.openwatch.core.performance.ApplicationScope
 import tech.mmarca.openwatch.data.repository.BleDeviceRepository
@@ -23,6 +24,7 @@ import tech.mmarca.openwatch.devices.core.RecordedWorkoutCommand
 import tech.mmarca.openwatch.devices.core.RecordedWorkoutPhase
 import tech.mmarca.openwatch.devices.core.RecordedWorkoutPort
 import tech.mmarca.openwatch.devices.core.RecordedWorkoutState
+import tech.mmarca.openwatch.devices.core.RecordedWorkoutSummary
 import tech.mmarca.openwatch.devices.core.sync.DeviceSyncController
 import tech.mmarca.openwatch.domain.model.BleSensorDevice
 
@@ -169,7 +171,18 @@ class LinkRecordedWorkouts internal constructor(
             }
             RecordedWorkoutPhase.STOPPED -> {
                 val reason = state.reason ?: OpenLinkRecordingState.REASON_STOPPED_ON_DEVICE
-                end(sessionId, workout, OpenLinkRecordingState(sessionId, deviceId, OpenLinkRecordingPhase.STOPPED, reason, clock()))
+                val summary = state.summary?.let(::linkSummary)
+                end(sessionId, workout, OpenLinkRecordingState(sessionId, deviceId, OpenLinkRecordingPhase.STOPPED, reason, clock(), summary))
+                // A recovery is worked out two minutes after the stop: once it may be there, the end goes again, fuller.
+                if (summary != null && summary.heartRateRecovery1MinBpm == null) {
+                    scope.launch {
+                        delay(RECOVERY_WAIT_MILLIS)
+                        val fuller = ask(sessionId, workout, RecordedWorkoutCommand.STATE)?.summary?.let(::linkSummary)
+                        if (fuller != null && fuller != summary) {
+                            publish(OpenLinkRecordingState(sessionId, deviceId, OpenLinkRecordingPhase.STOPPED, reason, clock(), fuller), workout.owner)
+                        }
+                    }
+                }
                 // The watch keeps the workout a moment after the stop; the sync writes it to Health Connect.
                 scope.launch {
                     delay(SYNC_DELAY_MILLIS)
@@ -203,6 +216,14 @@ class LinkRecordedWorkouts internal constructor(
         publish(state, workout.owner)
     }
 
+    private fun linkSummary(summary: RecordedWorkoutSummary) = OpenLinkWorkoutSummary(
+        zoneSeconds = summary.zoneSeconds,
+        zoneLowerBoundsBpm = summary.zoneLowerBoundsBpm,
+        trimp = summary.trimp,
+        heartRateRecovery1MinBpm = summary.recovery1MinBpm,
+        heartRateRecovery2MinBpm = summary.recovery2MinBpm,
+    )
+
     private fun failed(sessionId: String, deviceId: String, reason: String) =
         OpenLinkRecordingState(sessionId, deviceId, OpenLinkRecordingPhase.FAILED, reason, clock())
 
@@ -217,5 +238,8 @@ class LinkRecordedWorkouts internal constructor(
         const val POLL_MILLIS = 60_000L
 
         const val SYNC_DELAY_MILLIS = 5_000L
+
+        /** The recovery's two minutes after the stop, and a margin for working its falls out. */
+        const val RECOVERY_WAIT_MILLIS = 150_000L
     }
 }

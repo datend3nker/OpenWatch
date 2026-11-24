@@ -17,6 +17,7 @@ import tech.mmarca.openlink.OpenLinkRecordingState
 import tech.mmarca.openwatch.devices.core.RecordedWorkoutCommand
 import tech.mmarca.openwatch.devices.core.RecordedWorkoutPhase
 import tech.mmarca.openwatch.devices.core.RecordedWorkoutState
+import tech.mmarca.openwatch.devices.core.RecordedWorkoutSummary
 import tech.mmarca.openwatch.domain.model.BleDeviceKind
 import tech.mmarca.openwatch.domain.model.BleSensorDevice
 import tech.mmarca.openwatch.domain.model.DeviceIntegration
@@ -38,6 +39,7 @@ class LinkRecordedWorkoutsTest {
         var phase = RecordedWorkoutPhase.NONE
         var reason: String? = null
         var reachable = true
+        var summary: RecordedWorkoutSummary? = null
 
         override fun device(deviceId: String) = devices.firstOrNull { it.id == deviceId }
 
@@ -60,7 +62,7 @@ class LinkRecordedWorkoutsTest {
                 RecordedWorkoutCommand.STOP -> { phase = RecordedWorkoutPhase.STOPPED; reason = OpenLinkRecordingState.REASON_STOPPED_BY_CLIENT }
                 RecordedWorkoutCommand.STATE -> Unit
             }
-            return RecordedWorkoutState(phase, 0L, reason)
+            return RecordedWorkoutState(phase, 0L, reason, summary.takeIf { phase == RecordedWorkoutPhase.STOPPED })
         }
     }
 
@@ -168,5 +170,28 @@ class LinkRecordedWorkoutsTest {
         assertEquals(OpenLinkRecordingPhase.FAILED to OpenLinkRecordingState.REASON_BUSY, phases.last())
         assertEquals("com.example.other", published.last().second)
         assertEquals(listOf(RecordedWorkoutCommand.START), watch.commands)
+    }
+
+    @Test
+    fun `the end carries the watch's summary, and comes again once the recovery is worked out`() = runTest {
+        val recorded = recorded()
+        watch.summary = RecordedWorkoutSummary(zoneSeconds = listOf(60, 600, 0, 0, 0), zoneLowerBoundsBpm = listOf(98, 118, 137, 157, 177), trimp = 12.5)
+        recorded.start(request(), owner)
+        runCurrent()
+        recorded.stop("ride-1")
+        runCurrent()
+
+        val end = published.last().first
+        assertEquals(OpenLinkRecordingPhase.STOPPED, end.phase)
+        assertEquals(listOf(60, 600, 0, 0, 0), end.summary?.zoneSeconds)
+        assertEquals(12.5, end.summary?.trimp)
+
+        watch.summary = watch.summary!!.copy(recovery1MinBpm = 24, recovery2MinBpm = 41)
+        advanceTimeBy(150_001)
+
+        val fuller = published.last().first
+        assertEquals(OpenLinkRecordingPhase.STOPPED, fuller.phase)
+        assertEquals(24, fuller.summary?.heartRateRecovery1MinBpm)
+        assertEquals(owner, published.last().second)
     }
 }

@@ -85,4 +85,25 @@ class RemoteWorkoutTest {
         assertEquals(Phase.NONE, send(Command.STATE, session = "other").phase)
         assertEquals(Phase.NONE, send(Command.STOP, session = "other").phase)
     }
+
+    @Test
+    fun `a stopped workout carries the summary of the workout it began, read at each ask`() {
+        val summaries = mutableMapOf<Long, WearLinkWorkoutControl.Summary>()
+        val remote = RemoteWorkout(store, controls, workout, summaryOf = { summaries[it] }) { now }
+        remote.control(Control(Command.START, "ride-1", exerciseType = 8))
+        workout.value = WorkoutUiState(
+            sport = WorkoutSport.BIKING, running = true, startMillis = 777L,
+            snapshot = WorkoutSnapshot(60, false, null, null, null, null, null, null, null, 120, 118, 130, waitingForFix = false),
+        )
+        now += 10_000
+        assertEquals("no summary while it runs", null, remote.control(Control(Command.STATE, "ride-1")).summary)
+
+        summaries[777L] = WearLinkWorkoutControl.Summary(zoneSeconds = listOf(60, 0, 0, 0, 0), trimp = 4.0)
+        val stopped = remote.control(Control(Command.STOP, "ride-1"))
+        assertEquals(listOf(60, 0, 0, 0, 0), stopped.summary?.zoneSeconds)
+
+        // The recovery comes two minutes later; the next ask has it.
+        summaries[777L] = summaries.getValue(777L).copy(recovery1MinBpm = 22)
+        assertEquals(22, remote.control(Control(Command.STATE, "ride-1")).summary?.recovery1MinBpm)
+    }
 }

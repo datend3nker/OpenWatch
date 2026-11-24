@@ -82,6 +82,15 @@ class WearOsLinkStore(private val prefs: SharedPreferences, private val seal: Se
         prefs.edit { putString(linkKey(registeredAddress), classicAddress.uppercase()) }
     }
 
+    /** What the watch announced in its last hello, for what the phone offers while no link is up; null before the first. */
+    fun capabilities(registeredAddress: String?): Set<String>? =
+        registeredAddress?.let { prefs.getStringSet(capabilitiesKey(it), null) }
+
+    fun setCapabilities(registeredAddress: String?, capabilities: Set<String>) {
+        if (registeredAddress.isNullOrBlank()) return
+        prefs.edit { putStringSet(capabilitiesKey(registeredAddress), capabilities) }
+    }
+
     fun record(deviceId: String, snapshot: WearOsLinkSnapshot) {
         snapshotsFlow.update { it + (deviceId to snapshot) }
     }
@@ -92,12 +101,15 @@ class WearOsLinkStore(private val prefs: SharedPreferences, private val seal: Se
             prefs.edit {
                 remove(linkKey(it))
                 remove(tokenKey(it))
+                remove(capabilitiesKey(it))
             }
         }
         snapshotsFlow.update { it - deviceId }
     }
 
     private fun tokenKey(registeredAddress: String) = "watch_token_${registeredAddress.uppercase()}"
+
+    private fun capabilitiesKey(registeredAddress: String) = "watch_capabilities_${registeredAddress.uppercase()}"
 
     private fun legacyTokenKey(bondAddress: String) = "token_${bondAddress.uppercase()}"
 

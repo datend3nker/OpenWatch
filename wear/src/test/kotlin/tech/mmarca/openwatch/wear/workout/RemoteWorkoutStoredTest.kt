@@ -25,11 +25,11 @@ class RemoteWorkoutStoredTest {
     fun `a session reads back as it was written, a space in its id too, and is gone once cleared`() {
         val stored = RemoteWorkout.Stored(store)
         assertNull(stored.read())
-        val held = RemoteWorkout.Held("ride 1/ä", Phase.STOPPED, 1_234L, "stopped_on_device")
+        val held = RemoteWorkout.Held("ride 1/ä", Phase.STOPPED, 1_234L, "stopped_on_device", workoutStartMillis = 1_000L)
         stored.write(held)
         assertEquals(held, RemoteWorkout.Stored(store).read())
-        stored.write(held.copy(phase = Phase.RECORDING, reason = null))
-        assertEquals(held.copy(phase = Phase.RECORDING, reason = null), stored.read())
+        stored.write(held.copy(phase = Phase.RECORDING, reason = null, workoutStartMillis = null))
+        assertEquals(held.copy(phase = Phase.RECORDING, reason = null, workoutStartMillis = null), stored.read())
         stored.write(null)
         assertNull(stored.read())
     }

@@ -49,9 +49,11 @@ class LinkDevices @Inject constructor(
         syncController.state,
         families.connections,
     ) { registered, sync, connections ->
-        linkDevices(registered, sync.syncingDeviceIds, families, connections, sync.attempts) { device ->
-            recordedWorkouts.firstOrNull { it.canRecord(device) }?.exerciseTypes.orEmpty()
-        }
+        linkDevices(
+            registered, sync.syncingDeviceIds, families, connections, sync.attempts,
+            recordedExerciseTypes = { device -> recordedWorkouts.firstOrNull { it.canRecord(device) }?.exerciseTypes.orEmpty() },
+            recordsRoute = { device -> recordedWorkouts.firstOrNull { it.canRecord(device) }?.recordsRoute(device) == true },
+        )
     }.distinctUntilChanged().stateIn(scope, SharingStarted.Eagerly, emptyList())
 }
 
@@ -64,6 +66,8 @@ internal fun linkDevices(
     attempts: Map<String, SyncAttempt> = emptyMap(),
     /** The sports [device] records a workout of for an app (`RECORD`); empty where it records none. */
     recordedExerciseTypes: (BleSensorDevice) -> Set<Int> = { emptySet() },
+    /** Whether [device] records a route with such a workout (it has a GPS receiver). */
+    recordsRoute: (BleSensorDevice) -> Boolean = { false },
 ): List<OpenLinkDevice> =
     registered.mapNotNull { device ->
         val family = families.of(device) ?: return@mapNotNull null
@@ -92,8 +96,11 @@ internal fun linkDevices(
                 if (DeviceFeature.LIVE_HEART_RATE in features) add(OpenLinkSampleType.HEART_RATE)
                 if (DeviceFeature.LIVE_STEPS in features) add(OpenLinkSampleType.STEPS)
             },
-            // Whether the device has GPS the phone does not know, so it is not offered.
-            recordingFeatures = if (recordedExerciseTypes(device).isEmpty()) emptySet() else RECORDED_WORKOUT_FEATURES,
+            recordingFeatures = when {
+                recordedExerciseTypes(device).isEmpty() -> emptySet()
+                recordsRoute(device) -> RECORDED_WORKOUT_FEATURES + OpenLinkRecordingFeature.GPS
+                else -> RECORDED_WORKOUT_FEATURES
+            },
             exerciseTypes = recordedExerciseTypes(device),
             lastSyncResult = attempts[device.id]?.result?.let(::linkSyncResult),
             lastSyncAttemptAtMillis = attempts[device.id]?.atMillis,

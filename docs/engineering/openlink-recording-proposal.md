@@ -136,9 +136,13 @@ sync of the watch writes it to Health Connect. Where it differs from below:
   start.
 - A pause or resume while the watch is out of reach is answered with the last phase; it does not
   wait for the link to come back.
-- The watch shows no "Started by OpenVitals", the association is not required, and no workout
-  summary is sent yet. `recordingFeatures` names heart rate, pause and auto-pause; GPS is left
-  out, since the phone does not know whether the watch has it.
+- The watch shows no "Started by OpenVitals" and the association is not required.
+- `STOPPED` carries the workout summary the watch's own summary screen shows: the time in each
+  zone and the zones' bounds, the TRIMP, and the recovery's falls. The watch sends it with the
+  `WS` of a stopped session; when the recovery is not there yet, the phone asks once more 150
+  seconds after the stop and sends `STOPPED` again with the fuller summary.
+- `recordingFeatures` names heart rate, pause and auto-pause, and GPS where the watch's last hello
+  announced a GPS receiver (capability `gp`), which the phone keeps per watch.
 - A Garmin cannot be told to record one: `FAILED`, `unsupported`.
 
 ### 3.1 What changes

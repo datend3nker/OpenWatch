@@ -19,6 +19,8 @@ internal class RemoteWorkout(
     private val session: Store,
     private val controls: Controls,
     private val workout: StateFlow<WorkoutUiState>,
+    /** A stopped workout's summary, by the start its rows are kept under; read off the main thread. */
+    private val summaryOf: (workoutStartMillis: Long) -> WearLinkWorkoutControl.Summary? = { null },
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
     /** What starts and steers the watch's workout; each hands its command to the service and returns. */
@@ -29,8 +31,17 @@ internal class RemoteWorkout(
         fun stop()
     }
 
-    /** The session of the workout the phone started, with the phase last told and since when. */
-    data class Held(val sessionId: String, val phase: Phase, val sinceMillis: Long, val reason: String? = null)
+    /**
+     * The session of the workout the phone started, with the phase last told and since when, and
+     * the start of its workout once the workout shows it ([workoutStartMillis]), by which its summary is read.
+     */
+    data class Held(
+        val sessionId: String,
+        val phase: Phase,
+        val sinceMillis: Long,
+        val reason: String? = null,
+        val workoutStartMillis: Long? = null,
+    )
 
     interface Store {
         fun read(): Held?
@@ -58,8 +69,11 @@ internal class RemoteWorkout(
                 mine == null -> State(control.sessionId, Phase.NONE, clock())
                 mine.phase.isOver -> mine.state()
                 else -> {
+                    val started = mine.workoutStartMillis ?: workout.value.startMillis.takeIf { workout.value.running }
                     controls.stop()
-                    keep(mine.copy(phase = Phase.STOPPED, sinceMillis = clock(), reason = WearLinkWorkoutControl.REASON_STOPPED_BY_CLIENT)).state()
+                    keep(
+                        mine.copy(phase = Phase.STOPPED, sinceMillis = clock(), reason = WearLinkWorkoutControl.REASON_STOPPED_BY_CLIENT, workoutStartMillis = started),
+                    ).state()
                 }
             }
             Command.STATE -> mine?.state() ?: State(control.sessionId, Phase.NONE, clock())
@@ -74,10 +88,16 @@ internal class RemoteWorkout(
     }
 
     /** The phase the workout is in now: a press on the watch, or a stop there, counts from when it is seen. */
-    private fun observe(held: Held): Held {
+    private fun observe(seen: Held): Held {
+        val now = workout.value
+        // The workout's start, once it runs: what its summary is read by after the stop.
+        val held = if (seen.workoutStartMillis == null && !seen.phase.isOver && now.running && now.startMillis != null) {
+            keep(seen.copy(workoutStartMillis = now.startMillis))
+        } else {
+            seen
+        }
         // The service takes a command a moment after it was handed over: until then the workout shows the phase before.
         if (held.phase.isOver || clock() - held.sinceMillis < SETTLE_MILLIS) return held
-        val now = workout.value
         val phase = when {
             !now.running -> Phase.STOPPED
             now.snapshot?.paused == true -> Phase.PAUSED
@@ -90,24 +110,28 @@ internal class RemoteWorkout(
 
     private fun keep(held: Held): Held = held.also(session::write)
 
-    private fun Held.state() = State(sessionId, phase, sinceMillis, reason)
+    /** A stopped workout carries its summary; it is read again at each ask, so a recovery measured after the stop joins it. */
+    private fun Held.state() = State(
+        sessionId, phase, sinceMillis, reason,
+        summary = if (phase == Phase.STOPPED) workoutStartMillis?.let(summaryOf) else null,
+    )
 
     private companion object {
         const val SETTLE_MILLIS = 5_000L
     }
 
     /**
-     * The session in the watch's store, one state row: `<session> <phase> <since> <reason|->`, the
-     * session as base64url of its UTF-8, as the link carries it, so it holds no space.
+     * The session in the watch's store, one state row: `<session> <phase> <since> <reason|-> <workoutStart|->`,
+     * the session as base64url of its UTF-8, as the link carries it, so it holds no space.
      */
     class Stored(private val store: MetricStore) : Store {
         override fun read(): Held? {
             val fields = store.state(KEY)?.split(' ') ?: return null
-            if (fields.size != 4) return null
+            if (fields.size != 5) return null
             val id = runCatching { String(Base64.getUrlDecoder().decode(fields[0]), Charsets.UTF_8) }.getOrNull() ?: return null
             val phase = Phase.fromWord(fields[1]) ?: return null
             val since = fields[2].toLongOrNull() ?: return null
-            return Held(id, phase, since, fields[3].takeIf { it != NO_REASON })
+            return Held(id, phase, since, fields[3].takeIf { it != NO_REASON }, fields[4].toLongOrNull())
         }
 
         override fun write(held: Held?) {
@@ -116,7 +140,7 @@ internal class RemoteWorkout(
                 return
             }
             val id = Base64.getUrlEncoder().withoutPadding().encodeToString(held.sessionId.toByteArray(Charsets.UTF_8))
-            store.setState(KEY, "$id ${held.phase.word} ${held.sinceMillis} ${held.reason ?: NO_REASON}")
+            store.setState(KEY, "$id ${held.phase.word} ${held.sinceMillis} ${held.reason ?: NO_REASON} ${held.workoutStartMillis ?: NO_REASON}")
         }
 
         private companion object {
