@@ -22,6 +22,11 @@ import tech.mmarca.openwatch.wear.workout.MetricStoreWorkoutRows
 import tech.mmarca.openwatch.wear.workout.WorkoutRecorder
 import tech.mmarca.openwatch.wear.workout.WorkoutState
 import tech.mmarca.openwatch.wear.workout.WorkoutStore
+import tech.mmarca.openwatch.wear.samsung.SamsungHealthPlatform
+import tech.mmarca.openwatch.wear.samsung.SamsungTrackerTypes
+import tech.mmarca.healthcalculations.preferences.BodyProfile
+import tech.mmarca.healthcalculations.preferences.BiologicalSex
+import java.time.Year
 
 /**
  * Everything the watch app runs on, built by hand once per process
@@ -227,6 +232,30 @@ internal class WearGraph(private val app: Application) {
             barometer = AscentRecorder.hasBarometer(app),
             gps = app.packageManager.hasSystemFeature(PackageManager.FEATURE_LOCATION_GPS),
             spo2 = spotSpo2Source.isAvailable,
+            ecg = samsungFeed.isAvailable && SamsungHealthPlatform.TRACKER_ECG in samsungTypes,
+            bodyComposition = samsungFeed.isAvailable && SamsungHealthPlatform.TRACKER_BIA in samsungTypes,
+        )
+    }
+
+    /** Asks the Samsung platform again which trackers it has, without waiting; `WearAppService` at each start. */
+    fun refreshSamsungTrackerTypes() = SamsungTrackerTypes.refresh(app)
+
+    /** The Samsung platform's tracker types as it last listed them; refreshed at each start of the service. */
+    private val samsungTypes: Set<String> by lazy { SamsungTrackerTypes.read(app) }
+
+    private val spotEcgSource: SpotSource<EcgSample> by lazy { SamsungSpotSource.ecg(samsungFeed) }
+
+    /** The wearer as the platform takes them, from the profile the phone sent; null while any of the four is missing. */
+    private fun platformProfile(profile: BodyProfile): SamsungHealthPlatform.UserProfile? {
+        val height = profile.heightCm ?: return null
+        val weight = profile.weightKg ?: return null
+        val birthYear = profile.birthYear ?: return null
+        val sex = profile.sex ?: return null
+        return SamsungHealthPlatform.UserProfile(
+            heightCm = height.toFloat(),
+            weightKg = weight.toFloat(),
+            male = sex == BiologicalSex.MALE,
+            ageYears = (Year.now().value - birthYear).coerceAtLeast(0),
         )
     }
 
@@ -282,6 +311,12 @@ internal class WearGraph(private val app: Application) {
             spo2 = { spotSpo2Source.takeIf { sensors.spo2 } },
             spo2Claim = spo2Claim,
             spo2Granted = { WearPermissions.hasOxygenSaturation(app) },
+            ecg = { spotEcgSource.takeIf { sensors.ecg } },
+            bodyComposition = { profile ->
+                platformProfile(profile)?.takeIf { sensors.bodyComposition }?.let { SamsungSpotSource.bodyComposition(samsungFeed, it) }
+            },
+            profile = { settings.value.bodyProfile().takeIf { platformProfile(it) != null } },
+            additionalGranted = { WearPermissions.hasAdditionalHealthData(app) },
             heartRateGranted = { WearPermissions.hasHeartRate(app) },
             entries = entries,
             debug = debug,

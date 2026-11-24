@@ -96,6 +96,8 @@ class WearAppService : Service(), WearGraph.Host {
         // A fall-back from an earlier run of the service does not outlive it.
         graph.heartRate.resetFallBack()
         graph.nightHrv.resetFallBack()
+        // What the Samsung platform offers is asked again at each start; the measure list reads the last answer.
+        graph.refreshSamsungTrackerTypes()
         Thread({ graph.workout.recoverInterrupted() }, "WorkoutRecover").start()
         // A start, pause, resume or end changes the pill; the ticking of the clock does not.
         serviceScope.launch {

@@ -5,16 +5,19 @@ import android.net.Uri
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.StringRes
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
@@ -24,6 +27,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -40,19 +45,27 @@ import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.ScreenScaffold
 import androidx.wear.compose.material3.Text
+import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
+import tech.mmarca.openwatch.wear.BodyComposition
+import tech.mmarca.openwatch.wear.EcgHeartRate
+import tech.mmarca.openwatch.wear.MetricTile
 import tech.mmarca.openwatch.wear.R
 import tech.mmarca.openwatch.wear.SpotEvent
 import tech.mmarca.openwatch.wear.SpotFailure
+import tech.mmarca.openwatch.wear.SpotHint
 import tech.mmarca.openwatch.wear.SpotKind
 import tech.mmarca.openwatch.wear.UnitSystem
 import tech.mmarca.openwatch.wear.WearPermissions
 import tech.mmarca.openwatch.wear.haptics.Haptics
 import tech.mmarca.openwatch.wear.ui.ambient.AmbientAware
 import tech.mmarca.openwatch.wear.ui.components.MetricValueRow
+import tech.mmarca.openwatch.wear.ui.components.formatCount
+import tech.mmarca.openwatch.wear.ui.components.formatMetricValue
+import tech.mmarca.openwatch.wear.ui.components.metricUnitLabel
 import tech.mmarca.openwatch.wear.ui.preview.WearPreviews
 import tech.mmarca.openwatch.wear.ui.theme.Emphasis
 import tech.mmarca.openwatch.wear.ui.theme.OpenWatchWearTheme
@@ -107,6 +120,8 @@ internal fun MeasurementRoute(
                         MeasureGrant.NONE -> null
                         MeasureGrant.HEART_RATE -> WearPermissions.heartRate.takeUnless { WearPermissions.hasHeartRate(context) }
                         MeasureGrant.OXYGEN_SATURATION -> WearPermissions.oxygenSaturation.takeUnless { WearPermissions.hasOxygenSaturation(context) }
+                        MeasureGrant.ADDITIONAL_HEALTH_DATA ->
+                            WearPermissions.additionalHealthData.takeUnless { WearPermissions.hasAdditionalHealthData(context) }
                     }
                     if (missing != null) askGrant.launch(missing) else viewModel.start()
                 },
@@ -233,16 +248,23 @@ private fun MeasurementBody(
                 }
                 is MeasureUiState.Running -> {
                     PulsingIcon(measurement)
-                    MetricValueRow(
-                        value = state.live?.let { formatMeasurement(it) },
-                        unit = stringResource(measurement.liveUnit),
-                        valueStyle = MaterialTheme.typography.displaySmall,
-                    )
+                    val trace = state.trace
+                    when {
+                        trace != null -> EcgTrace(trace, measurement.accentColor)
+                        // A measurement that counts its own progress has no value until its result.
+                        !state.ownProgress -> MetricValueRow(
+                            value = state.live?.let { formatMeasurement(it) },
+                            unit = stringResource(measurement.liveUnit),
+                            valueStyle = MaterialTheme.typography.displaySmall,
+                        )
+                    }
                     Body(
                         stringResource(
                             when {
                                 state.offBody -> R.string.measure_hint_off_body
+                                state.hint != null -> state.hint.message
                                 state.waiting -> R.string.measure_hint_detecting
+                                trace != null -> R.string.ecg_recording
                                 else -> measurement.instruction
                             },
                         ),
@@ -259,6 +281,11 @@ private fun MeasurementBody(
                         val (value, unit) = formatAltitude(altitude, unitSystem)
                         Body(stringResource(R.string.measure_altitude, value, stringResource(unit)))
                     }
+                    state.ecg?.let { ecg ->
+                        Title(stringResource(ecg.rhythm.message))
+                        Body(stringResource(R.string.ecg_not_medical))
+                    }
+                    state.body?.let { body -> BodyCompositionRows(body, unitSystem) }
                 }
                 is MeasureUiState.Failed -> {
                     Icon(
@@ -281,6 +308,63 @@ private fun MeasurementBody(
         }
     }
 }
+
+/** What a body composition gives beside its body fat: the masses in the unit system's unit, and the basal rate. */
+@Composable
+private fun BodyCompositionRows(body: BodyComposition, unitSystem: UnitSystem) {
+    val massUnit = stringResource(metricUnitLabel(MetricTile.WEIGHT, unitSystem))
+    fun mass(kg: Double) = formatMetricValue(MetricTile.WEIGHT, kg, unitSystem)
+    Body(stringResource(R.string.bia_lean, mass(body.leanMassKg), massUnit))
+    Body(stringResource(R.string.bia_water, mass(body.bodyWaterKg), massUnit))
+    body.skeletalMuscleKg?.let { Body(stringResource(R.string.bia_muscle, mass(it), massUnit)) }
+    body.basalMetabolicRateKcal?.let { Body(stringResource(R.string.bia_basal_rate, formatCount(it.roundToInt()))) }
+    Body(stringResource(R.string.bia_estimate))
+}
+
+/** An ECG's last seconds, scaled to their own range. */
+@Composable
+private fun EcgTrace(millivolts: FloatArray, color: Color) {
+    Canvas(Modifier.fillMaxWidth().height(40.dp)) {
+        if (millivolts.size < 2) return@Canvas
+        val low = millivolts.min()
+        val span = (millivolts.max() - low).coerceAtLeast(1e-6f)
+        val shown = TRACE_SECONDS * EcgHeartRate.SAMPLE_RATE_HZ
+        var last: Offset? = null
+        for (i in millivolts.indices step TRACE_STEP) {
+            val point = Offset(
+                x = size.width * i / shown,
+                y = size.height * (1f - (millivolts[i] - low) / span),
+            )
+            last?.let { drawLine(color, it, point, strokeWidth = 2f) }
+            last = point
+        }
+    }
+}
+
+/** The seconds of trace the screen shows, as `SpotMeasurements` sends them. */
+private const val TRACE_SECONDS = 3
+
+/** Every third sample: 6 ms, still several points on an R wave. */
+private const val TRACE_STEP = 3
+
+@get:StringRes
+private val SpotHint.message: Int
+    get() = when (this) {
+        SpotHint.TOUCH_ELECTRODES -> R.string.measure_instruction_ecg
+        SpotHint.WRIST -> R.string.bia_wrist
+        SpotHint.FINGERS -> R.string.bia_fingers
+        SpotHint.FINGERS_DRY -> R.string.bia_dry
+        SpotHint.HANDS_TOUCH, SpotHint.FRAME_TOUCHED -> R.string.bia_apart
+    }
+
+@get:StringRes
+private val EcgHeartRate.Rhythm.message: Int
+    get() = when (this) {
+        EcgHeartRate.Rhythm.SINUS_LIKE -> R.string.ecg_rhythm_sinus_like
+        EcgHeartRate.Rhythm.REGULAR -> R.string.ecg_rhythm_regular
+        EcgHeartRate.Rhythm.IRREGULAR -> R.string.ecg_rhythm_irregular
+        EcgHeartRate.Rhythm.UNCLEAR -> R.string.ecg_rhythm_unclear
+    }
 
 @Composable
 private fun PulsingIcon(measurement: Measurement) {
@@ -351,6 +435,27 @@ private fun MeasurementDonePreview() {
             MeasurementScreen(
                 Measurement.AIR_PRESSURE,
                 MeasureUiState.Done(value = 1003.0, secondary = 85.0),
+                UnitSystem.METRIC,
+                {},
+                {},
+                {},
+            )
+        }
+    }
+}
+
+@WearPreviews
+@Composable
+private fun MeasurementBodyCompositionPreview() {
+    OpenWatchWearTheme {
+        AppScaffold {
+            MeasurementScreen(
+                Measurement.BODY_COMPOSITION,
+                MeasureUiState.Done(
+                    value = 19.6,
+                    secondary = null,
+                    body = BodyComposition(19.6, leanMassKg = 64.5, bodyWaterKg = 47.2, skeletalMuscleKg = 36.1, basalMetabolicRateKcal = 1720.0),
+                ),
                 UnitSystem.METRIC,
                 {},
                 {},

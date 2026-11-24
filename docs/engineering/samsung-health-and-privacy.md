@@ -1,7 +1,10 @@
 # Samsung services on the watch: sources, privacy, and the SDK
 
-> **Status (2026-11-07):** Research, nothing built in OpenWatch. Every claim says how it was
-> established: **device** (measured or queried on a Galaxy Watch7, SM-L310, worn overnight at
+> **Status (2026-11-24):** The research of 2026-11-07, and what the watch app has built on it
+> since: the clean-room client in `wear/.../samsung/` (see "In the watch app" below). Its heart
+> rate, intervals, SpO2 and skin temperature have run on the watch; its ECG, body composition
+> and raw PPG were written from the platform's code and have **not run on a watch yet**. Every
+> claim says how it was established: **device** (measured or queried on a Galaxy Watch7, SM-L310, worn overnight at
 > rest), **code** (read in the decompiled APKs from that watch), **docs** (Samsung's pages), or
 > **not checked**. The harness and raw results live outside this repository (`ov-bench`).
 
@@ -93,12 +96,27 @@ bind to `com.samsung.android.service.health` with action
 `…tracking.IClientEventListener` and two strings, the caller's package name and the tracker
 type (`HEART_RATE`, `SPO2`, `SKIN_TEMPERATURE_CONTINUOUS`, …); code 1 creates a tracker (plus an
 optional user profile and exercise type), 2 registers a listener binder, 3 removes it, 4
-flushes, 5 lists the types. The listener (`…tracking.IServiceEventListener`) gets code 1 with a
+flushes, 5 lists the types (a string list in the reply; no arguments, it names no client), 8
+sets the colours of the continuous PPG tracker (a string list of `GREEN`, `RED`, `IR`, sent
+before the listener is registered; code). 6 and 7 hand an exercise's state and data to the
+sweat loss tracker and are not spoken. The profile in code 1 is a presence flag and then
+height and weight as floats, sex (1 male, 0 female) and age as ints (code). The listener (`…tracking.IServiceEventListener`) gets code 1 with a
 typed list of points, 2 with an error code, 3 when a flush is done. A point is a timestamp and
 a list of `(int, float, long)` values; heart rate is at 0, its status at 2, the interval count
 at 3 and `(interval, status)` pairs from 4; SpO2 has status, value, heart rate and an accuracy
 flag at 0–3; skin temperature has object and ambient temperature as floats at 0–1 and the
-status at 2. The platform keys clients by package name: the SDK and the own client in the same
+status at 2. From the code, not yet seen on the wire: an ECG point is one of 500 samples a
+second, the voltage as the float of value 0, and the first point of each group carries the
+electrodes' state at 2 (0 while both are touched; the others have -1) and the group's number
+at 3; a body composition point (`BIA`) has its status at 0 (0, or what stopped the
+measurement: 4 and 10 the wrist, 9 the fingers, 11 dry fingers, 14 and 15 a hand or the
+frame touching), then as floats body fat as a ratio and a mass, body water, skeletal muscle
+as a ratio and a mass, the basal metabolic rate, the fat-free ratio and mass, and at 9 a
+progress that reaches 1 with the result; a continuous PPG point (`PPG_CONTINUOUS`) has a
+value and a status per colour, green at 0–1, red at 2–3, infrared at 4–5. The type names on
+the wire are the plain ones (`ECG`, `BIA`), not the SDK's `_ON_DEMAND` names. The platform
+computes the body composition itself, in its own library, from the impedance and the profile.
+The platform keys clients by package name: the SDK and the own client in the same
 app silenced each other, so the two cannot be compared side by side in one process. The
 access rules above apply to the own client unchanged.
 
@@ -135,6 +153,48 @@ taken across it. At the window's end a flush asks for the points still held, wit
 limit. Not yet measured on the watch: whether the flush answers with the screen off, how long
 the tracker takes to deliver its first point outside a reboot, and how the two sources' RMSSD
 compare over a night.
+
+**What the watch offers.** The platform is asked for its tracker types (code 5, over a short
+binding of its own, off the main thread) at each start of the watch app's service, and the
+answer is kept (`samsung/SamsungTrackerTypes`, preferences file `samsung_platform`), so what the
+watch offers is read without waiting on the platform. Its ECG and body composition are spot
+measurements (`SpotKind.ECG`, `SpotKind.BODY_COMPOSITION`): `WatchSensors` takes them from the
+kept list, so the measure list shows them only where the platform listed the tracker, and not
+before its first answer.
+
+**Green PPG, ECG and body composition (code; not yet run on a watch).** All three check
+Samsung's `READ_ADDITIONAL_HEALTH_DATA` from Android 16 (`BODY_SENSORS` before); the watch
+asks for it when one of them is first chosen.
+- *Green PPG* is a third choice for the night HRV windows (`MeasurementSource.SAMSUNG_PPG`,
+  token `samsung_ppg`, `samsung/SamsungPpgSource`): the platform's green channel, analysed like
+  the raw sensor's. It gains nothing over the raw sensor on a watch that has `hr_raw`; it is
+  there for a watch that does not, and because the same tracker carries red and infrared, which
+  no ordinary sensor does. Only the watch can choose it, since the grant is asked there.
+- *ECG* (`SpotMeasurements`, over `SamsungSpotSource.ecg`): thirty seconds of unbroken contact
+  (`EcgRecording`), the trace on the screen as it grows, and a heart rate from its R waves
+  (`EcgHeartRate`). The rhythm is described, not judged: even or
+  not (the median jump between neighbouring beat distances, under 6 % even, from 12 %
+  irregular, unclear between), and, up to 100 beats a minute, whether a P wave stands before
+  the beats (the stretch before each R wave averaged over the beats, found alike in the even
+  and the odd ones). Tested on synthetic traces only, not against annotated recordings.
+  Nothing is stored: Health Connect has no ECG record, and the link has no command for a trace.
+- *Body composition* (`SpotMeasurements`, over `SamsungSpotSource.bodyComposition`): the
+  platform computes it from the impedance and the wearer's height, weight, age and sex, which
+  the phone sends (the body profile the workouts' energy uses too); without all four the watch
+  asks for them on the phone (`SpotFailure.NO_PROFILE`). They are handed to the platform for
+  the measurement and to nothing else. A run whose tracker never gets its calibration is started
+  again, twice at most (`BodyCompositionRun`). The result is shown and kept as three entries
+  measured on the watch (`lg`: `bodyfat`, `lean`, `bodywater`), which the phone's entries pass
+  writes as body fat, lean body mass and body water, the three the scale writes.
+  Skeletal muscle and the basal rate stay on the watch's screen: Health Connect has no record
+  for the first, and the second is Samsung's estimate where the phone has its own.
+
+**Blood pressure: not there.** The platform's tracker list has no blood pressure type (code:
+`HealthTrackerType`, `TrackerManager`), and nothing in the decompiled platform mentions one.
+Samsung's cuff-calibrated blood pressure is the Samsung Health Monitor app's own, a separate
+package with its own algorithm and regional approval; it was not on the test watch and is not
+analysed. An estimate of our own from the 25 Hz PPG is not built: without a validated model
+it would be a number that looks like a measurement.
 
 ## What leaves the watch
 
@@ -342,6 +402,9 @@ Accepted on 2026-11-08 and carried into `AGENTS.md`.
 - Analyse `wear.shealth`: cloud endpoints, what is sent, whether it respects the consent.
 - Power without a held wake lock, and the idle baseline with Samsung Health disabled.
 - Accuracy against a chest strap for heart rate and inter-beat intervals.
-- Why skin temperature delivered nothing.
+- Run the ECG, body composition and raw PPG trackers on a watch: the point layouts, the PPG
+  tracker's sample rate and its flush with the screen off.
+- Where an ECG trace and its description should go: no Health Connect record, no link command.
+- The ECG rhythm description against annotated recordings.
 - Test the deny rule: SDK and sensors with the platform denied; reboot persistence.
 - Test `NetworkStatsManager` access to other packages on the watch.

@@ -36,5 +36,11 @@ internal interface SpotSource<T> {
 /** One SpO2 reading: [percent] once the measurement completed with a plausible value, [moving] when the arm spoiled it. */
 internal class Spo2Reading(val epochMillis: Long, val percent: Int?, val bpm: Int, val moving: Boolean)
 
+/** One ECG sample: its voltage (NaN for none) and, on the points that say so, whether both electrodes are touched. */
+internal class EcgSample(val millivolts: Float, val touching: Boolean?)
+
+/** One body composition point as [BodyCompositionRun] reads it, and its [result] on the point that carries one. */
+internal class BodyCompositionReading(val point: BodyCompositionRun.Point, val result: BodyComposition?)
+
 /** One skin temperature point, skin and ambient; [measured] is false for a point the sensor flagged. */
 internal class SkinReading(val epochMillis: Long, val skinCelsius: Float, val ambientCelsius: Float, val measured: Boolean)

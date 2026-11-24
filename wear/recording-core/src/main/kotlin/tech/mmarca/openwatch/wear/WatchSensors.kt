@@ -24,6 +24,10 @@ data class WatchSensors(
      * red and infrared light are closed to ordinary apps.
      */
     val spo2: Boolean = false,
+    /** The Samsung Health Platform lists its ECG tracker (code 5): a finger on the upper button. */
+    val ecg: Boolean = false,
+    /** The Samsung Health Platform lists its body composition tracker (code 5): two fingers on the buttons. */
+    val bodyComposition: Boolean = false,
 ) {
     /** The spot measurements a wearer can start on this watch. */
     val spotKinds: Set<SpotKind>
@@ -32,11 +36,16 @@ data class WatchSensors(
             if (heartBeat || rawPpg) add(SpotKind.HRV)
             if (barometer) add(SpotKind.AIR_PRESSURE)
             if (spo2) add(SpotKind.SPO2)
+            if (ecg) add(SpotKind.ECG)
+            if (bodyComposition) add(SpotKind.BODY_COMPOSITION)
         }
 
     companion object {
         /** A watch with every sensor, for a test or a preview. */
-        val ALL = WatchSensors(heartRate = true, heartBeat = true, rawPpg = true, stepCounter = true, barometer = true, gps = true, spo2 = true)
+        val ALL = WatchSensors(
+            heartRate = true, heartBeat = true, rawPpg = true, stepCounter = true, barometer = true, gps = true,
+            spo2 = true, ecg = true, bodyComposition = true,
+        )
 
         /** A watch with none. */
         val NONE = WatchSensors(heartRate = false, heartBeat = false, rawPpg = false, stepCounter = false, barometer = false, gps = false)
@@ -71,4 +80,19 @@ enum class SpotKind(
      * spoils it.
      */
     SPO2(45),
+
+    /**
+     * The Samsung platform's ECG: [EcgRecording.RECORD_SECONDS] of unbroken contact, a finger on
+     * the upper button, 500 samples a second; the longest time leaves room to find the contact
+     * and start over once. Its heart rate and a description of its rhythm ([EcgHeartRate]) are
+     * shown, not kept: Health Connect has no record for an ECG.
+     */
+    ECG(120),
+
+    /**
+     * The Samsung platform's body composition: two fingers of the other hand on the two buttons,
+     * about fifteen seconds once they are on; the platform computes it from the impedance and the
+     * wearer's profile, which the phone sends.
+     */
+    BODY_COMPOSITION(90),
 }

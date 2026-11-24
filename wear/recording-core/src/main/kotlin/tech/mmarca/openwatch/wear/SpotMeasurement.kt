@@ -12,8 +12,30 @@ sealed interface SpotEvent {
     /** The sensor gives nothing usable yet: still locking on, or ([offBody]) not on a wrist. */
     data class Waiting(val offBody: Boolean) : SpotEvent
 
-    /** The reading, in the kind's unit; [secondary] goes with it, the altitude of a pressure. The last event. */
-    data class Result(val value: Double, val secondary: Double? = null) : SpotEvent
+    /**
+     * How far a measurement that counts its own progress has come ([share], 0 to 1), rather than
+     * the time passed, and what its contact lacks now ([hint], null for nothing).
+     */
+    data class Progress(val share: Float, val hint: SpotHint? = null) : SpotEvent
+
+    /**
+     * An ECG's trace so far: its last seconds in millivolts, oldest first ([millivolts], at
+     * [EcgHeartRate.SAMPLE_RATE_HZ]), how much of the unbroken recording it needs is done
+     * ([recorded], 0 to 1), and whether both electrodes are touched now ([contact]).
+     */
+    class Trace(val millivolts: FloatArray, val recorded: Float, val contact: Boolean) : SpotEvent
+
+    /**
+     * The reading, in the kind's unit; [secondary] goes with it, the altitude of a pressure. An
+     * ECG's [value] is its heart rate and [ecg] what its trace shows; a body composition's [value]
+     * is its body fat and [body] the rest. The last event.
+     */
+    data class Result(
+        val value: Double,
+        val secondary: Double? = null,
+        val ecg: EcgHeartRate.Result? = null,
+        val body: BodyComposition? = null,
+    ) : SpotEvent
 
     /** No reading, and why. The last event. */
     data class Failed(val failure: SpotFailure) : SpotEvent
@@ -41,7 +63,45 @@ enum class SpotFailure {
 
     /** The sensor could not be started. */
     FAILED,
+
+    /** A body composition needs the wearer's height, weight, year of birth and sex, which the phone sends. */
+    NO_PROFILE,
 }
+
+/** What a measurement's contact lacks now, as the Samsung platform's trackers report it. */
+enum class SpotHint {
+    /** The ECG: a finger on the upper button, the back of the watch on the wrist. */
+    TOUCH_ELECTRODES,
+
+    /** The watch is loose or off the wrist. */
+    WRIST,
+
+    /** Two fingers of the other hand are not on the two buttons. */
+    FINGERS,
+
+    /** The fingers are too dry to measure through. */
+    FINGERS_DRY,
+
+    /** The hands, or a hand and the body, touch each other. */
+    HANDS_TOUCH,
+
+    /** A finger touches the watch's frame. */
+    FRAME_TOUCHED,
+}
+
+/**
+ * A body composition as the Samsung platform computes it from the impedance and the wearer's
+ * profile. Masses in kilograms, the basal metabolic rate in kilocalories a day. The body fat,
+ * the lean (fat-free) mass and the body water go to Health Connect, as the scale's do; the
+ * skeletal muscle and the basal rate are shown only.
+ */
+data class BodyComposition(
+    val bodyFatPercent: Double,
+    val leanMassKg: Double,
+    val bodyWaterKg: Double,
+    val skeletalMuscleKg: Double?,
+    val basalMetabolicRateKcal: Double?,
+)
 
 /** When a spot measurement has its reading, and what the reading is. Pure. */
 object SpotRules {

@@ -175,12 +175,13 @@ If you switch them on, and only then:
 
 ## The Wear OS Watch App
 
-The watch app records with the watch's own sensors and keeps what it records on the watch until the phone collects it, and what you log on it (a glass of water, a weight, a blood pressure, a body fat, a blood oxygen, a breathing rate, a body temperature, a blood glucose, a height, a breathing session) or measure on the spot, for a month. It keeps the figures the phone sends it for your last two weeks (sleep, resting heart rate, active calories, distance), to show them, and the weight, height, birth year and sex of your body profile, which the phone sends for a workout's figures. Like the phone app, it has no internet permission. It asks, on the watch:
+The watch app records with the watch's own sensors and keeps what it records on the watch until the phone collects it, and what you log on it (a glass of water, a weight, a blood pressure, a body fat, a blood oxygen, a breathing rate, a body temperature, a blood glucose, a height, a breathing session) or measure on the spot, for a month. It keeps the figures the phone sends it for your last two weeks (sleep, resting heart rate, active calories, distance), to show them, and the weight, height, birth year and sex of your body profile, which the phone sends for a workout's figures and a body composition. Like the phone app, it has no internet permission. It asks, on the watch:
 
 - The heart rate sensor (Android's body sensors or heart rate permission, and its background form), for heart rate, the night's heart rate variability and the sleep estimate.
 - Physical activity, for steps.
 - Location, only while you record a workout with GPS on the watch, for its route.
 - On a Samsung watch, and only if you switch the option on: skin temperature and blood oxygen at night; and blood oxygen when you measure it on the spot. For these, and optionally for heart rate, the watch app asks the health service Samsung ships on the watch for the reading. OpenWatch sends nothing to Samsung.
+- On a Samsung watch, Samsung's access to additional health data, only when you choose one of these: an ECG, which is shown with its heart rate and a description of its rhythm and not stored; a body composition, for which the watch hands your body profile to Samsung's health service on the watch for that measurement only, and keeps the body fat, lean body mass and body water until the phone writes them to Health Connect; and the platform's green light signal as the source of the night's heart rate variability. All three run on the watch; nothing goes to Samsung's servers.
 - Bluetooth, to answer the phone you allowed, and notifications, for its own status.
 
 ## Local Storage

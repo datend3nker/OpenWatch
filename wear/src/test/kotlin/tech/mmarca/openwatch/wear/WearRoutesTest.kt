@@ -33,7 +33,7 @@ class WearRoutesTest {
         for (kind in SpotKind.entries) {
             assertEquals(kind, WearRoutes.spotKindOf(WearRoutes.measurement(kind).substringAfter("measure/")))
         }
-        assertNull(WearRoutes.spotKindOf("ECG"))
+        assertNull(WearRoutes.spotKindOf("GLUCOSE"))
         assertNull(WearRoutes.spotKindOf(null))
     }
 
@@ -57,7 +57,7 @@ class WearRoutesTest {
         assertFalse(WearRoutes.isDeepLinkable(WearRoutes.metric(MetricTile.STEPS)))
         // The pattern itself, a kind this build has not, another case, nothing.
         assertFalse(WearRoutes.isDeepLinkable(WearRoutes.MEASUREMENT))
-        assertFalse(WearRoutes.isDeepLinkable("measure/ECG"))
+        assertFalse(WearRoutes.isDeepLinkable("measure/GLUCOSE"))
         assertFalse(WearRoutes.isDeepLinkable("QUICK_LOG"))
         assertFalse(WearRoutes.isDeepLinkable(""))
         assertFalse(WearRoutes.isDeepLinkable(null))

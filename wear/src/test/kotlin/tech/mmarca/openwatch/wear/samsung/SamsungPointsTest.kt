@@ -5,6 +5,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import tech.mmarca.openwatch.wear.BodyCompositionRun
 
 class SamsungPointsTest {
 
@@ -62,14 +63,14 @@ class SamsungPointsTest {
             floatArrayOf(0f, bodyFat, 14.1f, 41.0f, 44.2f, 31.5f, 1650f, 80.4f, 57.9f, progress, 480f, 5.1f),
         ).toBiaPoint()
 
-        val done = bia(BiaPoint.STATUS_OK, 19.6f, 1f)
+        val done = bia(BodyCompositionRun.STATUS_OK, 19.6f, 1f)
         assertTrue(done.isResult)
         assertEquals(31.5f, done.skeletalMuscleMassKg, 1e-6f)
         assertEquals(41.0f, done.totalBodyWaterKg, 1e-6f)
         assertEquals(1650f, done.basalMetabolicRateKcal, 1e-6f)
-        assertFalse(bia(BiaPoint.STATUS_OK, 19.6f, 0.6f).isResult)
-        assertFalse(bia(BiaPoint.STATUS_FINGERS_DETACHED, 0f, 0f).isResult)
-        assertFalse(bia(BiaPoint.STATUS_OK, 0f, 1f).isResult)
+        assertFalse(bia(BodyCompositionRun.STATUS_OK, 19.6f, 0.6f).isResult)
+        assertFalse(bia(BodyCompositionRun.STATUS_FINGERS_DETACHED, 0f, 0f).isResult)
+        assertFalse(bia(BodyCompositionRun.STATUS_OK, 0f, 1f).isResult)
     }
 
     @Test

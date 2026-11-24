@@ -2,10 +2,12 @@ package tech.mmarca.openwatch.wear.features.measure
 
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Accessibility
 import androidx.compose.material.icons.outlined.Bloodtype
 import androidx.compose.material.icons.outlined.Compress
 import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.Insights
+import androidx.compose.material.icons.outlined.MonitorHeart
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import kotlin.math.roundToInt
@@ -19,6 +21,7 @@ import tech.mmarca.openwatch.wear.ui.components.formatCount
 import tech.mmarca.openwatch.wear.ui.theme.ElevationColor
 import tech.mmarca.openwatch.wear.ui.theme.HeartColor
 import tech.mmarca.openwatch.wear.ui.theme.VitalsColor
+import tech.mmarca.openwatch.wear.ui.theme.WeightColor
 
 /**
  * A spot measurement ([SpotKind]) as the screens show it: its name, what to
@@ -88,6 +91,32 @@ enum class Measurement(
         liveUnit = R.string.unit_percent,
         unit = R.string.unit_percent,
     ),
+
+    /** The Samsung platform's ECG: the trace while it records, then its heart rate and what its rhythm looks like. */
+    ECG(
+        SpotKind.ECG,
+        R.string.measure_ecg,
+        R.string.measure_ecg_description,
+        R.string.measure_instruction_ecg,
+        Icons.Outlined.MonitorHeart,
+        HeartColor,
+        grant = MeasureGrant.ADDITIONAL_HEALTH_DATA,
+        liveUnit = R.string.unit_bpm,
+        unit = R.string.unit_bpm,
+    ),
+
+    /** The Samsung platform's body composition: its progress, then the body fat with the rest beneath it. */
+    BODY_COMPOSITION(
+        SpotKind.BODY_COMPOSITION,
+        R.string.measure_body_composition,
+        R.string.measure_body_composition_description,
+        R.string.measure_instruction_body_composition,
+        Icons.Outlined.Accessibility,
+        WeightColor,
+        grant = MeasureGrant.ADDITIONAL_HEALTH_DATA,
+        liveUnit = R.string.unit_percent,
+        unit = R.string.unit_percent,
+    ),
     ;
 
     /** What the wearer is told when this measurement gave no reading: [SpotFailure.message], in this measurement's words. */
@@ -95,6 +124,7 @@ enum class Measurement(
     fun messageOf(failure: SpotFailure): Int = when {
         this == SPO2 && failure == SpotFailure.PERMISSION_DENIED -> R.string.measure_error_permission_spo2
         this == SPO2 && failure == SpotFailure.BUSY -> R.string.measure_error_busy_spo2
+        grant == MeasureGrant.ADDITIONAL_HEALTH_DATA && failure == SpotFailure.PERMISSION_DENIED -> R.string.measure_error_additional_permission
         else -> failure.message
     }
 
@@ -103,8 +133,11 @@ enum class Measurement(
     }
 }
 
-/** The grant a measurement reads under: the heart rate's, the blood oxygen's (the Samsung platform checks it), or none. */
-enum class MeasureGrant { NONE, HEART_RATE, OXYGEN_SATURATION }
+/**
+ * The grant a measurement reads under: the heart rate's, the blood oxygen's or Samsung's additional
+ * health data (the Samsung platform checks them), or none.
+ */
+enum class MeasureGrant { NONE, HEART_RATE, OXYGEN_SATURATION, ADDITIONAL_HEALTH_DATA }
 
 /** What the wearer is told when a measurement gave no reading. */
 @get:StringRes
@@ -117,6 +150,7 @@ val SpotFailure.message: Int
         SpotFailure.MOVED -> R.string.measure_error_moved
         SpotFailure.BUSY -> R.string.measure_error_busy
         SpotFailure.FAILED -> R.string.measure_error_failed
+        SpotFailure.NO_PROFILE -> R.string.measure_error_no_profile
     }
 
 /**
@@ -127,7 +161,7 @@ val SpotFailure.message: Int
 fun MeasureUiState.endCue(): HapticCue? = when (this) {
     is MeasureUiState.Done -> HapticCue.PULSE
     is MeasureUiState.Failed -> when (failure) {
-        SpotFailure.NOT_SUPPORTED, SpotFailure.PERMISSION_DENIED, SpotFailure.BUSY -> null
+        SpotFailure.NOT_SUPPORTED, SpotFailure.PERMISSION_DENIED, SpotFailure.BUSY, SpotFailure.NO_PROFILE -> null
         else -> HapticCue.DOUBLE_PULSE
     }
     MeasureUiState.Ready, is MeasureUiState.Running -> null

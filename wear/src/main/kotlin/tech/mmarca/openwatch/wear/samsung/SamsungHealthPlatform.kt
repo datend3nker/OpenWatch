@@ -14,6 +14,10 @@ import android.os.RemoteException
 import android.util.Log
 import java.util.concurrent.Executor
 import tech.mmarca.healthcalculations.signal.IbiPoint
+import tech.mmarca.openwatch.wear.BodyComposition
+import tech.mmarca.openwatch.wear.BodyCompositionReading
+import tech.mmarca.openwatch.wear.BodyCompositionRun
+import tech.mmarca.openwatch.wear.EcgSample
 import tech.mmarca.openwatch.wear.SkinReading
 import tech.mmarca.openwatch.wear.Spo2Reading
 
@@ -478,7 +482,7 @@ internal fun RawPoint.toEcgPoint(): EcgPoint = EcgPoint(
 /**
  * One body composition point. The status at int 0 is 0 while the measurement
  * runs and at its result, or what stopped it (the platform's `BiaError`
- * ordinals); [progress] at float 9 counts up to 1, where the values are the
+ * ordinals, [BodyCompositionRun]'s codes); [progress] at float 9 counts up to 1, where the values are the
  * result. The ratios are per cent, the masses and the water kilograms, the
  * basal metabolic rate kilocalories a day.
  */
@@ -495,26 +499,31 @@ internal class BiaPoint(
     val fatFreeMassKg: Float,
     val progress: Float,
 ) {
-    val isResult: Boolean get() = status == STATUS_OK && progress >= 1f && bodyFatPercent > 0f && bodyFatPercent < 100f
+    val isResult: Boolean
+        get() = status == BodyCompositionRun.STATUS_OK && progress >= 1f && bodyFatPercent > 0f && bodyFatPercent < 100f
 
-    companion object {
-        const val STATUS_OK = 0
+    /** The point as [BodyCompositionRun] reads it. */
+    fun toRunPoint(): BodyCompositionRun.Point = BodyCompositionRun.Point(epochMillis, status, progress, isResult)
 
-        /**
-         * "NV_NG": the platform's body composition library has no calibration (yet). The first point
-         * of every run carries it: the library handles that point before the calibration the sensor
-         * sends with it is set. A run whose points all carry it never got the calibration (the
-         * platform drops it when its library, loaded on the first use in the process, is not ready
-         * in time).
-         */
-        const val STATUS_NO_CALIBRATION = 2
-        const val STATUS_WRIST_DETACHED = 4
-        const val STATUS_FINGERS_DETACHED = 9
-        const val STATUS_WRIST_LOOSE = 10
-        const val STATUS_FINGERS_DRY = 11
-        const val STATUS_HANDS_TOUCH = 14
-        const val STATUS_FRAME_TOUCHED = 15
+    /** The result, or null where the platform left a value out. */
+    fun toBodyComposition(): BodyComposition? {
+        if (!isResult || fatFreeMassKg.isNaN() || totalBodyWaterKg.isNaN()) return null
+        return BodyComposition(
+            bodyFatPercent = bodyFatPercent.toDouble(),
+            leanMassKg = fatFreeMassKg.toDouble(),
+            bodyWaterKg = totalBodyWaterKg.toDouble(),
+            skeletalMuscleKg = skeletalMuscleMassKg.takeIf { !it.isNaN() && it > 0f }?.toDouble(),
+            basalMetabolicRateKcal = basalMetabolicRateKcal.takeIf { !it.isNaN() && it > 0f }?.toDouble(),
+        )
     }
+}
+
+internal fun RawPoint.toEcgSample(): EcgSample = toEcgPoint().let { point ->
+    EcgSample(point.millivolts, if (point.hasLeadState) point.leadOff == EcgPoint.LEAD_ON else null)
+}
+
+internal fun RawPoint.toBodyCompositionReading(): BodyCompositionReading = toBiaPoint().let { point ->
+    BodyCompositionReading(point.toRunPoint(), point.toBodyComposition())
 }
 
 internal fun RawPoint.toBiaPoint(): BiaPoint {

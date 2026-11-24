@@ -61,12 +61,32 @@ class SpotMeasurementsTest {
         override fun stop() = Unit
     }
 
+    /** A tracker that hands the next of [runs] at each start, on its handler, and counts its starts. */
+    private class FakeTracker<T>(private val runs: List<List<List<T>>>) : SpotSource<T> {
+        var started = 0
+
+        override val isAvailable: Boolean = true
+
+        override fun start(handler: android.os.Handler, sink: SpotSource.Sink<T>): Boolean {
+            runs.getOrNull(started++)?.forEach(sink::onReadings)
+            return true
+        }
+
+        override fun stop() = Unit
+    }
+
+    private val wearer = tech.mmarca.healthcalculations.preferences.BodyProfile(birthYear = 1990, weightKg = 80.0, heightCm = 185.0)
+
     private fun spot(
         heartRate: SpotSensor<LiveHeartRate.Reading>? = null,
         heartBeats: SpotSensor<Double>? = null,
         motion: SpotSensor<Motion>? = null,
         pressure: SpotSensor<Float>? = null,
         spo2: SpotSource<Spo2Reading>? = null,
+        ecg: SpotSource<EcgSample>? = null,
+        body: SpotSource<BodyCompositionReading>? = null,
+        profile: tech.mmarca.healthcalculations.preferences.BodyProfile? = wearer,
+        limit: Long = 300L,
     ) = SpotMeasurements(
         app,
         heartRate = { heartRate },
@@ -77,12 +97,32 @@ class SpotMeasurementsTest {
         spo2 = { spo2 },
         spo2Claim = spo2Claim,
         spo2Granted = { granted },
+        ecg = { ecg },
+        bodyComposition = { body },
+        profile = { profile },
+        additionalGranted = { granted },
         heartRateGranted = { granted },
         entries = entries,
         debug = DebugProtocol.off(),
         // Long enough for every fake's readings; short where a measurement waits its time out.
-        limitMillis = { 300L },
+        limitMillis = { limit },
     )
+
+    /** Thirty seconds at 500 Hz with an R wave every [beatMillis], in batches of a second; the first point says the electrodes are touched. */
+    private fun ecgBatches(beatMillis: Double = 1000.0): List<List<EcgSample>> {
+        val samples = List(30 * EcgHeartRate.SAMPLE_RATE_HZ) { k ->
+            val t = k * 2.0
+            val sinceBeat = (t - 100.0).mod(beatMillis)
+            val r = kotlin.math.exp(-((sinceBeat / 8.0) * (sinceBeat / 8.0))) + kotlin.math.exp(-(((beatMillis - sinceBeat) / 8.0).let { it * it }))
+            EcgSample((1.2 * r + 0.01 * kotlin.math.sin(t)).toFloat(), touching = if (k == 0) true else null)
+        }
+        return samples.chunked(EcgHeartRate.SAMPLE_RATE_HZ)
+    }
+
+    private fun bia(at: Long, status: Int = BodyCompositionRun.STATUS_OK, progress: Float = 0.5f, result: BodyComposition? = null) =
+        BodyCompositionReading(BodyCompositionRun.Point(at, status, progress, result != null), result)
+
+    private val composition = BodyComposition(19.6, leanMassKg = 64.3, bodyWaterKg = 47.1, skeletalMuscleKg = 36.0, basalMetabolicRateKcal = 1720.0)
 
     private fun events(spot: SpotMeasurements, kind: SpotKind): List<SpotEvent> =
         runBlocking { withTimeout(TIMEOUT_MILLIS) { spot.run(kind).toList() } }
@@ -235,6 +275,74 @@ class SpotMeasurementsTest {
         assertEquals(listOf(SpotEvent.Failed(SpotFailure.PERMISSION_DENIED)), events(spot(spo2 = waiting), SpotKind.SPO2))
         assertEquals(listOf(SpotEvent.Failed(SpotFailure.NOT_SUPPORTED)), events(spot(), SpotKind.SPO2))
         assertTrue(stored().isEmpty())
+    }
+
+    @Test
+    fun `an ECG is thirty unbroken seconds, its trace shown as it grows, its rate and rhythm shown and nothing kept`() {
+        val tracker = FakeTracker(listOf(ecgBatches()))
+
+        val events = events(spot(ecg = tracker), SpotKind.ECG)
+
+        val result = events.last() as SpotEvent.Result
+        assertEquals(60.0, result.value, 1.0)
+        assertEquals(EcgHeartRate.Rhythm.REGULAR, result.ecg?.rhythm)
+        val traces = events.filterIsInstance<SpotEvent.Trace>()
+        assertEquals(30, traces.size)
+        assertEquals(1f, traces.last().recorded)
+        assertEquals(3 * EcgHeartRate.SAMPLE_RATE_HZ, traces.last().millivolts.size)
+        assertTrue("an ECG has no record", stored().isEmpty())
+    }
+
+    @Test
+    fun `an ECG without the grant, or without enough contact in its time, is none`() {
+        granted = false
+        assertEquals(listOf(SpotEvent.Failed(SpotFailure.PERMISSION_DENIED)), events(spot(ecg = FakeTracker(listOf(ecgBatches()))), SpotKind.ECG))
+        granted = true
+        val short = FakeTracker(listOf(ecgBatches().take(10)))
+        assertEquals(SpotEvent.Failed(SpotFailure.NO_SIGNAL), events(spot(ecg = short), SpotKind.ECG).last())
+    }
+
+    @Test
+    fun `a body composition shows its progress and is kept as its body fat, lean mass and body water`() {
+        val now = System.currentTimeMillis()
+        val tracker = FakeTracker(
+            listOf(
+                listOf(
+                    listOf(bia(now, BodyCompositionRun.STATUS_NO_CALIBRATION), bia(now, progress = 0.3f)),
+                    listOf(bia(now, BodyCompositionRun.STATUS_FINGERS_DRY), bia(now, progress = 1f, result = composition)),
+                ),
+            ),
+        )
+
+        val events = events(spot(body = tracker), SpotKind.BODY_COMPOSITION)
+
+        assertEquals(SpotEvent.Result(19.6, body = composition), events.last())
+        assertTrue(SpotEvent.Progress(0.3f, null) in events)
+        assertTrue(SpotEvent.Progress(0.3f, SpotHint.FINGERS_DRY) in events)
+        val kept = stored().associate { it.type to it.value }
+        assertEquals(mapOf(WearLinkEntry.Type.BODY_FAT to 19.6, WearLinkEntry.Type.LEAN_BODY_MASS to 64.3, WearLinkEntry.Type.BODY_WATER to 47.1), kept)
+        assertTrue(stored().all { it.measured })
+    }
+
+    @Test
+    fun `a body composition whose tracker never got its calibration is started again`() {
+        val now = System.currentTimeMillis()
+        val lost = List(BodyCompositionRun.NO_CALIBRATION_POINTS) { bia(now, BodyCompositionRun.STATUS_NO_CALIBRATION) }
+        // The second run's points come after its start.
+        val later = now + 60_000
+        val tracker = FakeTracker(listOf(listOf(lost), listOf(listOf(bia(later, progress = 1f, result = composition)))))
+
+        val events = events(spot(body = tracker, limit = 3_000L), SpotKind.BODY_COMPOSITION)
+
+        assertEquals(2, tracker.started)
+        assertEquals(SpotEvent.Result(19.6, body = composition), events.last())
+    }
+
+    @Test
+    fun `a body composition without the wearer's profile asks for it, and nothing starts`() {
+        val tracker = FakeTracker<BodyCompositionReading>(emptyList())
+        assertEquals(listOf(SpotEvent.Failed(SpotFailure.NO_PROFILE)), events(spot(body = tracker, profile = null), SpotKind.BODY_COMPOSITION))
+        assertEquals(0, tracker.started)
     }
 
     @Test

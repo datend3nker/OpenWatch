@@ -9,11 +9,13 @@ import kotlin.coroutines.resume
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ProducerScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
+import tech.mmarca.healthcalculations.preferences.BodyProfile
 import tech.mmarca.openwatch.wearlink.WearLinkEntry
 
 /**
@@ -47,6 +49,14 @@ internal class SpotMeasurements(
     /** Shared with the night's SpO2 measurements: the platform starts its tracker for the first reader only. */
     private val spo2Claim: SensorClaim = SensorClaim(),
     private val spo2Granted: () -> Boolean = { false },
+    /** The Samsung platform's ECG tracker; null on a watch without it. */
+    private val ecg: () -> SpotSource<EcgSample>? = { null },
+    /** The Samsung platform's body composition tracker for [BodyProfile]'s wearer; null on a watch without it. */
+    private val bodyComposition: (BodyProfile) -> SpotSource<BodyCompositionReading>? = { null },
+    /** The wearer as the phone sent them: height, weight, year of birth and sex, or null while one is missing. */
+    private val profile: () -> BodyProfile? = { null },
+    /** The grant the platform checks for its ECG and body composition trackers. */
+    private val additionalGranted: () -> Boolean = { false },
     private val heartRateGranted: () -> Boolean,
     private val entries: EntryLog,
     private val debug: DebugProtocol,
@@ -74,6 +84,8 @@ internal class SpotMeasurements(
                 SpotKind.HRV -> hrv(kind)
                 SpotKind.AIR_PRESSURE -> airPressure(kind)
                 SpotKind.SPO2 -> spo2(kind)
+                SpotKind.ECG -> ecg(kind)
+                SpotKind.BODY_COMPOSITION -> bodyComposition(kind)
             }
             if (end is SpotEvent.Result) keep(kind, end)
             debug.event(TAG, "end", "kind" to kind.name, "outcome" to ((end as? SpotEvent.Failed)?.failure?.name ?: "result"))
@@ -258,15 +270,131 @@ internal class SpotMeasurements(
         }
     }
 
-    /** A heart rate, an HRV or a blood oxygen goes to the entries, measured on the watch; the air pressure is a reading of the moment. */
+    /**
+     * [EcgRecording.RECORD_SECONDS] of unbroken contact from the platform's ECG tracker, its trace
+     * sent as it grows, then its heart rate and what its rhythm looks like ([EcgHeartRate]).
+     */
+    private suspend fun ProducerScope<SpotEvent>.ecg(kind: SpotKind): SpotEvent {
+        val source = ecg() ?: return SpotEvent.Failed(SpotFailure.NOT_SUPPORTED)
+        if (!additionalGranted()) return SpotEvent.Failed(SpotFailure.PERMISSION_DENIED)
+        val worker = HandlerThread("SpotEcg").apply { start() }
+        val handler = Handler(worker.looper)
+        val batches = Channel<List<EcgSample>>(Channel.UNLIMITED)
+        val errored = AtomicBoolean(false)
+        val sink = sinkOf(batches, errored)
+        try {
+            if (!onHandler(handler) { source.start(handler, sink) }) return SpotEvent.Failed(SpotFailure.FAILED)
+            send(SpotEvent.Progress(0f, SpotHint.TOUCH_ELECTRODES))
+            val recording = EcgRecording()
+            val complete = withTimeoutOrNull(limitMillis(kind)) {
+                for (batch in batches) {
+                    for (sample in batch) recording.add(sample.millivolts, sample.touching)
+                    send(SpotEvent.Trace(recording.trace(TRACE_SECONDS), recording.recorded, recording.contact))
+                    if (recording.isComplete) return@withTimeoutOrNull true
+                }
+                false
+            } == true
+            if (!complete) return SpotEvent.Failed(if (errored.get()) SpotFailure.FAILED else SpotFailure.NO_SIGNAL)
+            val result = EcgHeartRate.of(recording.samples())
+            debug.event(TAG, "ecg", "beats" to result?.beatCount, "rhythm" to result?.rhythm?.name)
+            return result?.let { SpotEvent.Result(it.bpm.toDouble(), ecg = it) } ?: SpotEvent.Failed(SpotFailure.NO_SIGNAL)
+        } finally {
+            handler.post { source.stop() }
+            worker.quitSafely()
+        }
+    }
+
+    /**
+     * The platform's body composition for the wearer the phone sent ([profile]), its progress and
+     * what the contact lacks sent as they come. A run whose tracker never got its calibration is
+     * started again ([BodyCompositionRun]).
+     */
+    private suspend fun ProducerScope<SpotEvent>.bodyComposition(kind: SpotKind): SpotEvent {
+        val wearer = profile() ?: return SpotEvent.Failed(SpotFailure.NO_PROFILE)
+        val source = bodyComposition(wearer) ?: return SpotEvent.Failed(SpotFailure.NOT_SUPPORTED)
+        if (!additionalGranted()) return SpotEvent.Failed(SpotFailure.PERMISSION_DENIED)
+        val worker = HandlerThread("SpotBodyComposition").apply { start() }
+        val handler = Handler(worker.looper)
+        val batches = Channel<List<BodyCompositionReading>>(Channel.UNLIMITED)
+        val errored = AtomicBoolean(false)
+        val sink = sinkOf(batches, errored)
+        val run = BodyCompositionRun()
+        suspend fun start(): Boolean {
+            run.started(System.currentTimeMillis())
+            return onHandler(handler) { source.start(handler, sink) }
+        }
+        try {
+            if (!start()) return SpotEvent.Failed(SpotFailure.FAILED)
+            send(SpotEvent.Progress(0f))
+            var restarts = 0
+            val end: SpotEvent? = withTimeoutOrNull(limitMillis(kind)) {
+                for (batch in batches) {
+                    for (reading in batch) {
+                        when (val step = run.next(reading.point)) {
+                            BodyCompositionRun.Step.Continue -> Unit
+                            is BodyCompositionRun.Step.Progress -> send(SpotEvent.Progress(step.share, step.hint))
+                            BodyCompositionRun.Step.Restart -> {
+                                restarts++
+                                onHandler(handler) { source.stop() }
+                                delay(RESTART_DELAY_MILLIS)
+                                if (!start()) return@withTimeoutOrNull SpotEvent.Failed(SpotFailure.FAILED)
+                                // The rest of this batch is the run given up.
+                                break
+                            }
+                            BodyCompositionRun.Step.Result -> return@withTimeoutOrNull reading.result
+                                ?.let { SpotEvent.Result(it.bodyFatPercent, body = it) }
+                                ?: SpotEvent.Failed(SpotFailure.FAILED)
+                            BodyCompositionRun.Step.NoCalibration -> return@withTimeoutOrNull SpotEvent.Failed(SpotFailure.FAILED)
+                        }
+                    }
+                }
+                null
+            }
+            debug.event(TAG, "body_composition", "restarts" to restarts, "result" to (end is SpotEvent.Result))
+            return end ?: SpotEvent.Failed(if (errored.get()) SpotFailure.FAILED else SpotFailure.NO_SIGNAL)
+        } finally {
+            handler.post { source.stop() }
+            worker.quitSafely()
+        }
+    }
+
+    /** A sink that hands each batch to [batches], and closes it on the source's error. */
+    private fun <T> sinkOf(batches: Channel<List<T>>, errored: AtomicBoolean) = object : SpotSource.Sink<T> {
+        override fun onReadings(readings: List<T>) {
+            batches.trySend(readings)
+        }
+
+        override fun onError() {
+            errored.set(true)
+            batches.close()
+        }
+    }
+
+    /**
+     * A heart rate, an HRV or a blood oxygen goes to the entries, measured on the watch, and a body
+     * composition as its body fat, lean mass and body water; the air pressure is a reading of the
+     * moment, and an ECG has no record to go to.
+     */
     private fun keep(kind: SpotKind, result: SpotEvent.Result) {
         val type = when (kind) {
             SpotKind.HEART_RATE -> WearLinkEntry.Type.HEART_RATE
             SpotKind.HRV -> WearLinkEntry.Type.HRV
             SpotKind.SPO2 -> WearLinkEntry.Type.BLOOD_OXYGEN
-            SpotKind.AIR_PRESSURE -> return
+            SpotKind.BODY_COMPOSITION -> return keepBody(result.body ?: return)
+            SpotKind.AIR_PRESSURE, SpotKind.ECG -> return
         }
         if (!entries.log(type, result.value, measured = true)) debug.count("spot_unlogged")
+    }
+
+    private fun keepBody(body: BodyComposition) {
+        val at = System.currentTimeMillis()
+        for ((type, value) in listOf(
+            WearLinkEntry.Type.BODY_FAT to body.bodyFatPercent,
+            WearLinkEntry.Type.LEAN_BODY_MASS to body.leanMassKg,
+            WearLinkEntry.Type.BODY_WATER to body.bodyWaterKg,
+        )) {
+            if (!entries.log(type, value, atMillis = at, measured = true)) debug.count("spot_unlogged")
+        }
     }
 
     private companion object {
@@ -285,6 +413,12 @@ internal class SpotMeasurements(
 
         /** Five a second for three minutes is 900; more than this is not kept. */
         const val MAX_MOTION_READINGS = 2_000
+
+        /** The ECG's trace on the screen: its last three seconds. */
+        const val TRACE_SECONDS = 3
+
+        /** A body composition tracker given up waits this long before it starts again. */
+        const val RESTART_DELAY_MILLIS = 400L
 
         /** A little past the measurement's own limit, so the lock never ends it early. */
         const val WAKE_LOCK_MARGIN_MILLIS = 10_000L
