@@ -40,8 +40,9 @@ class WearOsRecordedWorkouts @Inject constructor(
         sessionId: String,
         exerciseType: Int,
         background: Boolean,
+        known: RecordedWorkoutPhase?,
     ): RecordedWorkoutState? {
-        val control = WearLinkWorkoutControl.Control(commandOf(command), sessionId, exerciseType)
+        val control = WearLinkWorkoutControl.Control(commandOf(command), sessionId, exerciseType, known?.let(::wirePhaseOf))
         val state = try {
             companionManager.controlWorkout(device.address, device.bluetoothName, control, background)
         } catch (error: CancellationException) {
@@ -64,6 +65,15 @@ class WearOsRecordedWorkouts @Inject constructor(
         RecordedWorkoutCommand.RESUME -> Command.RESUME
         RecordedWorkoutCommand.STOP -> Command.STOP
         RecordedWorkoutCommand.STATE -> Command.STATE
+        RecordedWorkoutCommand.WATCH -> Command.WATCH
+    }
+
+    private fun wirePhaseOf(phase: RecordedWorkoutPhase): Phase = when (phase) {
+        RecordedWorkoutPhase.RECORDING -> Phase.RECORDING
+        RecordedWorkoutPhase.PAUSED -> Phase.PAUSED
+        RecordedWorkoutPhase.STOPPED -> Phase.STOPPED
+        RecordedWorkoutPhase.FAILED -> Phase.FAILED
+        RecordedWorkoutPhase.NONE -> Phase.NONE
     }
 
     private fun phaseOf(phase: Phase): RecordedWorkoutPhase = when (phase) {

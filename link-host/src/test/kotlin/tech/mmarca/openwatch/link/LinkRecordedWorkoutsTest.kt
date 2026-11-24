@@ -51,6 +51,7 @@ class LinkRecordedWorkoutsTest {
             sessionId: String,
             exerciseType: Int,
             background: Boolean,
+            known: RecordedWorkoutPhase?,
         ): RecordedWorkoutState? {
             if (!reachable) return null
             commands += command
@@ -60,7 +61,7 @@ class LinkRecordedWorkoutsTest {
                 RecordedWorkoutCommand.PAUSE -> phase = RecordedWorkoutPhase.PAUSED
                 RecordedWorkoutCommand.RESUME -> phase = RecordedWorkoutPhase.RECORDING
                 RecordedWorkoutCommand.STOP -> { phase = RecordedWorkoutPhase.STOPPED; reason = OpenLinkRecordingState.REASON_STOPPED_BY_CLIENT }
-                RecordedWorkoutCommand.STATE -> Unit
+                RecordedWorkoutCommand.STATE, RecordedWorkoutCommand.WATCH -> Unit
             }
             return RecordedWorkoutState(phase, 0L, reason, summary.takeIf { phase == RecordedWorkoutPhase.STOPPED })
         }
@@ -149,14 +150,20 @@ class LinkRecordedWorkoutsTest {
     }
 
     @Test
-    fun `the poll of the state lets a sync go first, a command does not`() = runTest {
+    fun `the state is watched on the link as a background ask, and a press on the wrist reaches the owner at once`() = runTest {
         val recorded = recorded()
         recorded.start(request(), owner)
         runCurrent()
-        advanceTimeBy(20_001)
 
-        assertEquals(listOf(RecordedWorkoutCommand.START, RecordedWorkoutCommand.STATE), watch.commands)
-        assertEquals(listOf(false, true), watch.backgrounds)
+        assertEquals(RecordedWorkoutCommand.START, watch.commands.first())
+        assertEquals(false, watch.backgrounds.first())
+        assertTrue("watched after the start", RecordedWorkoutCommand.WATCH in watch.commands)
+        assertTrue(watch.commands.indices.filter { watch.commands[it] == RecordedWorkoutCommand.WATCH }.all { watch.backgrounds[it] })
+
+        // The wearer pauses on the watch: the next answer has it, within the second between two asks.
+        watch.phase = RecordedWorkoutPhase.PAUSED
+        advanceTimeBy(1_001)
+        assertEquals(OpenLinkRecordingPhase.PAUSED, published.last().first.phase)
     }
 
     @Test
@@ -169,7 +176,7 @@ class LinkRecordedWorkoutsTest {
 
         assertEquals(OpenLinkRecordingPhase.FAILED to OpenLinkRecordingState.REASON_BUSY, phases.last())
         assertEquals("com.example.other", published.last().second)
-        assertEquals(listOf(RecordedWorkoutCommand.START), watch.commands)
+        assertEquals("one start only", 1, watch.commands.count { it == RecordedWorkoutCommand.START })
     }
 
     @Test

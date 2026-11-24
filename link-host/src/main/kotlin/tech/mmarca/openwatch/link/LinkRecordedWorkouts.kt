@@ -31,9 +31,9 @@ import tech.mmarca.openwatch.domain.model.BleSensorDevice
 /**
  * Workouts a device records for another app (OpenLink's `RECORD` mode), through the family that
  * claims the device ([RecordedWorkoutPort]: today a Wear OS watch's own workout), started, paused,
- * resumed and stopped from here. The watch never speaks first, so while one runs its state is
- * asked every [POLL_MILLIS], as a background request that lets a sync go first: a pause or stop
- * on the wrist reaches the app that way. Once it ends, a sync of the device writes it to Health
+ * resumed and stopped from here. The watch never speaks first, so while one runs the phone watches
+ * its state on the link, one ask after the other ([poll]), each a background request that lets a
+ * sync go first: a pause or stop on the wrist reaches the app as it happens. Once it ends, a sync of the device writes it to Health
  * Connect, as for a workout started on the watch. A device no port claims cannot be told to record
  * one: `FAILED`, `unsupported`.
  *
@@ -67,7 +67,8 @@ class LinkRecordedWorkouts internal constructor(
                 sessionId: String,
                 exerciseType: Int,
                 background: Boolean,
-            ): RecordedWorkoutState? = ports.firstOrNull { it.canRecord(device) }?.control(device, command, sessionId, exerciseType, background)
+                known: RecordedWorkoutPhase?,
+            ): RecordedWorkoutState? = ports.firstOrNull { it.canRecord(device) }?.control(device, command, sessionId, exerciseType, background, known)
         },
         // A client that went away while it was told cannot be told otherwise.
         publish = { state, owner -> runCatching { host.get().publishRecordingState(state, owner) } },
@@ -88,6 +89,7 @@ class LinkRecordedWorkouts internal constructor(
             sessionId: String,
             exerciseType: Int,
             background: Boolean,
+            known: RecordedWorkoutPhase? = null,
         ): RecordedWorkoutState?
     }
 
@@ -144,8 +146,16 @@ class LinkRecordedWorkouts internal constructor(
     }
 
     /** The device's answer; null when it could not be reached. A poll of the state lets every other request go first. */
-    private suspend fun ask(sessionId: String, workout: Workout, command: RecordedWorkoutCommand): RecordedWorkoutState? =
-        watch.control(workout.device, command, sessionId, workout.exerciseType, background = command == RecordedWorkoutCommand.STATE)
+    private suspend fun ask(
+        sessionId: String,
+        workout: Workout,
+        command: RecordedWorkoutCommand,
+        known: RecordedWorkoutPhase? = null,
+    ): RecordedWorkoutState? = watch.control(
+        workout.device, command, sessionId, workout.exerciseType,
+        background = command == RecordedWorkoutCommand.STATE || command == RecordedWorkoutCommand.WATCH,
+        known = known,
+    )
 
     /** Tells the owner what the watch said; a workout that is over is let go and synced. */
     private fun report(sessionId: String, workout: Workout, state: RecordedWorkoutState?, asked: RecordedWorkoutCommand?) {
@@ -195,12 +205,25 @@ class LinkRecordedWorkouts internal constructor(
         }
     }
 
+    /**
+     * Watches the state on the device's link, one ask after the other: the device answers once the
+     * phase differs from the one last told, or after its few seconds, so a press on the wrist reaches
+     * the app as it happens and the link stays up while the workout runs. Not under the lock, so an
+     * app's pause or stop is not held behind it; out of reach, it waits [pollMillis] before asking again.
+     */
     private suspend fun poll(sessionId: String, workout: Workout) {
         while (true) {
-            delay(pollMillis)
+            if (synchronized(this) { workouts[sessionId] } !== workout) return
+            val askedAt = clock()
+            val state = ask(sessionId, workout, RecordedWorkoutCommand.WATCH, known = workout.last)
             workout.lock.withLock {
                 if (synchronized(this) { workouts[sessionId] } !== workout) return
-                report(sessionId, workout, ask(sessionId, workout, RecordedWorkoutCommand.STATE), asked = null)
+                report(sessionId, workout, state, asked = null)
+            }
+            when {
+                state == null -> delay(pollMillis)
+                // A device that answers at once without a change would make this a busy loop.
+                clock() - askedAt < MIN_WATCH_MILLIS -> delay(MIN_WATCH_MILLIS)
             }
         }
     }
@@ -231,11 +254,11 @@ class LinkRecordedWorkouts internal constructor(
         if (phase == RecordedWorkoutPhase.PAUSED) OpenLinkRecordingPhase.PAUSED else OpenLinkRecordingPhase.RECORDING
 
     private companion object {
-        /**
-         * How soon a pause or stop on the wrist reaches the app. Each ask is a link of its own (the
-         * watch closes one 15 s after its last request), so a minute keeps the radio mostly quiet.
-         */
+        /** How long a device out of reach is left before the next ask. */
         const val POLL_MILLIS = 60_000L
+
+        /** The shortest time between two watches of the state. */
+        const val MIN_WATCH_MILLIS = 1_000L
 
         const val SYNC_DELAY_MILLIS = 5_000L
 

@@ -21,6 +21,8 @@ internal class RemoteWorkout(
     private val workout: StateFlow<WorkoutUiState>,
     /** A stopped workout's summary, by the start its rows are kept under; read off the main thread. */
     private val summaryOf: (workoutStartMillis: Long) -> WearLinkWorkoutControl.Summary? = { null },
+    /** How a `watch` waits between two looks at the workout; the link's thread, which serves one request at a time. */
+    private val pause: (Long) -> Unit = Thread::sleep,
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
     /** What starts and steers the watch's workout; each hands its command to the service and returns. */
@@ -77,6 +79,21 @@ internal class RemoteWorkout(
                 }
             }
             Command.STATE -> mine?.state() ?: State(control.sessionId, Phase.NONE, clock())
+            Command.WATCH -> watch(control)
+        }
+    }
+
+    /**
+     * The state once its phase differs from the one the phone knows, or after
+     * [WearLinkWorkoutControl.MAX_WATCH_SECONDS]: a press on the wrist is answered as it is seen.
+     */
+    private fun watch(control: WearLinkWorkoutControl.Control): State {
+        val until = clock() + WearLinkWorkoutControl.MAX_WATCH_SECONDS * MILLIS_PER_SECOND
+        while (true) {
+            val mine = session.read()?.let(::observe)?.takeIf { it.sessionId == control.sessionId }
+                ?: return State(control.sessionId, Phase.NONE, clock())
+            if (mine.phase != control.known || mine.phase.isOver || clock() >= until) return mine.state()
+            pause(WATCH_LOOK_MILLIS)
         }
     }
 
@@ -118,6 +135,10 @@ internal class RemoteWorkout(
 
     private companion object {
         const val SETTLE_MILLIS = 5_000L
+
+        /** Four looks a second: a press on the wrist reaches the phone within a quarter second of the service taking it. */
+        const val WATCH_LOOK_MILLIS = 250L
+        const val MILLIS_PER_SECOND = 1_000L
     }
 
     /**

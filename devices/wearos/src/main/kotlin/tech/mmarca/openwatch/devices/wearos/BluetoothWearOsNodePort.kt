@@ -122,7 +122,13 @@ class BluetoothWearOsNodePort internal constructor(
         background: Boolean,
     ): WearLinkWorkoutControl.State? = onIo { owner ->
         val match = bondedWatchOrNull(targetAddress, targetName) ?: return@onIo null
-        val outcome = exchange(owner, match, targetAddress, PING_TIMEOUT_MS, WearLinkWorkoutControl.CAPABILITY, background) {
+        // A watch is held by the watch for up to its few seconds; the answer comes after them.
+        val timeout = if (control.command == WearLinkWorkoutControl.Command.WATCH) {
+            PING_TIMEOUT_MS + WearLinkWorkoutControl.MAX_WATCH_SECONDS * 1000L
+        } else {
+            PING_TIMEOUT_MS
+        }
+        val outcome = exchange(owner, match, targetAddress, timeout, WearLinkWorkoutControl.CAPABILITY, background) {
             it.workoutControl(control)
         } ?: return@onIo WearLinkWorkoutControl.State(control.sessionId, WearLinkWorkoutControl.Phase.FAILED, 0L, WearLinkWorkoutControl.REASON_UNSUPPORTED)
         unwrap(outcome)

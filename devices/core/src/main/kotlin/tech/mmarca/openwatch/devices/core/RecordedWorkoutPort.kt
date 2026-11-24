@@ -3,7 +3,8 @@ package tech.mmarca.openwatch.devices.core
 import tech.mmarca.openwatch.domain.model.BleSensorDevice
 
 /** What an app connected over OpenLink asks of a workout a device records for it (OpenLink's `RECORD`). */
-enum class RecordedWorkoutCommand { START, PAUSE, RESUME, STOP, STATE }
+/** [WATCH]: the state, once it differs from the phase the host knows, or after the device's few seconds. */
+enum class RecordedWorkoutCommand { START, PAUSE, RESUME, STOP, STATE, WATCH }
 
 /** Where a recorded workout stands on the device; [NONE]: the device holds none for the session. */
 enum class RecordedWorkoutPhase { RECORDING, PAUSED, STOPPED, FAILED, NONE }
@@ -49,9 +50,10 @@ interface RecordedWorkoutPort {
     fun recordsRoute(device: BleSensorDevice): Boolean
 
     /**
-     * Sends [command] for [sessionId] ([exerciseType], Health Connect's, for a start) and returns
-     * the state after it; null when the device could not be reached. A [background] ask (a poll of
-     * the state) lets every other request on the device's link go first.
+     * Sends [command] for [sessionId] ([exerciseType], Health Connect's, for a start; [known], the
+     * phase the host was last told, for a watch) and returns the state after it; null when the
+     * device could not be reached. A [background] ask (a watch of the state) lets every other
+     * request on the device's link go first.
      */
     suspend fun control(
         device: BleSensorDevice,
@@ -59,5 +61,6 @@ interface RecordedWorkoutPort {
         sessionId: String,
         exerciseType: Int = 0,
         background: Boolean = false,
+        known: RecordedWorkoutPhase? = null,
     ): RecordedWorkoutState?
 }

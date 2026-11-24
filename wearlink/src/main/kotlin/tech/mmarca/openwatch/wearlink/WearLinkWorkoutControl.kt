@@ -7,9 +7,10 @@ import java.util.Base64
  * starts, pauses, resumes and stops it, and asks its state, which is how it learns of a press on
  * the watch, since the watch never speaks first. Only a watch announcing [CAPABILITY] serves it.
  *
- * - `WO_CTL <command> <session> [<exerciseType>]` → one `WS` line. The command is `start` (with the
- *   Health Connect exercise type), `pause`, `resume`, `stop` or `state`; the session is the app's id,
- *   as base64url of its UTF-8, so it holds no space.
+ * - `WO_CTL <command> <session> [<exerciseType>|<knownPhase>]` → one `WS` line. The command is `start`
+ *   (with the Health Connect exercise type), `pause`, `resume`, `stop`, `state`, or `watch` (with the
+ *   phase the phone knows: the watch answers once the phase differs, or after [MAX_WATCH_SECONDS]);
+ *   the session is the app's id, as base64url of its UTF-8, so it holds no space.
  * - `WS <session|-> <phase> <atMillis> <reason|-> [<zoneSeconds> <zoneBounds> <trimp> <recovery1> <recovery2>]`:
  *   the phase of that session's workout on the watch, and since when by the watch's clock. `none`:
  *   the watch holds no workout for it. A `stopped` one carries its [Summary]: the seconds in each
@@ -27,6 +28,12 @@ object WearLinkWorkoutControl {
     const val REQUEST: String = "WO_CTL"
     const val STATE: String = "WS"
 
+    /**
+     * The longest a `watch` is held: below the watch's 15-second idle timeout, and short, since the
+     * link serves one request at a time and an app's pause or stop waits for the watch to end.
+     */
+    const val MAX_WATCH_SECONDS: Int = 5
+
     /** The app's id is OpenLink's: at most 128 characters. */
     const val MAX_SESSION_LENGTH: Int = 128
 
@@ -36,7 +43,14 @@ object WearLinkWorkoutControl {
     const val REASON_STOPPED_BY_CLIENT: String = "stopped_by_client"
 
     enum class Command(val word: String) {
-        START("start"), PAUSE("pause"), RESUME("resume"), STOP("stop"), STATE("state");
+        START("start"), PAUSE("pause"), RESUME("resume"), STOP("stop"), STATE("state"),
+
+        /**
+         * The state, held by the watch until it differs from the phase the phone knows, or for at
+         * most [MAX_WATCH_SECONDS]: so the phone asks again at once, on the same connection, and
+         * learns of a press on the wrist as it happens.
+         */
+        WATCH("watch");
 
         companion object {
             fun fromWord(word: String): Command? = entries.firstOrNull { it.word == word }
@@ -53,8 +67,8 @@ object WearLinkWorkoutControl {
         }
     }
 
-    /** [exerciseType] is read for [Command.START] only. */
-    data class Control(val command: Command, val sessionId: String, val exerciseType: Int = 0)
+    /** [exerciseType] is read for [Command.START] only, [known] (the phase the phone was last told) for [Command.WATCH] only. */
+    data class Control(val command: Command, val sessionId: String, val exerciseType: Int = 0, val known: Phase? = null)
 
     data class State(val sessionId: String?, val phase: Phase, val atMillis: Long, val reason: String? = null, val summary: Summary? = null)
 
@@ -69,7 +83,11 @@ object WearLinkWorkoutControl {
 
     fun formatControl(control: Control): String {
         val head = "$REQUEST ${control.command.word} ${encode(control.sessionId)}"
-        return if (control.command == Command.START) "$head ${control.exerciseType}" else head
+        return when (control.command) {
+            Command.START -> "$head ${control.exerciseType}"
+            Command.WATCH -> "$head ${(control.known ?: Phase.NONE).word}"
+            else -> head
+        }
     }
 
     /** Null unless [line] is a well-formed control with a session of at most [MAX_SESSION_LENGTH]. */
@@ -81,6 +99,10 @@ object WearLinkWorkoutControl {
         if (command == Command.START) {
             val type = fields.getOrNull(3)?.toIntOrNull()?.takeIf { it >= 0 } ?: return null
             return Control(command, session, type)
+        }
+        if (command == Command.WATCH) {
+            val known = fields.getOrNull(3)?.let(Phase::fromWord) ?: return null
+            return Control(command, session, known = known)
         }
         return if (fields.size == 3) Control(command, session) else null
     }

@@ -106,4 +106,26 @@ class RemoteWorkoutTest {
         summaries[777L] = summaries.getValue(777L).copy(recovery1MinBpm = 22)
         assertEquals(22, remote.control(Control(Command.STATE, "ride-1")).summary?.recovery1MinBpm)
     }
+
+    @Test
+    fun `a watch answers as soon as the wrist pauses the workout, or after its five seconds`() {
+        var looks = 0
+        val remote = RemoteWorkout(store, controls, workout, pause = { millis ->
+            now += millis
+            // The wearer presses pause on the watch two seconds in.
+            if (++looks == 8) running(paused = true)
+        }) { now }
+        remote.control(Control(Command.START, "ride-1", exerciseType = 8))
+        running()
+        now += 10_000
+
+        val paused = remote.control(Control(Command.WATCH, "ride-1", known = Phase.RECORDING))
+        assertEquals(Phase.PAUSED, paused.phase)
+        assertEquals(8, looks)
+
+        val quiet = remote.control(Control(Command.WATCH, "ride-1", known = Phase.PAUSED))
+        assertEquals("nothing changed: the current state after five seconds", Phase.PAUSED, quiet.phase)
+        assertEquals(8 + 20, looks)
+        assertEquals(Phase.NONE, remote.control(Control(Command.WATCH, "other", known = Phase.RECORDING)).phase)
+    }
 }

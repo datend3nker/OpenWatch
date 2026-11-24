@@ -57,4 +57,11 @@ class WearLinkWorkoutControlTest {
         assertEquals(bare, WearLinkWorkoutControl.parseState(WearLinkWorkoutControl.formatState(bare)))
         assertEquals(null, WearLinkWorkoutControl.parseState("WS cmlkZS0x stopped 9000 - 1,x - - - -"))
     }
+
+    @Test
+    fun `a watch carries the phase the phone knows, and needs it`() {
+        val watch = WearLinkWorkoutControl.Control(WearLinkWorkoutControl.Command.WATCH, "ride-1", known = WearLinkWorkoutControl.Phase.PAUSED)
+        assertEquals(watch, WearLinkWorkoutControl.parseControl(WearLinkWorkoutControl.formatControl(watch)))
+        assertEquals(null, WearLinkWorkoutControl.parseControl("WO_CTL watch cmlkZS0x"))
+    }
 }
