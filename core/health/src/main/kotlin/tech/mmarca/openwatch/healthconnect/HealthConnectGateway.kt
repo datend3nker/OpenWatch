@@ -52,13 +52,16 @@ class HealthConnectGateway(
     private val clientProvider: () -> HealthConnectClient,
     private val elapsedMillis: () -> Long = { System.nanoTime() / 1_000_000L },
     private val dispatchers: DispatcherProvider = DefaultDispatcherProvider,
+    /** Told of every write that went through, for the apps connected over OpenLink. */
+    private val writes: HealthConnectWrites = HealthConnectWrites(),
 ) : HealthConnectReads {
     @Inject
     constructor(
         @ApplicationContext context: Context,
         syncGate: HealthConnectSyncGate,
         foregroundGate: AppForegroundGate,
-    ) : this(context, syncGate, foregroundGate, CachedClient(context))
+        writes: HealthConnectWrites,
+    ) : this(context, syncGate, foregroundGate, CachedClient(context), writes = writes)
 
     private val diagnostics = HealthConnectDiagnostics(context)
     private val availabilityService = HealthConnectAvailabilityService(
@@ -206,7 +209,7 @@ class HealthConnectGateway(
      * since a record's `clientRecordId` makes writing it again an update.
      */
     suspend fun insertImportedRecords(records: List<Record>) {
-        withSyncEnabled { clientProvider().insertInChunks(records) }
+        withSyncEnabled { clientProvider().insertInChunks(records, onWritten = writes::report) }
     }
 
     /** Deletes this app's records of [recordType] by `clientRecordId`. Unknown ids are ignored. */
@@ -298,7 +301,7 @@ class HealthConnectGateway(
      * chunks: a session and its samples land together or not at all.
      */
     suspend fun insertActivityRecords(records: List<Record>): List<String> =
-        withSyncEnabled { clientProvider().insertRecords(records).recordIdsList }
+        withSyncEnabled { clientProvider().insertRecords(records).recordIdsList.also { writes.report(records) } }
 
     private suspend fun <T> withSyncEnabled(block: suspend () -> T): T {
         syncGate.requireEnabled()
@@ -338,7 +341,10 @@ private fun declaredHealthPermissions(context: Context): Set<String> {
         .filterTo(linkedSetOf()) { it.startsWith("android.permission.health.") }
 }
 
-/** [records] in requests of at most [MaxRecordsPerInsert], in order. */
-internal suspend fun HealthConnectClient.insertInChunks(records: List<Record>) {
-    records.chunked(MaxRecordsPerInsert).forEach { insertRecords(it) }
+/** [records] in requests of at most [MaxRecordsPerInsert], in order; [onWritten] hears each request that went through. */
+internal suspend fun HealthConnectClient.insertInChunks(records: List<Record>, onWritten: (List<Record>) -> Unit = {}) {
+    records.chunked(MaxRecordsPerInsert).forEach { chunk ->
+        insertRecords(chunk)
+        onWritten(chunk)
+    }
 }

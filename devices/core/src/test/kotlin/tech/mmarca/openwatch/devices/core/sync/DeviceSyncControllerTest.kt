@@ -1,6 +1,7 @@
 package tech.mmarca.openwatch.devices.core.sync
 
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -15,7 +16,6 @@ import tech.mmarca.openwatch.domain.model.BleDeviceKind
 import tech.mmarca.openwatch.domain.model.BleSensorCapability
 import tech.mmarca.openwatch.domain.model.BleSensorDevice
 import tech.mmarca.openwatch.domain.model.DeviceIntegration
-import kotlinx.coroutines.launch
 
 /**
  * Row-state discipline: one sync at a time, progress scoped to the syncing device,
@@ -348,5 +348,19 @@ class DeviceSyncControllerTest {
 
         controller.runSync(watch.id)
         assertEquals(SyncTrigger.BACKGROUND, port.seenTrigger)
+    }
+
+    @Test
+    fun `every run's result is kept for OpenLink, a background failure too, and a clear keeps it`() = runTest {
+        val watch = addWatch()
+        val controller = controller()
+        port.result = DeviceSyncResult.Failed(SyncFailure.Unreachable)
+
+        controller.runSync(watch.id, SyncTrigger.BACKGROUND)
+
+        assertEquals(DeviceSyncResult.Failed(SyncFailure.Unreachable), controller.state.value.attempts.getValue(watch.id).result)
+        assertNull("a background failure leaves no banner", controller.state.value.failureFor(watch.id))
+        controller.clear()
+        assertTrue(watch.id in controller.state.value.attempts)
     }
 }

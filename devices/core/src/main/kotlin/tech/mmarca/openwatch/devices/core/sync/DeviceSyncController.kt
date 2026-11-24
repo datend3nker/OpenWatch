@@ -25,6 +25,11 @@ data class DeviceSyncUiState(
     val last: Map<String, DeviceSyncResult.Succeeded> = emptyMap(),
     /** Why each device's last requested run failed; a background one ends without it. */
     val failures: Map<String, SyncFailure> = emptyMap(),
+    /**
+     * How each device's last run ended, requested or not, and when: what an app connected over
+     * OpenLink is told (`lastSyncResult`). Only this process's; [DeviceSyncController.clear] keeps it.
+     */
+    val attempts: Map<String, SyncAttempt> = emptyMap(),
 ) {
     val isSyncing: Boolean get() = running.isNotEmpty()
 
@@ -39,6 +44,9 @@ data class DeviceSyncUiState(
     /** Why the last run for [deviceId] failed; none while it syncs. */
     fun failureFor(deviceId: String): SyncFailure? = failures[deviceId].takeIf { deviceId !in running }
 }
+
+/** How a device's sync ended ([result]), and when ([atMillis]). */
+data class SyncAttempt(val result: DeviceSyncResult, val atMillis: Long)
 
 /**
  * Runs a device sync through the integration that owns the device. A
@@ -117,13 +125,21 @@ class DeviceSyncController @Inject constructor(
                 },
             )
         } catch (error: CancellationException) {
-            _state.update { it.copy(running = it.running - deviceId) }
+            // Stopped part-way, as by the system ending the job: what came was saved.
+            val stopped = SyncAttempt(DeviceSyncResult.Failed(SyncFailure.Interrupted), System.currentTimeMillis())
+            _state.update { it.copy(running = it.running - deviceId, attempts = it.attempts + (deviceId to stopped)) }
             throw error
         } catch (error: Exception) {
             DeviceSyncResult.Failed(SyncFailure.Unknown(error))
         }
+        val attempt = SyncAttempt(result, System.currentTimeMillis())
+        // In the same update as the end: a connected app sees the device stop syncing and its result together.
         _state.update { current ->
-            val idle = current.copy(running = current.running - deviceId, failures = current.failures - deviceId)
+            val idle = current.copy(
+                running = current.running - deviceId,
+                failures = current.failures - deviceId,
+                attempts = current.attempts + (deviceId to attempt),
+            )
             when (result) {
                 is DeviceSyncResult.Succeeded -> idle.copy(last = idle.last + (deviceId to result))
                 // A scheduled run out of range at 3am leaves no banner for later.
