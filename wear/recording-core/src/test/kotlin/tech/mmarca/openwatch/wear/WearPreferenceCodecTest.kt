@@ -55,6 +55,17 @@ class WearPreferenceCodecTest {
     }
 
     @Test
+    fun `the green PPG is an HRV source only, and only with its grant`() {
+        val granted = samsung.copy(ppgGranted = true)
+        val chosen = WearPreferenceCodec.apply(defaults, granted, "hrv_source", "samsung_ppg")!!
+        assertEquals(MeasurementSource.SAMSUNG_PPG, chosen.hrvSource)
+        assertEquals("samsung_ppg", WearPreferenceCodec.encode(chosen, granted)["hrv_source"])
+        assertNull("without the grant", WearPreferenceCodec.apply(defaults, samsung, "hrv_source", "samsung_ppg"))
+        assertNull("without the platform", WearPreferenceCodec.apply(defaults, pixel.copy(ppgGranted = true), "hrv_source", "samsung_ppg"))
+        assertNull("never the heart rate's", WearPreferenceCodec.apply(defaults, granted, "hr_source", "samsung_ppg"))
+    }
+
+    @Test
     fun `the zones' heart rates take whole bpm in range, and 0 clears them`() {
         val set = WearPreferenceCodec.apply(defaults, pixel, "hr_max", "187")!!
         assertEquals(187, set.maxHeartRate)

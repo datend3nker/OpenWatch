@@ -29,7 +29,9 @@ internal class RawPoint(val epochMillis: Long, val ints: IntArray, val floats: F
  *
  * Outbound, on the service token: 1 create(appId, type, profile?, exercise?),
  * 2 setListener(appId, type, binder), 3 unsetListener(appId, type),
- * 4 flush(appId, type). Inbound, on the listener token: 1 data (a typed list
+ * 4 flush(appId, type), 5 the supported types (a string list in the reply),
+ * 8 setPpgType(appId, type, colours). 6 and 7 carry an exercise's state and
+ * data to the sweat loss tracker and are not spoken here. Inbound, on the listener token: 1 data (a typed list
  * of points), 2 error(int), 3 flush done. A point is a time and a generic
  * list of values, each an (int, float, long).
  *
@@ -49,8 +51,21 @@ internal class SamsungHealthPlatform(
     /** The binding itself failed: the platform went away. Every tracker is affected. */
     private val onError: () -> Unit,
 ) {
-    /** What one tracker type delivers to; [onError] is that tracker's own failure (a refused permission, a platform error). */
-    class Tracker(val onPoints: (List<RawPoint>) -> Unit, val onFlushed: () -> Unit, val onError: () -> Unit)
+    /**
+     * What one tracker type delivers to; [onError] is that tracker's own failure (a refused permission, a platform error).
+     * [profile] is what the body composition tracker computes with (it assumes a default person without one);
+     * [ppgColours] is what the continuous PPG tracker switches on ([PPG_GREEN], [PPG_RED], [PPG_IR]).
+     */
+    class Tracker(
+        val onPoints: (List<RawPoint>) -> Unit,
+        val onFlushed: () -> Unit,
+        val onError: () -> Unit,
+        val profile: UserProfile? = null,
+        val ppgColours: List<String> = emptyList(),
+    )
+
+    /** The wearer as the platform's `TrackerUserProfile` takes them: two floats, then two ints. */
+    class UserProfile(val heightCm: Float, val weightKg: Float, val male: Boolean, val ageYears: Int)
 
     private var service: IBinder? = null
     private var bound = false
@@ -121,7 +136,25 @@ internal class SamsungHealthPlatform(
     private fun startTracker(type: String, listener: Binder) {
         val tracker = trackers[type]?.first
         try {
-            call(TX_CREATE) { writeString(appId()); writeString(type); writeInt(0); writeString(null) }
+            val profile = tracker?.profile
+            call(TX_CREATE) {
+                writeString(appId())
+                writeString(type)
+                // A typed object: a presence flag, then its fields.
+                if (profile == null) {
+                    writeInt(0)
+                } else {
+                    writeInt(1)
+                    writeFloat(profile.heightCm)
+                    writeFloat(profile.weightKg)
+                    writeInt(if (profile.male) GENDER_MALE else GENDER_FEMALE)
+                    writeInt(profile.ageYears)
+                }
+                writeString(null)
+            }
+            // The colours are read when the listener is set, so they go first.
+            val colours = tracker?.ppgColours.orEmpty()
+            if (colours.isNotEmpty()) call(TX_SET_PPG_TYPE) { writeString(appId()); writeString(type); writeStringList(colours) }
             call(TX_SET_LISTENER) { writeString(appId()); writeString(type); writeStrongBinder(listener) }
         } catch (e: RemoteException) {
             Log.w(TAG, "Tracker refused", e)
@@ -187,10 +220,20 @@ internal class SamsungHealthPlatform(
         const val TRACKER_HEART_RATE = "HEART_RATE"
         const val TRACKER_SKIN_TEMPERATURE = "SKIN_TEMPERATURE_CONTINUOUS"
         const val TRACKER_SPO2 = "SPO2"
+        const val TRACKER_ECG = "ECG"
+        const val TRACKER_BIA = "BIA"
+        const val TRACKER_PPG = "PPG_CONTINUOUS"
+        const val PPG_GREEN = "GREEN"
+        const val PPG_RED = "RED"
+        const val PPG_IR = "IR"
         private const val TX_CREATE = 1
         private const val TX_SET_LISTENER = 2
         private const val TX_UNSET_LISTENER = 3
         private const val TX_FLUSH = 4
+        private const val TX_SUPPORTED_TYPES = 5
+        private const val TX_SET_PPG_TYPE = 8
+        private const val GENDER_FEMALE = 0
+        private const val GENDER_MALE = 1
         private const val CB_DATA = 1
         private const val CB_ERROR = 2
         private const val CB_FLUSH_DONE = 3
@@ -262,6 +305,56 @@ internal class SamsungHealthPlatform(
         fun isInstalled(context: Context): Boolean =
             context.packageManager.queryIntentServices(bindIntent(), 0)
                 .any { resolved -> resolved.serviceInfo?.applicationInfo?.let { isSystemApp(it.flags) } == true }
+
+        /**
+         * Asks the platform which tracker types this watch has (code 5) and
+         * hands the answer to [onResult] on [handler]: null when the platform
+         * is not there or did not answer. The call names no client and starts
+         * no tracker, so it has a short binding of its own.
+         */
+        fun supportedTypes(context: Context, handler: Handler, onResult: (Set<String>?) -> Unit) {
+            val app = context.applicationContext
+            val connection = object : ServiceConnection {
+                private var answered = false
+
+                override fun onServiceConnected(name: ComponentName, binder: IBinder) = answer(readSupportedTypes(binder))
+
+                override fun onServiceDisconnected(name: ComponentName) = answer(null)
+
+                private fun answer(types: Set<String>?) {
+                    if (answered) return
+                    answered = true
+                    app.unbindService(this)
+                    onResult(types)
+                }
+            }
+            val bound = try {
+                app.bindService(bindIntent(), Context.BIND_AUTO_CREATE, Executor { handler.post(it) }, connection)
+            } catch (_: SecurityException) {
+                false
+            }
+            if (!bound) handler.post { onResult(null) }
+        }
+
+        private fun readSupportedTypes(service: IBinder): Set<String>? {
+            val data = Parcel.obtain()
+            val reply = Parcel.obtain()
+            return try {
+                data.writeInterfaceToken(SERVICE_TOKEN)
+                service.transact(TX_SUPPORTED_TYPES, data, reply, 0)
+                reply.readException()
+                reply.createStringArrayList()?.toSet()
+            } catch (e: RemoteException) {
+                Log.w(TAG, "Types not read", e)
+                null
+            } catch (e: RuntimeException) {
+                Log.w(TAG, "Types not read", e)
+                null
+            } finally {
+                data.recycle()
+                reply.recycle()
+            }
+        }
 
         /**
          * Newer platforms write a length before a parcelable inside a generic
@@ -357,3 +450,101 @@ internal fun RawPoint.toSpo2Reading(): Spo2Reading {
         moving = status == SPO2_MOVING,
     )
 }
+
+/**
+ * One ECG sample, 500 a second: the voltage at float 0. The platform sends
+ * them in groups whose first point alone carries the electrodes' state at
+ * int 2 (0 while both are touched) and the group's number at int 3; every
+ * other point has -1 there. A green PPG value rides at int 1 of the first
+ * and the sixth point, the amplifier's thresholds at 4 and 5.
+ */
+internal class EcgPoint(val epochMillis: Long, val millivolts: Float, val leadOff: Int, val sequence: Int) {
+    /** Whether this point says anything about the electrodes. */
+    val hasLeadState: Boolean get() = leadOff != NOT_CARRIED
+
+    companion object {
+        const val NOT_CARRIED = -1
+        const val LEAD_ON = 0
+    }
+}
+
+internal fun RawPoint.toEcgPoint(): EcgPoint = EcgPoint(
+    epochMillis,
+    floats.getOrElse(0) { Float.NaN },
+    ints.getOrElse(2) { EcgPoint.NOT_CARRIED },
+    ints.getOrElse(3) { EcgPoint.NOT_CARRIED },
+)
+
+/**
+ * One body composition point. The status at int 0 is 0 while the measurement
+ * runs and at its result, or what stopped it (the platform's `BiaError`
+ * ordinals); [progress] at float 9 counts up to 1, where the values are the
+ * result. The ratios are per cent, the masses and the water kilograms, the
+ * basal metabolic rate kilocalories a day.
+ */
+internal class BiaPoint(
+    val epochMillis: Long,
+    val status: Int,
+    val bodyFatPercent: Float,
+    val bodyFatMassKg: Float,
+    val totalBodyWaterKg: Float,
+    val skeletalMusclePercent: Float,
+    val skeletalMuscleMassKg: Float,
+    val basalMetabolicRateKcal: Float,
+    val fatFreePercent: Float,
+    val fatFreeMassKg: Float,
+    val progress: Float,
+) {
+    val isResult: Boolean get() = status == STATUS_OK && progress >= 1f && bodyFatPercent > 0f && bodyFatPercent < 100f
+
+    companion object {
+        const val STATUS_OK = 0
+
+        /**
+         * "NV_NG": the platform's body composition library has no calibration (yet). The first point
+         * of every run carries it: the library handles that point before the calibration the sensor
+         * sends with it is set. A run whose points all carry it never got the calibration (the
+         * platform drops it when its library, loaded on the first use in the process, is not ready
+         * in time).
+         */
+        const val STATUS_NO_CALIBRATION = 2
+        const val STATUS_WRIST_DETACHED = 4
+        const val STATUS_FINGERS_DETACHED = 9
+        const val STATUS_WRIST_LOOSE = 10
+        const val STATUS_FINGERS_DRY = 11
+        const val STATUS_HANDS_TOUCH = 14
+        const val STATUS_FRAME_TOUCHED = 15
+    }
+}
+
+internal fun RawPoint.toBiaPoint(): BiaPoint {
+    fun value(index: Int) = floats.getOrElse(index) { Float.NaN }
+    return BiaPoint(
+        epochMillis = epochMillis,
+        status = ints.getOrElse(0) { -1 },
+        bodyFatPercent = value(1),
+        bodyFatMassKg = value(2),
+        totalBodyWaterKg = value(3),
+        skeletalMusclePercent = value(4),
+        skeletalMuscleMassKg = value(5),
+        basalMetabolicRateKcal = value(6),
+        fatFreePercent = value(7),
+        fatFreeMassKg = value(8),
+        progress = value(9),
+    )
+}
+
+/**
+ * One continuous PPG sample: per colour a value and its status, green at
+ * ints 0-1, red at 2-3, infrared at 4-5. A colour that was not switched on
+ * reads 0 with status -1.
+ */
+internal class PpgPoint(val epochMillis: Long, val green: Int, val greenStatus: Int, val red: Int, val infrared: Int)
+
+internal fun RawPoint.toPpgPoint(): PpgPoint = PpgPoint(
+    epochMillis,
+    green = ints.getOrElse(0) { 0 },
+    greenStatus = ints.getOrElse(1) { -1 },
+    red = ints.getOrElse(2) { 0 },
+    infrared = ints.getOrElse(4) { 0 },
+)

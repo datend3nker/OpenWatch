@@ -68,12 +68,22 @@ internal fun RecordingSettingsRoute() {
     val askSpo2 = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) viewModel.setSpo2AtNight(true)
     }
-    val actions = remember(viewModel, askSkin, askSpo2) {
+    // Refused, the green PPG is passed over and the cycle goes on to the raw sensor.
+    val askPpg = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        viewModel.setHrvSource(if (granted) WearSettings.Source.SAMSUNG_PPG else WearSettings.Source.RAW_SENSOR)
+    }
+    val actions = remember(viewModel, askSkin, askSpo2, askPpg) {
         RecordingSettingsActions(
             onHeartRatePowerSave = viewModel::setHeartRatePowerSave,
             onSyncedSleepHold = viewModel::setSyncedSleepHold,
             onHeartRateSource = viewModel::setHeartRateSource,
-            onHrvSource = viewModel::setHrvSource,
+            onHrvSource = { source ->
+                if (source == WearSettings.Source.SAMSUNG_PPG && !WearPermissions.hasAdditionalHealthData(context)) {
+                    askPpg.launch(WearPermissions.additionalHealthData)
+                } else {
+                    viewModel.setHrvSource(source)
+                }
+            },
             onSkinTemperature = { on ->
                 if (on && !WearPermissions.hasSkinTemperature(context)) askSkin.launch(WearPermissions.skinTemperature) else viewModel.setSkinTemperature(on)
             },
@@ -146,9 +156,13 @@ private fun TransformingLazyColumnScope.recordingSettingsItems(
         if (heartRateSamsung) R.string.settings_heart_rate_source_samsung else R.string.settings_heart_rate_source_sensor,
         R.string.settings_heart_rate_source_explained,
     ) { actions.onHeartRateSource(flip(settings.heartRateSource)) }
-    val hrvSamsung = settings.hrvSource == MeasurementSource.SAMSUNG_PLATFORM
-    setting(spec, if (hrvSamsung) R.string.status_hrv_source_samsung else R.string.status_hrv_source_ppg, R.string.settings_hrv_source_explained) {
-        actions.onHrvSource(flip(settings.hrvSource))
+    val hrvLabel = when (settings.hrvSource) {
+        MeasurementSource.RAW_SENSOR -> R.string.status_hrv_source_ppg
+        MeasurementSource.SAMSUNG_PLATFORM -> R.string.status_hrv_source_samsung
+        MeasurementSource.SAMSUNG_PPG -> R.string.status_hrv_source_samsung_ppg
+    }
+    setting(spec, hrvLabel, R.string.settings_hrv_source_explained) {
+        actions.onHrvSource(nextHrvSource(settings.hrvSource))
     }
     val skin = settings.skinTemperature
     setting(spec, if (skin) R.string.settings_skin_temperature_on else R.string.settings_skin_temperature_off, R.string.settings_skin_explained) {
@@ -187,6 +201,13 @@ private fun Line(text: String) {
 
 private fun flip(source: WearSettings.Source): WearSettings.Source =
     if (source == WearSettings.Source.SAMSUNG_PLATFORM) WearSettings.Source.RAW_SENSOR else WearSettings.Source.SAMSUNG_PLATFORM
+
+/** The HRV's three sources in turn: the raw PPG, the platform's intervals, the platform's green PPG. */
+internal fun nextHrvSource(source: WearSettings.Source): WearSettings.Source = when (source) {
+    WearSettings.Source.RAW_SENSOR -> WearSettings.Source.SAMSUNG_PLATFORM
+    WearSettings.Source.SAMSUNG_PLATFORM -> WearSettings.Source.SAMSUNG_PPG
+    WearSettings.Source.SAMSUNG_PPG -> WearSettings.Source.RAW_SENSOR
+}
 
 @WearPreviews
 @Composable

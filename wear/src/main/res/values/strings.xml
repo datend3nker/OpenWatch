@@ -58,6 +58,7 @@
     <string name="settings_spo2_on">SpO2: Samsung, hourly at night</string>
     <string name="status_hrv_source_ppg">HRV: raw PPG</string>
     <string name="status_hrv_source_samsung">HRV: Samsung platform</string>
+    <string name="status_hrv_source_samsung_ppg">HRV: Samsung PPG</string>
     <string name="status_hrv_source_samsung_note">Samsung platform: needs Health Platform Developer Mode. Without it the platform asks Samsung about this app.</string>
     <string name="status_ppg_logging">Raw PPG log on · long press to stop</string>
     <string name="tile_heart_rate_label">Heart rate</string>
@@ -323,7 +324,7 @@
     <string name="settings_heart_rate_every_10_seconds_explained">A heart rate every 10 seconds all day, in batches that wake the watch about every 40 seconds: the day\'s curve, the zones and the sleep minutes are whole.</string>
     <string name="settings_sleep_hold_explained">How a sleep hold keeps every minute: a wake lock keeps the watch awake; synced wake-ups let it sleep between the heart rate sensor\'s wake-ups and empty every sensor then, with the heart rate from the sensor only.</string>
     <string name="settings_heart_rate_source_explained">Sensor: the watch\'s own heart rate, live. Samsung: the platform\'s value, handed over in batches up to 10 minutes late with the screen off. A workout uses the sensor either way.</string>
-    <string name="settings_hrv_source_explained">Sensor: HRV from the raw pulse signal, every interval. Samsung: the platform\'s beat intervals; today about 60 % of them get lost, so fewer nights have a value.</string>
+    <string name="settings_hrv_source_explained">Sensor: HRV from the raw pulse signal, every interval. Samsung: the platform\'s beat intervals; today about 60 % of them get lost, so fewer nights have a value. Samsung PPG: the platform\'s green light signal, read here like the raw one; it needs access to additional health data.</string>
     <string name="settings_skin_explained">Skin temperature at the wrist while you sleep, a reading a minute from the Samsung platform. Little power; nothing else changes.</string>
     <string name="settings_spo2_explained">Blood oxygen at most once an hour while you sleep, about 15 s of red light. A few mAh a night; skipped when the arm moves.</string>
     <string name="measure_value_placeholder">-- %1$s</string>

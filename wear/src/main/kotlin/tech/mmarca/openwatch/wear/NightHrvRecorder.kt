@@ -15,8 +15,9 @@ import tech.mmarca.openwatch.wearlink.WearLinkProtocol
  *
  * The rule for when to measure is `NightHrvSchedule` (pure); the beats come
  * from an [HrvWindowSource]: Samsung's raw PPG by default ([PpgWindowSource]),
- * or the Samsung Health Platform's own intervals where the watch has the
- * platform and the wearer chose them ([WearSettings.hrvSource], `samsung/SamsungIbiSource`).
+ * or, where the watch has the Samsung Health Platform and the wearer chose
+ * one ([WearSettings.hrvSource]), the platform's own intervals
+ * (`samsung/SamsungIbiSource`) or its green PPG (`samsung/SamsungPpgSource`).
  * This class is the clock, the wake lock and the store around them. A window
  * starts only while the sleep recorder holds the processor awake
  * ([BedtimeHold.HOLDING]: bedtime mode, worn, off the charger) and the last
@@ -37,6 +38,8 @@ internal class NightHrvRecorder(
     private val ppg: HrvWindowSource,
     /** The Samsung platform's own intervals, used once chosen. */
     private val samsung: HrvWindowSource,
+    /** The Samsung platform's green PPG, analysed here like the raw PPG; used once chosen and granted. */
+    private val samsungPpg: HrvWindowSource,
     /** Shared with the spot HRV: one window at a time reads the sensor. */
     private val claim: SensorClaim = SensorClaim(),
 ) : Recorder {
@@ -83,7 +86,10 @@ internal class NightHrvRecorder(
 
     /** The source chosen now, or the raw PPG when the choice is not on this watch. */
     private fun chosenSource(): HrvWindowSource? = when {
-        WearSettings.hrvSource(context) == WearSettings.Source.SAMSUNG_PLATFORM && samsung.isAvailable && !samsungFailed -> samsung
+        samsungFailed -> ppg.takeIf { it.isAvailable }
+        WearSettings.hrvSource(context) == WearSettings.Source.SAMSUNG_PLATFORM && samsung.isAvailable -> samsung
+        WearSettings.hrvSource(context) == WearSettings.Source.SAMSUNG_PPG && samsungPpg.isAvailable &&
+            WearPermissions.hasAdditionalHealthData(context) -> samsungPpg
         ppg.isAvailable -> ppg
         else -> null
     }
@@ -157,8 +163,13 @@ internal class NightHrvRecorder(
         source = chosen
         windowStartedAt = now
         wakeLock.acquire(NightHrv.WINDOW_MILLIS + WAKE_LOCK_SLACK_MILLIS)
-        Log.i(TAG, if (chosen === samsung) "Window started, Samsung platform" else "Window started, raw PPG")
-        debug.event("NightHrv", "window_started", "source" to if (chosen === samsung) "samsung" else "ppg")
+        val name = when {
+            chosen === samsung -> "samsung"
+            chosen === samsungPpg -> "samsung_ppg"
+            else -> "ppg"
+        }
+        Log.i(TAG, if (chosen === ppg) "Window started, raw PPG" else "Window started, Samsung platform")
+        debug.event("NightHrv", "window_started", "source" to name)
     }
 
     /** Ends the window and queues its result until the movement rows can judge it. */
@@ -171,7 +182,8 @@ internal class NightHrvRecorder(
         finished.finish(now) { result ->
             finishing = false
             claim.release(CLAIM)
-            if (finished === samsung && samsung.lastWindowFailed && !samsungFailed) {
+            val platformFailed = (finished === samsung || finished === samsungPpg) && finished.lastWindowFailed
+            if (platformFailed && !samsungFailed) {
                 samsungFailed = true
                 Log.w(TAG, "Samsung platform failed, the next windows use the raw PPG")
                 debug.event("NightHrv", "fallback", "startedAt" to started)
@@ -194,6 +206,7 @@ internal class NightHrvRecorder(
         if (finishing) {
             ppg.cancel()
             samsung.cancel()
+            samsungPpg.cancel()
             finishing = false
         }
         if (wakeLock.isHeld) wakeLock.release()

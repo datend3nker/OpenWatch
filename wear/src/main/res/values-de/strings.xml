@@ -58,6 +58,7 @@
     <string name="settings_spo2_on">SpO2: Samsung, stündlich nachts</string>
     <string name="status_hrv_source_ppg">HRV: rohes PPG</string>
     <string name="status_hrv_source_samsung">HRV: Samsung-Plattform</string>
+    <string name="status_hrv_source_samsung_ppg">HRV: Samsung-PPG</string>
     <string name="status_hrv_source_samsung_note">Samsung-Plattform: braucht den Entwicklermodus der Health Platform. Ohne ihn fragt die Plattform bei Samsung nach dieser App.</string>
     <string name="status_ppg_logging">Rohes PPG-Protokoll an · lange drücken zum Beenden</string>
     <string name="tile_heart_rate_label">Puls</string>
@@ -312,7 +313,7 @@
     <string name="settings_heart_rate_every_10_seconds_explained">Den ganzen Tag alle 10 Sekunden ein Puls, gebündelt, sodass die Uhr etwa alle 40 Sekunden aufwacht: Tageskurve, Zonen und Schlafminuten bleiben vollständig.</string>
     <string name="settings_sleep_hold_explained">Wie ein Schlaf-Hold jede Minute festhält: Ein Wake Lock hält die Uhr wach; gebündeltes Aufwecken lässt sie zwischen den Weckrufen des Pulssensors schlafen und leert dann jeden Sensor, nur mit dem Puls vom Sensor.</string>
     <string name="settings_heart_rate_source_explained">Sensor: der eigene Puls der Uhr, live. Samsung: der Wert der Plattform, bei ausgeschaltetem Display bis zu 10 Minuten verzögert. Ein Training nutzt immer den Sensor.</string>
-    <string name="settings_hrv_source_explained">Sensor: HRV aus dem rohen Pulssignal, jeder Schlag. Samsung: die Schlagabstände der Plattform; derzeit gehen davon etwa 60 % verloren, daher seltener ein Wert.</string>
+    <string name="settings_hrv_source_explained">Sensor: HRV aus dem rohen Pulssignal, jeder Schlag. Samsung: die Schlagabstände der Plattform; derzeit gehen davon etwa 60 % verloren, daher seltener ein Wert. Samsung-PPG: das grüne Lichtsignal der Plattform, hier ausgewertet wie das rohe; es braucht Zugriff auf zusätzliche Gesundheitsdaten.</string>
     <string name="settings_skin_explained">Hauttemperatur am Handgelenk im Schlaf, ein Wert pro Minute von der Samsung-Plattform. Wenig Strom, sonst keine Änderung.</string>
     <string name="settings_spo2_explained">Blutsauerstoff höchstens einmal pro Stunde im Schlaf, etwa 15 s Rotlicht. Wenige mAh pro Nacht; entfällt, wenn sich der Arm bewegt.</string>
     <string name="measure_value_placeholder">-- %1$s</string>

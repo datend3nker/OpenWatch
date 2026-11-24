@@ -52,6 +52,19 @@ object WearPermissions {
     val oxygenSaturation: String
         get() = if (Build.VERSION.SDK_INT >= 36) "android.permission.health.READ_OXYGEN_SATURATION" else Manifest.permission.BODY_SENSORS
 
+    /**
+     * What the platform checks for its raw PPG, ECG and body composition
+     * trackers: Samsung's own permission from Android 16, `BODY_SENSORS` before.
+     */
+    val additionalHealthData: String
+        get() = if (Build.VERSION.SDK_INT >= 36) {
+            "com.samsung.android.hardware.sensormanager.permission.READ_ADDITIONAL_HEALTH_DATA"
+        } else {
+            Manifest.permission.BODY_SENSORS
+        }
+
+    fun hasAdditionalHealthData(context: Context): Boolean = isGranted(context, additionalHealthData)
+
     /** A workout's route needs the location grant; fine and coarse are asked together. */
     fun hasLocation(context: Context): Boolean = isGranted(context, Manifest.permission.ACCESS_FINE_LOCATION)
 

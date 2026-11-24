@@ -55,7 +55,13 @@ data class WatchPreferences(
 }
 
 /** What the watch can offer, which the phone reads but cannot change. */
-data class WatchAbilities(val samsung: Boolean, val skinGranted: Boolean, val spo2Granted: Boolean)
+/** [ppgGranted]: the grant the platform checks for its green PPG, which only the watch can ask for. */
+data class WatchAbilities(
+    val samsung: Boolean,
+    val skinGranted: Boolean,
+    val spo2Granted: Boolean,
+    val ppgGranted: Boolean = false,
+)
 
 /**
  * The watch's settings as the `GET_PREF` and `SET_PREF` tokens
@@ -90,7 +96,8 @@ object WearPreferenceCodec {
         Preferences.HEART_RATE_DAY -> HeartRateInterval.fromWire(value)
             ?.takeIf { it == HeartRateInterval.EVERY_10_SECONDS || it == HeartRateInterval.POWER_SAVE }
             ?.let { preferences.copy(heartRateDay = it) }
-        Preferences.HEART_RATE_SOURCE -> source(value, abilities)?.let { preferences.copy(heartRateSource = it) }
+        Preferences.HEART_RATE_SOURCE -> source(value, abilities)
+            ?.takeIf { it != MeasurementSource.SAMSUNG_PPG }?.let { preferences.copy(heartRateSource = it) }
         Preferences.HRV_SOURCE -> source(value, abilities)?.let { preferences.copy(hrvSource = it) }
         Preferences.SLEEP_HOLD -> when (value) {
             Preferences.LOCK -> preferences.copy(syncedSleepHold = false)
@@ -133,12 +140,17 @@ object WearPreferenceCodec {
         null -> Preferences.OFF
     }
 
-    private fun source(source: MeasurementSource): String =
-        if (source == MeasurementSource.SAMSUNG_PLATFORM) Preferences.SAMSUNG else Preferences.SENSOR
+    private fun source(source: MeasurementSource): String = when (source) {
+        MeasurementSource.RAW_SENSOR -> Preferences.SENSOR
+        MeasurementSource.SAMSUNG_PLATFORM -> Preferences.SAMSUNG
+        MeasurementSource.SAMSUNG_PPG -> Preferences.SAMSUNG_PPG
+    }
 
     private fun source(value: String, abilities: WatchAbilities): MeasurementSource? = when (value) {
         Preferences.SENSOR -> MeasurementSource.RAW_SENSOR
         Preferences.SAMSUNG -> MeasurementSource.SAMSUNG_PLATFORM.takeIf { abilities.samsung }
+        // Needs a grant only the watch can ask for.
+        Preferences.SAMSUNG_PPG -> MeasurementSource.SAMSUNG_PPG.takeIf { abilities.samsung && abilities.ppgGranted }
         else -> null
     }
 

@@ -15,6 +15,7 @@ import tech.mmarca.openwatch.wearlink.WearLinkWorkout
 import tech.mmarca.openwatch.wear.samsung.SamsungHeartRateFeed
 import tech.mmarca.openwatch.wear.samsung.SamsungHeartRateSource
 import tech.mmarca.openwatch.wear.samsung.SamsungIbiSource
+import tech.mmarca.openwatch.wear.samsung.SamsungPpgSource
 import tech.mmarca.openwatch.wear.samsung.SamsungSpotSource
 import tech.mmarca.openwatch.wear.workout.ActivityDetectionMonitor
 import tech.mmarca.openwatch.wear.workout.MetricStoreWorkoutRows
@@ -123,6 +124,7 @@ internal class WearGraph(private val app: Application) {
     /** The night's SpO2 and a spot one take turns with the platform's tracker, which it starts for the first reader only. */
     private val spo2Claim = SensorClaim()
     private val samsungWindows: HrvWindowSource by lazy { SamsungIbiSource(samsungFeed, debug) }
+    private val samsungPpgWindows: HrvWindowSource by lazy { SamsungPpgSource(samsungFeed, debug) }
     private val spo2Source: SpotSource<Spo2Reading> by lazy { SamsungSpotSource.spo2(samsungFeed) }
     private val skinSource: SpotSource<SkinReading> by lazy { SamsungSpotSource.skinTemperature(samsungFeed) }
 
@@ -167,6 +169,7 @@ internal class WearGraph(private val app: Application) {
             isHolding = { linkState.state.value.sleepHoldActive },
             ppg = ppgWindows,
             samsung = samsungWindows,
+            samsungPpg = samsungPpgWindows,
             claim = hrvClaim,
         )
     }
@@ -327,6 +330,7 @@ internal class WearGraph(private val app: Application) {
         samsung = samsungFeed.isAvailable,
         skinGranted = WearPermissions.hasSkinTemperature(app),
         spo2Granted = WearPermissions.hasOxygenSaturation(app),
+        ppgGranted = WearPermissions.hasAdditionalHealthData(app),
     )
 
     /** A setting the phone changed: stored, and the running service follows. Link thread. */

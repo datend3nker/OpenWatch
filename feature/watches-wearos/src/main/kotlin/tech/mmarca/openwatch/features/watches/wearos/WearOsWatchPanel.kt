@@ -470,7 +470,8 @@ private fun WearOsWatchSettingsCard(
                 SwitchRow(
                     title = stringResource(R.string.watch_settings_hrv_samsung),
                     body = stringResource(R.string.watch_settings_hrv_source_explained),
-                    checked = settings[Preferences.HRV_SOURCE] == Preferences.SAMSUNG,
+                    // The green PPG is the platform's too; only the watch can choose it, since it asks for a grant there.
+                    checked = settings[Preferences.HRV_SOURCE] in setOf(Preferences.SAMSUNG, Preferences.SAMSUNG_PPG),
                     enabled = !busy,
                     contentPadding = SettingPadding,
                     onCheckedChange = { onSet(Preferences.HRV_SOURCE, if (it) Preferences.SAMSUNG else Preferences.SENSOR) },

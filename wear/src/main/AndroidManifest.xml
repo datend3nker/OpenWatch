@@ -31,6 +31,9 @@
     <uses-permission android:name="android.permission.health.READ_SKIN_TEMPERATURE" />
     <uses-permission android:name="android.permission.health.READ_OXYGEN_SATURATION" />
     <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND" />
+    <!-- What the Samsung Health Platform checks, from Android 16, for its green PPG, ECG and body
+         composition trackers. Asked only when the wearer chooses one of them. -->
+    <uses-permission android:name="com.samsung.android.hardware.sensormanager.permission.READ_ADDITIONAL_HEALTH_DATA" />
 
     <!-- The step counter. -->
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
