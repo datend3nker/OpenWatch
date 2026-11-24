@@ -45,7 +45,7 @@ class OpenWatchLinkCapabilities @Inject constructor(
     }
 
     override fun startRecording(caller: OpenLinkCaller, request: OpenLinkRecordingRequest) =
-        sessions.startRecording(request)
+        sessions.startRecording(request, caller.packageName)
 
     override fun stopRecording(caller: OpenLinkCaller, sessionId: String) = sessions.stopRecording(sessionId)
 
