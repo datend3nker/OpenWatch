@@ -22,6 +22,9 @@ data class LinkSessionStatus(
 
         /** The watch is kept streaming for a recording; no live readings go to the app. */
         KEEPING_STREAMING,
+
+        /** The watch records the workout for the app. */
+        RECORDING_WORKOUT,
     }
 }
 
@@ -36,6 +39,7 @@ fun linkSessionStatuses(
 ): List<LinkSessionStatus> =
     active.distinctBy { it.packageName to it.sessionId }.mapNotNull { session ->
         val doing = activity[session.sessionId] ?: return@mapNotNull null
+        if (doing.recorded) return@mapNotNull LinkSessionStatus(session.packageName, LinkSessionStatus.Kind.RECORDING_WORKOUT, doing.devices.map { it.name })
         val streaming = doing.streaming
         if (streaming.isEmpty()) {
             return@mapNotNull LinkSessionStatus(session.packageName, LinkSessionStatus.Kind.WAITING, doing.devices.map { it.name })

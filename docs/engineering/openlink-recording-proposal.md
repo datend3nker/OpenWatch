@@ -123,6 +123,22 @@ OpenWatch no longer checks. It does no harm; it can go once no older OpenWatch i
 
 ## 3. Recording on the watch
 
+**Status: built in part for Wear OS** (`link/LinkRecordedWorkouts`, the watch's `RemoteWorkout`,
+wearlink's `WO_CTL`, capability `wc`). The phone starts, pauses, resumes and stops the watch's
+own workout and asks its state every 20 seconds while it runs, since the watch never speaks first;
+a press on the wrist reaches the client at the next ask. A stop from either side ends it, and a
+sync of the watch writes it to Health Connect. Where it differs from below:
+
+- No foreground service, so the rule in 3.5 still holds: if Android ends OpenWatch's process
+  during a workout, the watch records on, and the client learns its state when it replays its
+  start.
+- A pause or resume while the watch is out of reach is answered with the last phase; it does not
+  wait for the link to come back.
+- The watch shows no "Started by OpenVitals", the association is not required, and no workout
+  summary is sent yet. `recordingFeatures` names heart rate, pause and auto-pause; GPS is left
+  out, since the phone does not know whether the watch has it.
+- A Garmin cannot be told to record one: `FAILED`, `unsupported`.
+
 ### 3.1 What changes
 
 In version 1 a recording session means: the watch keeps sending live readings while

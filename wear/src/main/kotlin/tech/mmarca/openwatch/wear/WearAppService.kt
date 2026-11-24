@@ -40,6 +40,7 @@ import tech.mmarca.openwatch.wear.workout.pillKey
 import tech.mmarca.openwatch.wear.workout.sportName
 import tech.mmarca.openwatch.wear.workout.ActivityDetectionMonitor
 import tech.mmarca.openwatch.wear.workout.RecoveryAtStop
+import tech.mmarca.openwatch.wear.workout.RemoteWorkout
 import tech.mmarca.openwatch.wear.workout.stopwatchBaseMillis
 import tech.mmarca.openwatch.wear.features.quicklog.EntryLog
 import tech.mmarca.openwatch.wear.samsung.SamsungHeartRateFeed
@@ -186,6 +187,7 @@ class WearAppService : Service() {
             workouts = WorkoutStore(MetricStoreWorkoutRows(store))::workoutsSince,
             putDay = DaySummaryStore(this)::put,
             entries = EntryLog(this)::entriesSince,
+            workoutControl = RemoteWorkout(RemoteWorkout.Prefs(this), remoteControls())::control,
             localName = ::localName,
         )
         isForeground = startInForeground()
@@ -451,6 +453,14 @@ class WearAppService : Service() {
             debugSnapshots.write("settings")
         }
         return true
+    }
+
+    /** A workout an app on the phone has the watch record: the same commands as the workout screen's. */
+    private fun remoteControls() = object : RemoteWorkout.Controls {
+        override fun start(sport: WorkoutSport) = startWorkout(this@WearAppService, sport, gps = sport.gps)
+        override fun pause() = pauseWorkout(this@WearAppService)
+        override fun resume() = resumeWorkout(this@WearAppService)
+        override fun stop() = stopWorkout(this@WearAppService, RecoveryAtStop.NONE)
     }
 
     /** The steps stored for the minute that starts at [minuteStartMillis]. Any thread. */

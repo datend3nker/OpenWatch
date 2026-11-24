@@ -94,6 +94,13 @@ interface WearLinkRequestHandler {
     fun entriesSince(sinceEpochMillis: Long, limit: Int): Page<WatchEntry> = Page(emptyList(), more = false)
 
     /**
+     * Starts, pauses, resumes or stops the workout the phone has the watch record for an app, or tells its
+     * state. Only called when the watch advertised [WearLinkWorkoutControl.CAPABILITY].
+     */
+    fun workoutControl(control: WearLinkWorkoutControl.Control): WearLinkWorkoutControl.State =
+        WearLinkWorkoutControl.State(control.sessionId, WearLinkWorkoutControl.Phase.FAILED, 0L, WearLinkWorkoutControl.REASON_UNSUPPORTED)
+
+    /**
      * Blocks for up to [seconds], handing each heart rate reading to [emit]
      * on the caller's thread as it arrives; returns how many. Returns 0 at
      * once when the watch is off the wrist or cannot measure.

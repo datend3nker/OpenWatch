@@ -14,6 +14,7 @@ import tech.mmarca.openlink.OpenLinkConnection
 import tech.mmarca.openlink.OpenLinkDevice
 import tech.mmarca.openlink.OpenLinkDeviceKind
 import tech.mmarca.openlink.OpenLinkIntegration
+import tech.mmarca.openlink.OpenLinkRecordingFeature
 import tech.mmarca.openlink.OpenLinkSampleType
 import tech.mmarca.openlink.OpenLinkSyncResult
 import tech.mmarca.openwatch.data.repository.BleDeviceRepository
@@ -28,6 +29,7 @@ import tech.mmarca.openwatch.devices.xiaomi.XiaomiScaleStore
 import tech.mmarca.openwatch.domain.model.BleSensorDevice
 import tech.mmarca.openwatch.features.watches.DeviceSyncController
 import tech.mmarca.openwatch.features.watches.SyncAttempt
+import tech.mmarca.openwatch.wearlink.WorkoutSport
 
 /**
  * The paired devices as OpenLink shows them: watches and bike computers from the device
@@ -93,6 +95,9 @@ internal fun linkDevices(
             supportsSync = true,
             supportsRecording = true,
             liveSampleTypes = live,
+            // The watch app records a workout for an app (`RECORD`); whether the watch has GPS the phone does not know.
+            recordingFeatures = if (integration == OpenLinkIntegration.WEAROS) WEAR_OS_RECORDING else emptySet(),
+            exerciseTypes = if (integration == OpenLinkIntegration.WEAROS) WorkoutSport.entries.mapTo(mutableSetOf()) { it.exerciseType } else emptySet(),
             lastSyncResult = attempts[device.id]?.outcome?.let(::linkSyncResult),
             lastSyncAttemptAtMillis = attempts[device.id]?.at?.toEpochMilli(),
         )
@@ -116,5 +121,7 @@ private fun linkSyncResult(outcome: DeviceSyncOutcome): OpenLinkSyncResult = whe
     DeviceSyncOutcome.DISCONNECTED -> OpenLinkSyncResult.DISCONNECTED
     DeviceSyncOutcome.FAILED -> OpenLinkSyncResult.FAILED
 }
+
+private val WEAR_OS_RECORDING = setOf(OpenLinkRecordingFeature.HEART_RATE, OpenLinkRecordingFeature.PAUSE, OpenLinkRecordingFeature.AUTO_PAUSE)
 
 internal const val SCALE_ID_PREFIX = "xiaomi-scale:"

@@ -1,5 +1,6 @@
 package tech.mmarca.openwatch.devices.wearos
 
+import tech.mmarca.openwatch.wearlink.WearLinkWorkoutControl
 import tech.mmarca.openwatch.wearlink.DaySummary
 import tech.mmarca.openwatch.wearlink.WatchEntry
 import java.time.Instant
@@ -316,6 +317,17 @@ interface WearOsNodePort {
 
     /** Changes one setting on the watch. False when no bonded watch matches or the watch refused it. */
     suspend fun setWatchSetting(targetAddress: String?, targetName: String?, key: String, value: String): Boolean
+
+    /**
+     * Starts, pauses, resumes or stops the workout the watch records for an app, or reads its state
+     * ([WearLinkWorkoutControl]). A watch app too old for it answers `failed unsupported`. Null: no bonded
+     * watch matches. Any other failure throws [WearOsLinkFailure].
+     */
+    suspend fun controlWorkout(
+        targetAddress: String?,
+        targetName: String?,
+        control: WearLinkWorkoutControl.Control,
+    ): WearLinkWorkoutControl.State? = null
 
     /**
      * Workouts that started after [since], oldest first, at most a few per page. Empty page: the watch

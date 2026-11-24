@@ -15,6 +15,7 @@ import tech.mmarca.openwatch.wearlink.WearLinkBodyLines
 import tech.mmarca.openwatch.wearlink.WearLinkProtocol
 import tech.mmarca.openwatch.wearlink.WearLinkWorkout
 import tech.mmarca.openwatch.wearlink.WearLinkRequestHandler
+import tech.mmarca.openwatch.wearlink.WearLinkWorkoutControl
 import tech.mmarca.openwatch.wearlink.WearLinkServer
 
 /**
@@ -44,10 +45,12 @@ class WearLinkServerHost(
     putDay: (DaySummary) -> Unit,
     /** The entries made on the watch, oldest first, that the phone pulls. Called on the link's thread. */
     entries: (sinceEpochMillis: Long, limit: Int) -> Page<WatchEntry>,
+    /** A workout recorded for an app on the phone. Called on the link's thread. */
+    workoutControl: (WearLinkWorkoutControl.Control) -> WearLinkWorkoutControl.State,
     private val localName: () -> String,
     private val state: WearLinkState = WearLinkState,
 ) {
-    private val server = WearLinkServer(trust, Handler(store, live, hrvAvailable, skinAvailable, onPhoneActive, heldPreferences, setPreference, workouts, putDay, entries, localName))
+    private val server = WearLinkServer(trust, Handler(store, live, hrvAvailable, skinAvailable, onPhoneActive, heldPreferences, setPreference, workouts, putDay, entries, workoutControl, localName))
 
     @Volatile
     private var serverSocket: BluetoothServerSocket? = null
@@ -137,6 +140,7 @@ class WearLinkServerHost(
         private val workouts: (Long, Int) -> Page<WearLinkWorkout>,
         private val putDay: (DaySummary) -> Unit,
         private val entries: (Long, Int) -> Page<WatchEntry>,
+        private val workoutControl: (WearLinkWorkoutControl.Control) -> WearLinkWorkoutControl.State,
         private val localName: () -> String,
     ) : WearLinkRequestHandler {
         override fun localName(): String = localName.invoke()
@@ -156,6 +160,7 @@ class WearLinkServerHost(
             add(WearLinkProtocol.CAP_PREFERENCES)
             add(WearLinkProtocol.CAP_DAY_SUMMARY)
             add(WearLinkProtocol.CAP_ENTRIES)
+            add(WearLinkWorkoutControl.CAPABILITY)
             // The metric list holds the workouts' pauses and route too; only the header key is a capability.
             remove("wp")
             remove("wr")
@@ -187,6 +192,8 @@ class WearLinkServerHost(
         override fun entriesSince(sinceEpochMillis: Long, limit: Int): Page<WatchEntry> = entries(sinceEpochMillis, limit)
 
         override fun setPreference(key: String, value: String): Boolean = setPreference.invoke(key, value)
+
+        override fun workoutControl(control: WearLinkWorkoutControl.Control): WearLinkWorkoutControl.State = workoutControl.invoke(control)
 
         override fun respiratorySince(sinceEpochMillis: Long, limit: Int): Page<WearLinkProtocol.RespiratoryWindow> =
             page(WearMetrics.RESPIRATORY_RATE, sinceEpochMillis, limit)

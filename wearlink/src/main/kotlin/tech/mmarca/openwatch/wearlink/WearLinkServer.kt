@@ -213,6 +213,8 @@ class WearLinkServer(
                 for (window in page.items) writer.line(WearLinkProtocol.formatHrvWindow(window))
                 writer.line(WearLinkProtocol.formatEnd(page.items.size, page.more))
             }
+            is WearLinkProtocol.Request.WorkoutControl ->
+                writer.line(WearLinkWorkoutControl.formatState(handler.workoutControl(request.control)))
             is WearLinkProtocol.Request.LiveHeartRate -> {
                 // Each reading goes out at once; the phone shows it as it comes.
                 val count = handler.liveHeartRate(request.seconds) { sample ->

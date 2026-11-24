@@ -40,4 +40,14 @@ class LinkSessionStatusTest {
         assertEquals(LinkSessionStatus.Kind.KEEPING_STREAMING, linkSessionStatuses(active, streaming).single().kind)
         assertEquals(emptyList<LinkSessionStatus>(), linkSessionStatuses(active, emptyMap()))
     }
+
+    @Test
+    fun `a workout the watch records for an app says so, whatever streams beside it`() {
+        val statuses = linkSessionStatuses(
+            listOf(OpenLinkActiveSession(vitals, OpenLink.CAPABILITY_RECORDING, "w1")),
+            mapOf("w1" to LinkSessionActivity("w1", listOf(LinkSessionDevice("pixel", "Pixel Watch", streaming = true)), recorded = true)),
+        )
+
+        assertEquals(listOf(LinkSessionStatus(vitals, LinkSessionStatus.Kind.RECORDING_WORKOUT, listOf("Pixel Watch"))), statuses)
+    }
 }

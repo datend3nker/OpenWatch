@@ -513,6 +513,7 @@
     <string name="connected_apps_session_heart_rate_steps">Recording: streaming heart rate and steps from %1$s</string>
     <string name="connected_apps_session_keeping">Recording: keeping %1$s streaming</string>
     <string name="connected_apps_session_waiting">Recording: waiting for a reading from %1$s</string>
+    <string name="connected_apps_session_workout">Recording: %1$s records the workout</string>
     <string name="body_profile_synced">Kept in sync with %1$s</string>
     <string name="body_profile_synced_updated">Kept in sync with %1$s · updated %2$s</string>
     <string name="link_streaming_channel">Live readings for other apps</string>
@@ -521,6 +522,7 @@
     <string name="link_streaming_keeping">Keeping your watch streaming for %1$s</string>
     <string name="link_streaming_waiting">Waiting for your watch, for %1$s</string>
     <string name="link_streaming_from">From %1$s</string>
+    <string name="link_recording_workout">Your watch records a workout for %1$s</string>
     <string name="link_streaming_waiting_for">Waiting for a reading from %1$s</string>
     <string name="settings_respiratory_rate_title">Breathing rate from the watch (experimental)</string>
     <string name="settings_respiratory_rate_body">Writes the breathing rate of the watch\'s night-time HRV windows to Health Connect. Not yet checked against a reference device.</string>

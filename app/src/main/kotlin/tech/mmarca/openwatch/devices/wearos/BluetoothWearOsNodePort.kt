@@ -23,6 +23,7 @@ import tech.mmarca.openwatch.wearlink.WearLinkClient
 import tech.mmarca.openwatch.wearlink.WearLinkConnection
 import tech.mmarca.openwatch.wearlink.WearLinkOutcome
 import tech.mmarca.openwatch.wearlink.WearLinkProtocol
+import tech.mmarca.openwatch.wearlink.WearLinkWorkoutControl
 import tech.mmarca.openwatch.wearlink.WearLinkWorkout
 import tech.mmarca.openwatch.wearlink.WearLinkSession
 
@@ -233,6 +234,20 @@ class BluetoothWearOsNodePort @Inject constructor(
                 session.setPreference(key, value) is WearLinkOutcome.Ok
             }
         }
+
+    override suspend fun controlWorkout(
+        targetAddress: String?,
+        targetName: String?,
+        control: WearLinkWorkoutControl.Control,
+    ): WearLinkWorkoutControl.State? = withContext(Dispatchers.IO) {
+        val match = bondedWatchOrNull(targetAddress, targetName) ?: return@withContext null
+        withSession(match, targetAddress, PING_TIMEOUT_MS) { session ->
+            if (WearLinkWorkoutControl.CAPABILITY !in session.peer.capabilities) {
+                return@withSession WearLinkWorkoutControl.State(control.sessionId, WearLinkWorkoutControl.Phase.FAILED, 0L, WearLinkWorkoutControl.REASON_UNSUPPORTED)
+            }
+            unwrap(session.workoutControl(control))
+        }
+    }
 
     override suspend fun pullWorkouts(
         targetAddress: String?,

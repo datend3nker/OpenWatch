@@ -165,6 +165,7 @@ internal fun sessionLine(status: LinkSessionStatus): String {
         LinkSessionStatus.Kind.HEART_RATE -> stringResource(R.string.connected_apps_session_heart_rate, devices)
         LinkSessionStatus.Kind.HEART_RATE_AND_STEPS -> stringResource(R.string.connected_apps_session_heart_rate_steps, devices)
         LinkSessionStatus.Kind.KEEPING_STREAMING -> stringResource(R.string.connected_apps_session_keeping, devices)
+        LinkSessionStatus.Kind.RECORDING_WORKOUT -> stringResource(R.string.connected_apps_session_workout, devices)
         LinkSessionStatus.Kind.WAITING -> stringResource(R.string.connected_apps_session_waiting, devices)
     }
 }

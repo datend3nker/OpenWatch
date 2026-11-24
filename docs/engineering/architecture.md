@@ -32,7 +32,7 @@ OpenWatch seams noted.
 | `features/watches`, `features/scales` | The device screens, as in OpenVitals. |
 | `features/healthconnect`, `features/settings` | Health Connect setup, the sync switch, the body profile, notification access. |
 | `features/connectedapps` | The apps that use OpenWatch over OpenLink: allow, block, per-capability switches, forget; a warning for a first-party name under an unknown signer; overlays hidden while it shows. |
-| `link/` | The OpenLink host: the exported service, the device list and profile as OpenLink shows them, the daily goals (`settings`, held in `LinkSettingsStore`, sent to a Wear OS watch by `WearOsZoneSync`), what was written to Health Connect (`onDataWritten`, from `HealthConnectWrites`, told once per burst), each device's last sync result, recording sessions and live readings for another app. |
+| `link/` | The OpenLink host: the exported service, the device list and profile as OpenLink shows them, the daily goals (`settings`, held in `LinkSettingsStore`, sent to a Wear OS watch by `WearOsZoneSync`), what was written to Health Connect (`onDataWritten`, from `HealthConnectWrites`, told once per burst), each device's last sync result, recording sessions (streamed in `LinkLiveSessions`, recorded on a Wear OS watch in `LinkRecordedWorkouts`) and live readings for another app. |
 | `healthconnect/` | `HealthConnectGateway`, `ActivityRecordWriter`, the sync gate, intents and availability. |
 | `activityimport/` | FIT activity files into `ActivityWriteRequest`s. |
 | `data/local`, `data/repository` | Room, the repositories and the SharedPreferences stores. |

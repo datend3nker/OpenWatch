@@ -32,7 +32,6 @@ import tech.mmarca.openlink.OpenLinkDevice
 import tech.mmarca.openlink.OpenLinkIntegration
 import tech.mmarca.openlink.OpenLinkLiveBatch
 import tech.mmarca.openlink.OpenLinkLiveSubscription
-import tech.mmarca.openlink.OpenLinkRecordingMode
 import tech.mmarca.openlink.OpenLinkRecordingPhase
 import tech.mmarca.openlink.OpenLinkRecordingRequest
 import tech.mmarca.openlink.OpenLinkRecordingState
@@ -51,6 +50,8 @@ data class LinkSessionActivity(
     val devices: List<LinkSessionDevice> = emptyList(),
     /** The live sample types a subscription under this session receives; empty if none. */
     val liveTypes: Set<OpenLinkSampleType> = emptySet(),
+    /** The watch records the workout for the app ([LinkRecordedWorkouts]). */
+    val recorded: Boolean = false,
 ) {
     val streaming: List<LinkSessionDevice> get() = devices.filter { it.streaming }
 }
@@ -82,18 +83,9 @@ class LinkLiveSessions @Inject constructor(
     /** Each running session's devices and live types, by session id. */
     val activity: StateFlow<Map<String, LinkSessionActivity>> = _activity.asStateFlow()
 
-    /** [owner]: the caller's package, which a recorded workout's report names. */
+    /** A session in `STREAM` mode; a recorded workout is [LinkRecordedWorkouts]'. */
     @Synchronized
-    fun startRecording(request: OpenLinkRecordingRequest, owner: String) {
-        // A recorded workout (version 2) has the watch record and OpenWatch save it; neither watch
-        // can do that yet, so it is refused rather than streamed, which would save nothing.
-        if (request.mode == OpenLinkRecordingMode.RECORD) {
-            publish(
-                OpenLinkRecordingState(request.sessionId, request.deviceId.orEmpty(), OpenLinkRecordingPhase.FAILED, OpenLinkRecordingState.REASON_UNSUPPORTED, now()),
-                owner,
-            )
-            return
-        }
+    fun startRecording(request: OpenLinkRecordingRequest) {
         if (request.sessionId in recordings) return
         val targets = targets(request.deviceId)
         if (targets.isEmpty()) {
@@ -241,8 +233,8 @@ class LinkLiveSessions @Inject constructor(
         )
     }
 
-    private fun publish(state: OpenLinkRecordingState, owner: String? = null) {
-        runCatching { host.get().publishRecordingState(state, owner) }.onFailure { Log.w(TAG, "publishing a session state failed", it) }
+    private fun publish(state: OpenLinkRecordingState) {
+        runCatching { host.get().publishRecordingState(state) }.onFailure { Log.w(TAG, "publishing a session state failed", it) }
     }
 
     private fun now(): Long = System.currentTimeMillis()

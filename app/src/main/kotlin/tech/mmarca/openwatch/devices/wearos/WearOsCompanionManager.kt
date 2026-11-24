@@ -1,5 +1,6 @@
 package tech.mmarca.openwatch.devices.wearos
 
+import tech.mmarca.openwatch.wearlink.WearLinkWorkoutControl
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CancellationException
@@ -28,6 +29,10 @@ class WearOsCompanionManager @Inject constructor(
     /** Changes one of the watch's settings. False when the watch refused it or is not found. */
     suspend fun setWatchSetting(targetAddress: String?, targetName: String?, key: String, value: String): Boolean =
         nodePort.setWatchSetting(targetAddress, targetName, key, value)
+
+    /** See [WearOsNodePort.controlWorkout]. */
+    suspend fun controlWorkout(targetAddress: String?, targetName: String?, control: WearLinkWorkoutControl.Control): WearLinkWorkoutControl.State? =
+        nodePort.controlWorkout(targetAddress, targetName, control)
 
     /**
      * The watch's heart rate as it happens, for as long as it is collected:
