@@ -6,7 +6,8 @@ import kotlin.math.roundToLong
  * One entry made on the watch: a value the wearer logged by hand (a glass of
  * water, a weight, a blood pressure, a body fat, a blood oxygen, a breathing
  * rate, a body temperature, a blood glucose, a height, a breathing session) or one a
- * spot measurement took (a heart rate, an HRV), as `SINCE lg` carries it.
+ * spot measurement took (a heart rate, an HRV, a body composition's body fat, lean
+ * body mass and body water), as `SINCE lg` carries it.
  *
  * The values are whole thousandths of the [Type]'s unit, so a value reads
  * back the same on both sides (the protocol's integers; a `Double` printed
@@ -71,6 +72,12 @@ data class WearLinkEntry(
 
         /** Height, centimetres. */
         HEIGHT("height"),
+
+        /** Lean body mass, kilograms: what a body composition measurement leaves after the fat. */
+        LEAN_BODY_MASS("lean"),
+
+        /** Total body water, kilograms. */
+        BODY_WATER("bodywater"),
         ;
 
         companion object {
@@ -93,7 +100,7 @@ data class WearLinkEntry(
  * `LG <epochMillis> <type> <value1000> <second1000|-> <m|h>`
  *
  * `type` is a [WearLinkEntry.Type] token (`water`, `weight`, `bp`, `mindful`,
- * `hr`, `hrv`, `bodyfat`, `spo2`, `breath`, `temp`, `glucose`, `height`); `value1000` and `second1000` are whole thousandths of its
+ * `hr`, `hrv`, `bodyfat`, `spo2`, `breath`, `temp`, `glucose`, `height`, `lean`, `bodywater`); `value1000` and `second1000` are whole thousandths of its
  * unit, `-` for no second value; `m` marks a value a sensor measured, `h` one
  * entered by hand. A reader takes the six fields it knows and ignores any
  * after them, so the line may grow at its end.

@@ -30,7 +30,8 @@ What the entries made on a Wear OS watch write, each when the phone pulls it: `W
 the watch's quick log: a hand-logged blood oxygen or breathing rate is written whatever the night
 switches say), `WRITE_MINDFULNESS` (a breathing session, only where Health Connect
 stores mindfulness sessions), and `WRITE_HEART_RATE`, `WRITE_HEART_RATE_VARIABILITY` and, on a
-Samsung watch, `WRITE_OXYGEN_SATURATION` (a spot measurement). An entry whose write is not granted
+Samsung watch, `WRITE_OXYGEN_SATURATION` and `WRITE_BODY_FAT`, `WRITE_LEAN_BODY_MASS` and
+`WRITE_BODY_WATER_MASS` (a spot measurement, the last three from a body composition). An entry whose write is not granted
 waits on the watch, and the watch's card asks for the grant; the entries whose write is granted go on.
 
 A workout recorded on a Wear OS watch also writes `WRITE_VO2_MAX`: an estimate for a walk or run
@@ -123,7 +124,9 @@ it fails `HealthPermissionsTest`.
 | `WRITE_WEIGHT` | What you log on the watch, by hand. |
 | `WRITE_BLOOD_PRESSURE` | What you log on the watch, by hand. |
 | `WRITE_MINDFULNESS` | A breathing session you do on the watch, where Health Connect keeps them. |
-| `WRITE_BODY_FAT` | What you log on the watch, by hand. |
+| `WRITE_BODY_FAT` | What you log on the watch, by hand, and a body composition you measure on a Samsung watch. |
+| `WRITE_LEAN_BODY_MASS` | A body composition you measure on a Samsung watch. |
+| `WRITE_BODY_WATER_MASS` | A body composition you measure on a Samsung watch. |
 | `WRITE_BODY_TEMPERATURE` | What you log on the watch, by hand. |
 | `WRITE_BLOOD_GLUCOSE` | What you log on the watch, by hand. |
 | `WRITE_HEIGHT` | What you log on the watch, by hand. |

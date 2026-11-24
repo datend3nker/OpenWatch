@@ -16,6 +16,8 @@
     <string name="health_data_note_wearos_hrv">At night, on a watch that can measure it.</string>
     <string name="health_data_note_wearos_workout">A workout you record on the watch, with its route and distance.</string>
     <string name="health_data_note_wearos_entry">What you log on the watch, by hand.</string>
+    <string name="health_data_note_wearos_body_composition">A body composition you measure on a Samsung watch.</string>
+    <string name="health_data_note_wearos_entry_or_body_composition">What you log on the watch, by hand, and a body composition you measure on a Samsung watch.</string>
     <string name="health_data_note_wearos_mindfulness">A breathing session you do on the watch, where Health Connect keeps them.</string>
     <string name="health_data_note_wearos_skin">Only from a Samsung watch, with “Skin temperature at night” switched on for that watch. One record per night: the difference from your own usual night.</string>
     <string name="health_data_note_scale_estimate">Estimated on the phone from the scale\'s measurement and your body profile.</string>
